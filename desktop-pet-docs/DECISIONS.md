@@ -503,3 +503,10 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 | **5. How assistants connect** | **Owner chose option 1:** Pluto's own program started with `--mcp-bridge` (the assistant's config names Pluto and that flag), which forwards to the running Pluto over a local named pipe with a per-run token. No separate program to install or keep in step. |
 | **E1. Network fetch** | Yes, in future, after the local MCP server. Local first. |
 | **E2. MCP writes** | Full read and write (create, edit, delete), except the diary. **Safeguards confirmed by the owner:** an assistant's deletes go to the bin and can be restored, it can never empty the bin; each assistant can be switched off in Settings; a list of what each assistant changed. |
+
+## 2026-10-31 (night 3) — Foreground events are checked, not trusted
+
+| Decision | Detail |
+|---|---|
+| **Ask Windows what is in front** | A foreground event only means "something changed". Pluto records `GetForegroundWindow()` at that moment, uses the event's window only when Windows says nothing is in front, and asks again 1 s later (one thread timer). Reason: the owner's data showed events naming windows that were not in front and no event for the real one. |
+| **Not chosen: count the gap back once the look sees the same app again** | It would also count real time on the desktop or lock screen as the app. The re-check closes the gap to about a second instead. |

@@ -98,6 +98,7 @@ pub(crate) mod win {
 
     use pluto_core::error::{AppError, Result};
     use pluto_core::usage_collector::Platform;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use tokio::sync::mpsc::UnboundedSender;
     use windows_sys::Win32::Foundation::{CloseHandle, HWND, LPARAM};
     use windows_sys::Win32::System::Power::{
@@ -112,10 +113,15 @@ pub(crate) mod win {
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         DispatchMessageW, EnumChildWindows, GetClassNameW, GetForegroundWindow, GetMessageW,
-        GetWindowThreadProcessId, PeekMessageW, PostThreadMessageW, TranslateMessage,
-        EVENT_SYSTEM_FOREGROUND, MSG, OBJID_WINDOW, PM_NOREMOVE, WINEVENT_OUTOFCONTEXT, WM_QUIT,
-        WM_USER,
+        GetWindowThreadProcessId, KillTimer, PeekMessageW, PostThreadMessageW, SetTimer,
+        TranslateMessage, EVENT_SYSTEM_FOREGROUND, MSG, OBJID_WINDOW, PM_NOREMOVE,
+        WINEVENT_OUTOFCONTEXT, WM_QUIT, WM_USER,
     };
+
+    /// How long after a foreground event the window in front is asked for again.
+    const RECHECK_MS: u32 = 1_000;
+    /// The hook thread's pending recheck timer (0 = none).
+    static RECHECK: AtomicUsize = AtomicUsize::new(0);
 
     /// Where the hook callback (a plain function with no captures) sends what it sees.
     static SINK: Mutex<Option<UnboundedSender<Option<String>>>> = Mutex::new(None);
@@ -276,7 +282,44 @@ pub(crate) mod win {
         _event_time: u32,
     ) {
         if event == EVENT_SYSTEM_FOREGROUND && id_object == OBJID_WINDOW {
-            report(hwnd);
+            // SAFETY: plain FFI call with no arguments.
+            report(in_front(unsafe { GetForegroundWindow() }, hwnd));
+            schedule_recheck();
+        }
+    }
+
+    /// The window to record after a foreground event: the one really in front now, and the
+    /// event's own window only if Windows says nothing is in front.
+    ///
+    /// The event's window is not always the one in front (owner 2026-10-31: with continuous use of
+    /// VS Code, Chrome and Claude, half of an hour was lost because events named a window that was
+    /// not in front, and nothing named the real one again until the once-a-minute look).
+    pub(crate) fn in_front(foreground: HWND, event: HWND) -> HWND {
+        if foreground.is_null() {
+            event
+        } else {
+            foreground
+        }
+    }
+
+    /// Ask again a moment after each change, in case the window that came forward goes away
+    /// without Windows announcing the one behind it. One pending timer at most; a new change
+    /// restarts it.
+    fn schedule_recheck() {
+        let previous = RECHECK.load(Ordering::Relaxed);
+        // SAFETY: a thread timer (no window) on the hook thread, whose message loop dispatches
+        // WM_TIMER to `recheck`. Passing the pending id replaces that timer instead of adding one.
+        let id = unsafe { SetTimer(std::ptr::null_mut(), previous, RECHECK_MS, Some(recheck)) };
+        RECHECK.store(id, Ordering::Relaxed);
+    }
+
+    /// Runs on the hook thread from its message loop. Must not panic or block.
+    unsafe extern "system" fn recheck(_hwnd: HWND, _msg: u32, id: usize, _time: u32) {
+        // SAFETY: plain FFI calls; `id` is the thread timer that fired.
+        unsafe {
+            KillTimer(std::ptr::null_mut(), id);
+            RECHECK.store(0, Ordering::Relaxed);
+            report(GetForegroundWindow());
         }
     }
 
@@ -386,6 +429,19 @@ pub(crate) mod win {
             .next()
             .filter(|name| !name.is_empty())
             .map(str::to_owned)
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::in_front;
+
+        #[test]
+        fn the_window_really_in_front_wins_over_the_event_window() {
+            let real = 0x10 as super::HWND;
+            let event = 0x20 as super::HWND;
+            assert_eq!(in_front(real, event), real);
+            assert_eq!(in_front(std::ptr::null_mut(), event), event);
+        }
     }
 }
 

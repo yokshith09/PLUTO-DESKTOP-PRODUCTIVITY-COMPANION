@@ -5,12 +5,14 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
-- Added: `scripts/tracking-report.py`, a read-only report of the app sessions Pluto stored for a stretch of a day and the gaps between them, to find where uncounted time went (owner report: 21 of 45 minutes missing).
+_(nothing yet)_
 
 ## [0.5.6] — 2026-10-31 (draft for owner testing; Unverified)
 
 Fixes on top of 0.5.5, which is published and stays as it is.
 
+- Fixed (Windows, **Unverified on a real PC**): **about half of the time in VS Code, Chrome and Claude was not counted** (owner, 2026-10-31: 29 of 60 minutes of continuous use). The stored sessions showed the pattern: each started at the once-a-minute look and ended seconds later. Windows' "window in front changed" signal sometimes named a window that was not the one in front, which closed the stretch, and nothing named the real window again until the next look. Pluto now asks Windows which window is really in front whenever the signal comes, and asks again one second later. The once-a-minute look stays as the last safety net.
+- Added: `scripts/tracking-report.py`, a read-only list of the stored sessions and the gaps between them for any stretch of a day; this is how the half hour was found.
 - Fixed (**Unverified on a real PC**): **the live total could still drop by up to two minutes after you walked away.** The 0.5.4 fix only helped once a once-a-minute look had found you away; before that, the stretch was shown up to the present, so it climbed and then fell back to your last input (the "50 → 47" class). The total now asks the OS for the time of your last input every time it is read and shows the stretch only up to it; that time only moves forward, so the total cannot go down. While you work it is current to the second; if you come back within the five minutes the gap counts and the total jumps up. Two tests (a series of readings across a walk-away, and readings between looks); the series test had been failing on macOS CI intermittently and is now deterministic.
 
 ## [0.5.5] — 2026-10-31 (published)
