@@ -491,3 +491,15 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 | **Draft rebuild** | The Release workflow now rebuilds an unpublished draft on a push to the version file or itself, and sets the draft's target to the built commit; before, a draft could only be rebuilt from the Actions page and kept its first commit. |
 | **Limits, stated plainly** | None of this has run on a real PC or Mac. The MSI lookup assumes Windows Installer files Loaf under its product code with the display name "Loaf" (how WiX does it); a Loaf installed some other way is not found. The tag `v0.5.3`'s own installer is unchanged, as is anything already installed: only people who install this version or later get the clean-up. |
 | **Later, if wanted** | A one-time notice inside Pluto ("an earlier Loaf is still installed") for the cases the installer cannot cover; a "delete the old data folder" button once the copy has been used for a while. |
+
+## 2026-10-31 (late) — MCP design questions answered (owner)
+
+| Decision | Detail |
+|---|---|
+| **1. Agents may make the pet react** | `react` is allowed from any connected assistant. |
+| **2. During a focus session** | `say` may show its bubble or a silent badge; it does not wait for the session to end. |
+| **3. Rate limit** | 10 calls per minute per tool to start with; extra calls are dropped, not queued. Changeable later. |
+| **4. What agents may read** | Everything except the diary. Owner may add exclusions later. Risk noted to the owner: an assistant that also browses the web can be tricked by a page into passing on what it read (tasks, notes, app history). |
+| **5. How assistants connect** | Explained again to the owner; the recommendation stands until they say otherwise: Pluto's own program started with `--mcp-bridge` (the assistant's config names Pluto and that flag), which forwards to the running Pluto over a local named pipe with a per-run token. No separate program to install or keep in step. |
+| **E1. Network fetch** | Yes, in future, after the local MCP server. Local first. |
+| **E2. MCP writes** | Full read and write (create, edit, delete), except the diary. Safeguards proposed with it (to be confirmed by the owner): an assistant's deletes go to the bin and can be restored, it can never empty the bin; each assistant can be switched off in Settings; a list of what each assistant changed. |

@@ -5,7 +5,7 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
-_(nothing yet)_
+- Added: `scripts/tracking-report.py`, a read-only report of the app sessions Pluto stored for a stretch of a day and the gaps between them, to find where uncounted time went (owner report: 21 of 45 minutes missing).
 
 ## [0.5.6] — 2026-10-31 (draft for owner testing; Unverified)
 

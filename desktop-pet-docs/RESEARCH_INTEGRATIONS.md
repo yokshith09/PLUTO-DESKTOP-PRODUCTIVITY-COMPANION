@@ -29,9 +29,9 @@ Pluto works fully on its own; MCP is optional. For mail and calendar without an 
 - Open source: community MCP servers for Gmail/Calendar/Drive (own Google credentials, review before use); open protocols (IMAP, CalDAV, iCal) with free Rust libraries; n8n and Activepieces self-hosted; `whisper.cpp` (MIT, on-device) for the voice phase instead of a cloud service.
 
 ## E. Open decisions this raises
-1. Is an opt-in network fetch (calendar feed URL) acceptable in the local-first rule? It would add the first HTTP client to the app.
-2. Should the MCP server be allowed to create tasks and notes (writes), or stay read-only plus `react`/`say`?
-3. ~~Order: calendar feed before or after the MCP server?~~ **Decided 2026-10-31 (owner): the local MCP server first, the network layer afterwards.** Decisions 1 and 2 stay open until then.
+1. ~~Is an opt-in network fetch (calendar feed URL) acceptable in the local-first rule?~~ **Decided 2026-10-31 (owner): yes, in future, after the local MCP server.**
+2. ~~Should the MCP server be allowed to create tasks and notes (writes)?~~ **Decided 2026-10-31 (owner): full read and write except the diary** (see `DECISIONS.md` 2026-10-31 late).
+3. ~~Order: calendar feed before or after the MCP server?~~ **Decided 2026-10-31 (owner): the local MCP server first, the network layer afterwards.** Decisions 1 and 2 were settled the same day.
 
 ## F. Built-in connectors and the network layer (recorded 2026-10-31; built after the local MCP server)
 
