@@ -150,6 +150,8 @@ LATER      P3 Characters (rest) · P8 AI (on hold) · P9 Online (on hold)
 
 ## P4 — Developer & MCP (NEXT; release v0.6.0)
 
+> **Full plan: [`MCP_PLAN.md`](MCP_PLAN.md)** (2026-11-01): pieces, protocol versions, every tool, safeguards, hooks, screens, data, tests, build steps P4.1a-c, and nine questions for the owner. The table below is the summary; where they differ, `MCP_PLAN.md` is newer.
+
 **In plain words:** Pluto stops being an island. Coding assistants and other tools on your PC can talk to your pet and your work, and developers get a project home. Everything is opt-in, off by default and local only: no network port is ever opened.
 
 | # | Milestone | What you would see | How it is built | Done when |

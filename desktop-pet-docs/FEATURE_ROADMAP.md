@@ -97,7 +97,7 @@ Legend: **Requested** = in the owner's list; **Technical requirement (TR)** = de
 | FR-51 | Guide page, tour, quiz, "Built by QUORBIT TECHNOLOGIES" | Onboarding | Planned | FM-GUIDE | M | — |
 | FR-52 | Meeting action items on Today with source chip | Meetings | Built, Unverified | FM-V2 | S | Q6: yes |
 | FR-53 | Project Spaces, opt-in sidebar | Projects | Planned (FR-06) | FM-PS | L | — |
-| FR-54 | Local MCP server | Integrations | Planned | FM-INT | L | Open: D-MCP-SHAPE |
+| FR-54 | Local MCP server | Integrations | Planned (plan written 2026-11-01: `MCP_PLAN.md`) | FM-INT | L | Shape approved 2026-10-22; bridge option 1 and reads/writes decided 2026-10-31; 9 questions open (`MCP_PLAN.md` §15) |
 | FR-55 | Plugins from the website | Platform | Planned; signing on HOLD | FM-PLUG | XL | Open: D-PLUGIN-MODEL |
 | FR-56 | Backend and gallery | Platform | Planned; needs privacy statement | FM-BE | XL | — |
 | FR-57 | Linux build | Platform | Planned; Unverified until run | FM-LIN | M | — |
@@ -118,7 +118,7 @@ Legend: **Requested** = in the owner's list; **Technical requirement (TR)** = de
 | FR-73 | System resources badge | Utilities | Planned | M12 | S | — |
 | FR-74 | Calendar reminders (.ics, then Google/Outlook) | Integrations | Planned | M10 | L | — |
 | FR-75 | Talk to your pet (AI chat + voice) | AI | On hold | M5/M9 | XL | AI provider |
-| FR-76 | Coding-agent integration | Developers | On hold | FM-INT | L | D-MCP-SHAPE |
+| FR-76 | Coding-agent integration | Developers | Planned, P4.2 (`MCP_PLAN.md` §7) | FM-INT | L | After P4.1 |
 | FR-77 | Plugin SDK (code plugins) | Platform | Not planned — owner: plugins are art packs | — | — | — |
 | FR-78 | LAN mode | Companion | Planned (last) | P5 | L | — |
 | FR-79 | Languages | Shell | Planned | P5 | L | Hindi + Telugu first (decided) |

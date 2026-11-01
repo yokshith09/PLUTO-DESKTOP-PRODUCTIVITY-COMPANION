@@ -16,6 +16,7 @@ Event-driven (no polling) · Idle CPU <1% · RAM <100 MB · Local-first SQLite �
 ```
 desktop-pet-docs/
 ├── MASTER_PLAN.md            ← START HERE: phases, milestones, every feature with "done when"
+├── MCP_PLAN.md               ← P4 in full: MCP server, tools, safeguards, hooks, tests, open questions
 ├── PROJECT_STATUS.md         ← what is built, tested, unverified (evidence)
 ├── DECISIONS.md              ← every owner decision, dated
 ├── CHANGELOG.md              ← what changed
