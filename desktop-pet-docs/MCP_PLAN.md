@@ -306,7 +306,7 @@ Each appears in the Character page's Reactions list like every existing reaction
 
 | Step | Contents | Done when |
 |---|---|---|
-| **P4.1a** Spike + pet tools | Prove stdio works from the windowed `Pluto.exe` (§3.1); pipe + token; bridge; protocol (both versions); `status`, `react`, `say`; master switch; minimal MCP page (switch, add assistant, config, connected now, log) | Inspector and Claude Code list three tools and the pet reacts; wrong token refused; switch off closes the pipe |
+| **P4.1a** Spike + pet tools *(in progress: the core server with `status`, `react`, `say`, the rate limit and both protocol versions is built and tested, 2026-11-01; next: the stdio spike, bridge, pipe, the shell's host and the minimal MCP page)* | Prove stdio works from the windowed `Pluto.exe` (§3.1); pipe + token; bridge; protocol (both versions); `status`, `react`, `say`; master switch; minimal MCP page (switch, add assistant, config, connected now, log) | Inspector and Claude Code list three tools and the pet reacts; wrong token refused; switch off closes the pipe |
 | **P4.1b** Read tools + resources | §5.2 with paging, resources and subscriptions; diary refusal tests | Claude Code answers "what's due today" from Pluto |
 | **P4.1c** Write tools + safeguards | §5.3, levels, Bin for reminders and meetings, settings with Allow, change list with Undo, migration 012 | "Add a task", "mark it done", "delete it" work and all three show in the list and can be undone |
 | **P4.1d** Prompts, completions, elicitation | §4: the six prompts, completions for names, elicitation for missing details | Claude Code shows "plan my day" and it works end to end |

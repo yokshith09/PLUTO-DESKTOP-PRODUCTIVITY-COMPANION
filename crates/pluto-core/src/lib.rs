@@ -19,6 +19,7 @@ pub mod labels;
 pub mod legacy_data;
 pub mod links;
 pub mod logging;
+pub mod mcp;
 pub mod meetings;
 pub mod notes;
 pub mod pet_screen;
