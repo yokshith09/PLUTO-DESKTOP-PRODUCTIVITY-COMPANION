@@ -5,7 +5,7 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
-_(nothing yet)_
+- Changed (owner 2026-11-01): **10 minutes without keyboard or mouse input now counts as away** (was 5). A quiet stretch shorter than that (reading, thinking) counts once you touch the keyboard or mouse again; a longer one ends at your last input, as before, so walking away is still not counted. Applies to app and website time. Not in any build yet: it ships in the next version the owner asks for.
 
 ## [0.5.7] — 2026-11-01 (draft for owner testing; Unverified)
 

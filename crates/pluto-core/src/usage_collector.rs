@@ -697,7 +697,7 @@ mod tests {
         f.platform.set_idle(0);
         settle().await;
         // Input stops one minute in; the machine is looked at every minute from then on.
-        for minute in 1..=7u64 {
+        for minute in 1..=12u64 {
             f.clock.advance_ms(MIN);
             f.platform.set_idle(minute.saturating_sub(1) * MIN as u64);
             settle().await;
@@ -764,7 +764,7 @@ mod tests {
             60,
             "walked away: not counted past the last input"
         );
-        // Back within the five minutes: the stretch carries on and the gap counts.
+        // Back within the ten minutes: the stretch carries on and the gap counts.
         f.platform.last_input_at(&f.clock, T0 + 4 * MIN);
         assert_eq!(total(&f).await, 240);
     }

@@ -468,7 +468,7 @@ fn polling_ends_the_session_when_input_stopped_not_when_the_poll_noticed() {
     t.handle(focus(T0, "Code.exe"));
     // Looks every minute; input stopped at T0 + 2 min.
     let mut done = Vec::new();
-    for minute in 1..=8 {
+    for minute in 1..=13 {
         let now = T0 + minute * MIN;
         let idle = (now - (T0 + 2 * MIN)).max(0) as u64;
         done.extend(t.poll(now, idle));
@@ -482,7 +482,7 @@ fn polling_ends_the_session_when_input_stopped_not_when_the_poll_noticed() {
 fn polling_notices_the_return_and_backdates_it_to_the_first_input() {
     let mut t = Tracker::default();
     t.handle(focus(T0, "Code.exe"));
-    let mut done = t.poll(T0 + 6 * MIN, (6 * MIN) as u64); // idle since T0
+    let mut done = t.poll(T0 + 11 * MIN, (11 * MIN) as u64); // idle since T0
     assert!(
         done.is_empty(),
         "closed at the idle start, which was the session start"
@@ -1383,7 +1383,7 @@ fn the_live_stretch_stops_at_the_last_input_once_a_look_finds_the_person_away() 
     // Still typing at the look: the stretch runs to now.
     assert!(t.poll(T0 + MIN, S as u64).is_empty());
     assert_eq!(t.open_session(T0 + MIN).unwrap().ended_at, T0 + MIN);
-    // Input stopped at T0 + 1:30. Not idle for good yet (5 min), so the session stays open, but
+    // Input stopped at T0 + 1:30. Not idle for good yet (10 min), so the session stays open, but
     // the live view no longer grows with the clock.
     assert!(t.poll(T0 + 2 * MIN, (30 * S) as u64).is_empty());
     assert!(t.poll(T0 + 3 * MIN, (90 * S) as u64).is_empty());

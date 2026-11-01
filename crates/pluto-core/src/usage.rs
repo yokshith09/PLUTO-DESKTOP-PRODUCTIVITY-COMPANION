@@ -38,7 +38,7 @@ pub const MIN_SESSION_MS: i64 = 2_000;
 /// A single session is never longer than this; anything longer was a forgotten machine.
 pub const MAX_SESSION_MS: i64 = 12 * 60 * 60 * 1000;
 /// No keyboard or mouse input for this long means the person has stepped away.
-pub const IDLE_THRESHOLD_MS: u64 = 5 * 60 * 1000;
+pub const IDLE_THRESHOLD_MS: u64 = 10 * 60 * 1000;
 /// How often the collector looks at the idle time while an app is in front (ADR-019).
 pub const POLL_INTERVAL_MS: u64 = 60 * 1000;
 /// A gap this much longer than [`POLL_INTERVAL_MS`] between two looks means the machine slept.

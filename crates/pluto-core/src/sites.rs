@@ -234,7 +234,7 @@ mod tests {
         let mut t = SiteTracker::default();
         t.look(0, 0, site("netflix.com"));
         let idle = IDLE_THRESHOLD_MS;
-        let now = 400_000;
+        let now = 800_000;
         // Looks every 2 s while the film plays and nobody touches anything.
         let mut at = 2_000;
         while at < now {

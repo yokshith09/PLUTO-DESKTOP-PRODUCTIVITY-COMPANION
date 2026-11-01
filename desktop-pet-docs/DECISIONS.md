@@ -510,3 +510,10 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 |---|---|
 | **Ask Windows what is in front** | A foreground event only means "something changed". Pluto records `GetForegroundWindow()` at that moment, uses the event's window only when Windows says nothing is in front, and asks again 1 s later (one thread timer). Reason: the owner's data showed events naming windows that were not in front and no event for the real one. |
 | **Not chosen: count the gap back once the look sees the same app again** | It would also count real time on the desktop or lock screen as the app. The re-check closes the gap to about a second instead. |
+
+## 2026-11-01 — Owner: idle limit and releases
+
+| Decision | Detail |
+|---|---|
+| **Away after 10 minutes, not 5** | `IDLE_THRESHOLD_MS` = 10 min (apps and websites). Owner's reason: work with keyboard and mouse was being cut. Note recorded with it: in the owner's 0.5.6 report the gaps happened while they were typing, so the limit alone does not explain them; the 0.5.7 trace will. |
+| **Releases only when the owner says** | No version bump, draft or tag from Claude without an explicit request. Code goes to `main`; the Release workflow only builds when the version file or the workflow changes, so ordinary pushes build nothing. (The 0.5.7 draft was started before this rule.) |
