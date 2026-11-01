@@ -112,10 +112,10 @@ pub(crate) mod win {
     use windows_sys::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
     use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        DispatchMessageW, EnumChildWindows, GetClassNameW, GetForegroundWindow, GetMessageW,
-        GetWindowThreadProcessId, KillTimer, PeekMessageW, PostThreadMessageW, SetTimer,
-        TranslateMessage, EVENT_SYSTEM_FOREGROUND, MSG, OBJID_WINDOW, PM_NOREMOVE,
-        WINEVENT_OUTOFCONTEXT, WM_QUIT, WM_USER,
+        DispatchMessageW, EnumChildWindows, GetAncestor, GetClassNameW, GetForegroundWindow,
+        GetMessageW, GetWindowThreadProcessId, KillTimer, PeekMessageW, PostThreadMessageW,
+        SetTimer, TranslateMessage, EVENT_SYSTEM_FOREGROUND, GA_ROOT, MSG, OBJID_WINDOW,
+        PM_NOREMOVE, WINEVENT_OUTOFCONTEXT, WM_QUIT, WM_USER,
     };
 
     /// How long after a foreground event the window in front is asked for again.
@@ -195,6 +195,10 @@ pub(crate) mod win {
         fn current_app(&self) -> Option<Option<String>> {
             // SAFETY: plain FFI call with no arguments; it returns null when no window is in front.
             let front = unsafe { GetForegroundWindow() };
+            if is_overlay(front) {
+                trace::line("look", None, front, Some(KEPT));
+                return None;
+            }
             let app = foreground_app(front);
             trace::line("look", None, front, app.as_deref());
             Some(app)
@@ -289,7 +293,13 @@ pub(crate) mod win {
         if event == EVENT_SYSTEM_FOREGROUND && id_object == OBJID_WINDOW {
             // SAFETY: plain FFI call with no arguments.
             let front = unsafe { GetForegroundWindow() };
-            let app = report(in_front(front, hwnd));
+            let shown = in_front(front, hwnd);
+            if is_overlay(shown) {
+                // The previous app keeps counting; nothing to re-check until something else comes forward.
+                trace::line("event", Some(hwnd), front, Some(KEPT));
+                return;
+            }
+            let app = report(shown);
             trace::line("event", Some(hwnd), front, app.as_deref());
             schedule_recheck();
         }
@@ -328,6 +338,10 @@ pub(crate) mod win {
             RECHECK.store(0, Ordering::Relaxed);
             GetForegroundWindow()
         };
+        if is_overlay(front) {
+            trace::line("recheck", None, front, Some(KEPT));
+            return;
+        }
         let app = report(front);
         trace::line("recheck", None, front, app.as_deref());
         // Something untracked is still in front (the desktop, the Start menu, Pluto): keep asking
@@ -336,6 +350,47 @@ pub(crate) mod win {
         if !app.as_deref().is_some_and(is_tracked) {
             schedule_recheck();
         }
+    }
+
+    /// What the trace says when Pluto's pet or card is in front and the app before it keeps counting.
+    const KEPT: &str = "kept (Pluto's pet or card)";
+
+    /// Pluto's own windows, by handle, with their window label (`pet`, `pet-card`, `main`).
+    static OWN: Mutex<Vec<(usize, &'static str)>> = Mutex::new(Vec::new());
+
+    /// Remembered once at start-up, so the trace can say which Pluto window was in front and the
+    /// pet and its card can be seen through.
+    pub(crate) fn set_own_windows(windows: &[(HWND, &'static str)]) {
+        *lock(&OWN) = windows
+            .iter()
+            .map(|&(h, label)| (h as usize, label))
+            .collect();
+    }
+
+    /// The label of the Pluto window `hwnd` is (or belongs to), if it is one.
+    pub(crate) fn own_label(hwnd: HWND) -> Option<&'static str> {
+        if hwnd.is_null() {
+            return None;
+        }
+        // SAFETY: plain FFI call; a stale or foreign handle only gives another (or no) window.
+        let root = unsafe { GetAncestor(hwnd, GA_ROOT) };
+        let own = lock(&OWN);
+        [hwnd, root]
+            .iter()
+            .find_map(|h| own.iter().find(|(o, _)| *o == *h as usize).map(|(_, l)| *l))
+    }
+
+    /// The pet and its card float over the app being used and come forward when touched (a click,
+    /// Sleep, a task ticked) while the person carries on reading or scrolling in that app. They do
+    /// not stop its time (owner 2026-11-01: the gaps in the trace were all `pluto.exe` in front for
+    /// minutes while the input never stopped). The dashboard and note windows are real use of
+    /// Pluto and stay uncounted, as before.
+    pub(crate) fn is_see_through(label: &str) -> bool {
+        label == crate::pet::LABEL || label == crate::pet::CARD_LABEL
+    }
+
+    fn is_overlay(hwnd: HWND) -> bool {
+        own_label(hwnd).is_some_and(is_see_through)
     }
 
     /// Whether time in front of this program is recorded.
@@ -360,7 +415,7 @@ pub(crate) mod win {
         use std::path::PathBuf;
         use std::sync::Mutex;
 
-        use super::{class_name, executable_name, lock, HWND};
+        use super::{class_name, executable_name, lock, own_label, HWND};
 
         const MAX_BYTES: u64 = 2 * 1024 * 1024;
         static FILE: Mutex<Option<PathBuf>> = Mutex::new(None);
@@ -375,7 +430,10 @@ pub(crate) mod win {
                 return "-".to_owned();
             }
             let exe = executable_name(hwnd).unwrap_or_else(|| "?".to_owned());
-            format!("{exe}|{}", class_name(hwnd))
+            let label = own_label(hwnd)
+                .map(|l| format!(" [{l}]"))
+                .unwrap_or_default();
+            format!("{exe}|{}{label}", class_name(hwnd))
         }
 
         /// One line: time (ms since 1970), what asked, the event's window, the window in front, what was
@@ -527,6 +585,27 @@ pub(crate) mod win {
             let event = 0x20 as super::HWND;
             assert_eq!(in_front(real, event), real);
             assert_eq!(in_front(std::ptr::null_mut(), event), event);
+        }
+
+        #[test]
+        fn the_pet_and_its_card_are_seen_through_but_the_dashboard_is_not() {
+            assert!(super::is_see_through("pet"));
+            assert!(super::is_see_through("pet-card"));
+            assert!(!super::is_see_through("main"));
+            assert!(!super::is_see_through("note-abc"));
+        }
+
+        #[test]
+        fn pluto_windows_are_known_by_handle_and_others_are_not() {
+            let pet = 0x1010 as super::HWND;
+            let card = 0x2020 as super::HWND;
+            super::set_own_windows(&[(pet, "pet"), (card, "pet-card")]);
+            assert_eq!(super::own_label(pet), Some("pet"));
+            assert_eq!(super::own_label(card), Some("pet-card"));
+            assert_eq!(super::own_label(std::ptr::null_mut()), None);
+            assert!(super::is_overlay(card));
+            super::set_own_windows(&[]);
+            assert!(!super::is_overlay(card));
         }
 
         #[test]

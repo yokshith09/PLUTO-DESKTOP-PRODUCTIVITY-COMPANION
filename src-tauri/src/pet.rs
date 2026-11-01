@@ -28,6 +28,9 @@ use tauri::{
 };
 
 pub const LABEL: &str = "pet";
+/// The hover card's own window (owner 2026-11-01): the pet's window no longer grows on hover, so
+/// no old frame can show and the pet never has to be hidden for a moment.
+pub const CARD_LABEL: &str = "pet-card";
 const POSITION_PREF: &str = "pet.position";
 /// Space between the pet and the edge of the screen when it is placed by default.
 const MARGIN: i32 = 24;
@@ -114,6 +117,28 @@ pub fn expanded_with(
             card: if above { "above" } else { "below" },
         },
     )
+}
+
+/// Where the card's own window goes beside the pet window `around`: the same place the card had
+/// inside the grown window (above when it fits, flush with the pet's outer edge, `gap` apart).
+pub fn card_rect(around: Rect, card_w: u32, card_h: u32, gap: u32, work: Rect) -> Rect {
+    let (grown, anchor) = expanded_with(around, card_w, card_h, gap, work, false);
+    let x = if anchor.pet == "right" {
+        around.x + around.w as i32 - card_w as i32
+    } else {
+        around.x
+    };
+    let y = if anchor.card == "above" {
+        grown.y
+    } else {
+        around.y + (around.h + gap) as i32
+    };
+    Rect {
+        x,
+        y,
+        w: card_w,
+        h: card_h,
+    }
 }
 
 /// Where the pet's square is now, if the grown window (set at `grown`) was dragged to `(x, y)`.
@@ -271,6 +296,70 @@ pub async fn pet_hover(
             state.expanded.store(false, Ordering::SeqCst);
         }
         Ok(None)
+    }
+}
+
+/// Show the hover card in its own window beside the pet (`open: false` puts it away). Card size is
+/// in logical pixels. It is shown without taking the keyboard from the app you are in.
+#[tauri::command]
+pub fn pet_card(open: bool, card_width: f64, card_height: f64, app: AppHandle) -> Result<()> {
+    let Some(card) = app.get_webview_window(CARD_LABEL) else {
+        return Ok(());
+    };
+    if !open {
+        return card.hide().map_err(internal);
+    }
+    let Some(pet) = window(&app) else {
+        return Ok(());
+    };
+    if !pet.is_visible().unwrap_or(false) {
+        return Ok(());
+    }
+    let around = outer_rect(&pet).map_err(internal)?;
+    let scale = pet.scale_factor().map_err(internal)?;
+    let work = work_area(&pet).unwrap_or(around);
+    let r = card_rect(
+        around,
+        (card_width * scale).round() as u32,
+        (card_height * scale).round() as u32,
+        (f64::from(GAP) * scale).round() as u32,
+        work,
+    );
+    show_beside(&card, r)
+}
+
+/// Put the card window at `r`, on top, visible, without activating it.
+fn show_beside<R: Runtime>(w: &WebviewWindow<R>, r: Rect) -> Result<()> {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE, SWP_SHOWWINDOW,
+        };
+        let hwnd = w.hwnd().map_err(internal)?;
+        // SAFETY: the handle is this live window's; NOACTIVATE keeps the keyboard where it is.
+        let ok = unsafe {
+            SetWindowPos(
+                hwnd.0 as _,
+                HWND_TOPMOST,
+                r.x,
+                r.y,
+                r.w as i32,
+                r.h as i32,
+                SWP_NOACTIVATE | SWP_SHOWWINDOW,
+            )
+        };
+        if ok != 0 {
+            return Ok(());
+        }
+    }
+    set_bounds(w, r)?;
+    w.show().map_err(internal)
+}
+
+/// The card goes away with the pet (hidden, full screen, double-click).
+fn hide_card<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(card) = app.get_webview_window(CARD_LABEL) {
+        let _ = card.hide();
     }
 }
 
@@ -809,6 +898,9 @@ async fn apply<R: Runtime>(app: &AppHandle<R>, settings: &SettingsService, reset
         hide_fullscreen(&all),
         fullscreen::other_app_fills_a_screen(),
     );
+    if !on_screen {
+        hide_card(app);
+    }
     warn_on(
         if on_screen { "show" } else { "hide" },
         if on_screen { w.show() } else { w.hide() },
@@ -1016,6 +1108,9 @@ pub fn start<R: Runtime>(app: AppHandle<R>, settings: Arc<SettingsService>, bus:
                 }
                 was = now;
                 tracing::debug!(fullscreen = now, "another app filled the screen");
+                if now {
+                    hide_card(&app);
+                }
                 warn_on(
                     if now { "hide" } else { "show" },
                     if now { w.hide() } else { w.show() },
@@ -1049,6 +1144,42 @@ pub fn start<R: Runtime>(app: AppHandle<R>, settings: Arc<SettingsService>, bus:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_card_window_sits_where_the_card_was_inside_the_grown_window() {
+        let pet = Rect {
+            x: 1768,
+            y: 888,
+            w: 128,
+            h: 128,
+        };
+        // Bottom-right pet: card above, its right edge flush with the pet's, 8 px between.
+        let c = card_rect(pet, 300, 404, 8, WORK);
+        assert_eq!(
+            c,
+            Rect {
+                x: 1768 + 128 - 300,
+                y: 888 - 8 - 404,
+                w: 300,
+                h: 404
+            }
+        );
+        // Top-left pet: below and flush left.
+        let top = Rect {
+            x: 10,
+            y: 10,
+            w: 128,
+            h: 128,
+        };
+        let c = card_rect(top, 300, 404, 8, WORK);
+        assert_eq!((c.x, c.y), (10, 10 + 128 + 8));
+        // With the focus timer under the pet the window is taller: a card below goes under the timer.
+        let with_timer = Rect {
+            h: 128 + 8 + 36,
+            ..top
+        };
+        assert_eq!(card_rect(with_timer, 300, 404, 8, WORK).y, 10 + 172 + 8);
+    }
 
     const WORK: Rect = Rect {
         x: 0,

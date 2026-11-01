@@ -258,6 +258,7 @@ pub fn run() {
             ipc::participants_suggest,
             pet::pet_hover,
             pet::pet_plan,
+            pet::pet_card,
             pet::pet_click,
             pet::pet_double_click,
             pet::pet_command,
@@ -308,7 +309,17 @@ pub fn run() {
             // Logs first, so everything after (including a failed start) is recorded.
             let logs = logs::init(&log_dir).map(Arc::new);
             #[cfg(windows)]
-            tracking::win::trace::set_folder(&data_dir);
+            {
+                tracking::win::trace::set_folder(&data_dir);
+                let own: Vec<_> = [pet::LABEL, pet::CARD_LABEL, "main"]
+                    .into_iter()
+                    .filter_map(|label| {
+                        let hwnd = app.get_webview_window(label)?.hwnd().ok()?;
+                        Some((hwnd.0, label))
+                    })
+                    .collect();
+                tracking::win::set_own_windows(&own);
+            }
             // An earlier build kept its data in a folder named after its old identifier; copy it
             // across once (never moved, never overwritten) so an update doesn't open empty.
             if own_folder {

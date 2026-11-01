@@ -8,7 +8,7 @@ import { useFocus } from "@/hooks/useFocus";
 import { clock } from "@/lib/focus";
 import { ymd } from "@/lib/dates";
 import { useTheme } from "@/hooks/useTheme";
-import { ipc, onEvent, onPetMenu, onPetSay, petAction, type TaskRow } from "@/ipc";
+import { ipc, onEvent, onPetCard, onPetMenu, onPetSay, petAction, petCardSend, type TaskRow } from "@/ipc";
 import { cn } from "@/lib/utils";
 import { PetCard } from "./PetCard";
 import { glanceText } from "./glance";
@@ -68,7 +68,13 @@ function nextPaint(): Promise<void> {
   });
 }
 
-export function PetApp() {
+/**
+ * `cardWindow`: the hover card opens in its own small window beside the pet (the app), so the
+ * pet's window never changes size on hover and the pet never has to be hidden for a moment
+ * (owner 2026-11-01: "the pet disappears and appears"). Outside the app (browser preview, tests of
+ * the rest) the card is drawn inside the pet window as before.
+ */
+export function PetApp({ cardWindow = isTauri() }: { cardWindow?: boolean } = {}) {
   useTheme();
   const qc = useQueryClient();
   const worn = useWorn();
@@ -113,6 +119,13 @@ export function PetApp() {
   const [asleep, setAsleep] = useState(false);
   // "Sleep" on the card: a nap that lasts until Wake (or a click on the pet), not ended by hovering.
   const [napping, setNapping] = useState(false);
+  const nappingRef = useRef(false);
+  nappingRef.current = napping;
+  // The card's own window (see `cardWindow`): whether it is showing, whether the pointer is on it,
+  // and whether it should come back after a drag.
+  const cardOpenRef = useRef(false);
+  const cardHover = useRef(false);
+  const reopenAfterDrag = useRef(false);
   // "Sleep or wake" in the right-click menu (owner 2026-10-27).
   useEffect(() => onPetMenu((what) => { if (what === "nap") setNapping((n) => !n); }), []);
   const wake = () => {
@@ -164,6 +177,7 @@ export function PetApp() {
     } finally {
       setResizing(false);
     }
+    placeCard();
   };
   const collapse = async () => {
     if (draggingRef.current) {
@@ -184,6 +198,16 @@ export function PetApp() {
     } finally {
       setResizing(false);
     }
+    placeCard();
+  };
+  /** The card window follows the pet window when it grows or shrinks (a focus timer starting). */
+  const placeCard = () => {
+    if (cardWindow && cardOpenRef.current) void ipc.petCard(true, CARD_W, CARD_H);
+  };
+  const showCard = async (open: boolean) => {
+    cardOpenRef.current = open;
+    await ipc.petCard(open, CARD_W, CARD_H);
+    if (open) void petCardSend({ kind: "napping", value: nappingRef.current });
   };
   /** Back to resting: the focus timer while a session runs, else just the pet. */
   const settle = () => (focusRef.current ? expand("timer") : collapse());
@@ -200,7 +224,7 @@ export function PetApp() {
       return;
     }
     // While hovering, the card has the space, unless the card is turned off (FR-110).
-    if (!hoverRef.current || !hoverCardRef.current) void expand("bubble", bubbleText(next));
+    if ((!hoverRef.current && !cardOpenRef.current) || !hoverCardRef.current) void expand("bubble", bubbleText(next));
     timers.current.play = window.setTimeout(playNext, next.ms);
   };
   // The character's one special move, when its count comes round (see special.ts).
@@ -259,11 +283,23 @@ export function PetApp() {
 
   const openCard = async () => {
     clearTimeout(timers.current.leave);
+    if (cardWindow) {
+      // Shown again even if it was open: the shell may have put it away with the pet (full screen).
+      if (panelRef.current === "bubble") await settle(); // the card takes the bubble's place
+      await showCard(true);
+      return;
+    }
     if (panelRef.current === "card") return;
     await expand("card");
   };
   const closeCard = async () => {
     clearTimeout(timers.current.enter);
+    if (cardWindow) {
+      if (!cardOpenRef.current) return;
+      await showCard(false);
+      if (playingRef.current) await expand("bubble", bubbleText(playingRef.current));
+      return;
+    }
     if (panelRef.current !== "card") return;
     // A reaction still playing gets its bubble back.
     if (playingRef.current) await expand("bubble", bubbleText(playingRef.current));
@@ -294,8 +330,36 @@ export function PetApp() {
     if (draggingRef.current) return; // the window is moving under the pointer; not a real leave
     setHovering(false);
     clearTimeout(timers.current.enter);
-    timers.current.leave = window.setTimeout(() => void closeCard(), 250);
+    leaveSoon();
   };
+  // The card closes a moment after the pointer has left both the pet and the card's window.
+  const leaveSoon = () => {
+    clearTimeout(timers.current.leave);
+    timers.current.leave = window.setTimeout(() => {
+      if (!hoverRef.current && !cardHover.current) void closeCardRef.current();
+    }, 250);
+  };
+  const closeCardRef = useRef(closeCard);
+  closeCardRef.current = closeCard;
+  const leaveSoonRef = useRef(leaveSoon);
+  leaveSoonRef.current = leaveSoon;
+  // Messages from the card's window: the pointer on it keeps it open; Sleep and Wake there.
+  useEffect(() => {
+    if (!cardWindow) return;
+    return onPetCard((m) => {
+      if (m.kind === "hover") {
+        cardHover.current = m.value;
+        if (m.value) clearTimeout(timers.current.leave);
+        else leaveSoonRef.current();
+      } else if (m.kind === "nap") {
+        setNapping(m.value);
+      }
+    });
+  }, [cardWindow]);
+  // The card shows Sleep or Wake to match.
+  useEffect(() => {
+    if (cardWindow && cardOpenRef.current) void petCardSend({ kind: "napping", value: napping });
+  }, [cardWindow, napping]);
 
   const click = () => {
     setNapping(false);
@@ -353,6 +417,11 @@ export function PetApp() {
     clearTimeout(timers.current.enter);
     draggingRef.current = true;
     setDragging(true);
+    // The card's window does not move with the pet: put it away and bring it back at the new spot.
+    if (cardWindow && cardOpenRef.current) {
+      reopenAfterDrag.current = true;
+      void showCard(false);
+    }
     void (async () => {
       if (isTauri()) {
         const { getCurrentWindow } = await import("@tauri-apps/api/window");
@@ -371,6 +440,10 @@ export function PetApp() {
     else if (later?.kind === "expand" && (later.next !== "bubble" || playingRef.current)) void expand(later.next, later.text);
     // Otherwise lay the card out again for the new spot (it may need to open the other way now).
     else if (panelRef.current) void expand(panelRef.current);
+    if (reopenAfterDrag.current) {
+      reopenAfterDrag.current = false;
+      void showCard(true);
+    }
   };
   // One pointermove handler for the whole window: arm a drag while pressed, or notice one ended.
   const onWindowPointerMove = (e: React.PointerEvent) => {

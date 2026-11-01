@@ -651,6 +651,7 @@ export function createMock() {
       return back < 0 || back > 20 ? null : sampleLog(String(a.date), back);
     },
     pet_plan: () => ({ pet: "right", card: "above" }),
+    pet_card: () => null,
     pet_hover: (a) => (a.expanded ? { pet: "right", card: "above" } : null),
     pet_click: () => null,
     pet_command: () => null,
