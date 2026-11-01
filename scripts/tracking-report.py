@@ -71,9 +71,9 @@ def main() -> None:
 
 
 def trace(path: Path, start: int, end: int) -> None:
-    """What Windows said was in front (Pluto 0.5.6 and later): program and window class names."""
+    """What Windows said was in front (Pluto 0.5.7 and later): program and window class names."""
     if not path.exists():
-        print("\n(no tracking trace yet: it is written by Pluto 0.5.6 and later, on Windows)")
+        print("\n(no tracking trace yet: it is written by Pluto 0.5.7 and later, on Windows)")
         return
     lines = []
     for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():

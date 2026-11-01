@@ -183,7 +183,9 @@ pub(crate) mod win {
         }
 
         fn idle_ms(&self) -> Option<u64> {
-            idle_ms()
+            let ms = idle_ms();
+            trace::idle(ms);
+            ms
         }
 
         fn screen_held(&self) -> bool {
@@ -379,27 +381,37 @@ pub(crate) mod win {
         /// One line: time (ms since 1970), what asked, the event's window, the window in front, what was
         /// recorded. Errors are ignored: the trace must never disturb tracking.
         pub(crate) fn line(kind: &str, event: Option<HWND>, front: HWND, recorded: Option<&str>) {
+            let event = event.map_or_else(|| "-".to_owned(), describe);
+            write(&format!(
+                "{kind}\tevent={event}\tfront={}\trecorded={}",
+                describe(front),
+                recorded.unwrap_or("nothing"),
+            ));
+        }
+
+        /// The idle time Windows reported (the look reads it once a minute, the totals on every
+        /// refresh): shows whether input was seen while the time went missing.
+        pub(crate) fn idle(ms: Option<u64>) {
+            let value = ms.map_or_else(|| "unknown".to_owned(), |v| format!("{v} ms"));
+            write(&format!("idle\tevent=-\tfront=-\trecorded={value}"));
+        }
+
+        fn write(fields: &str) {
             let Some(path) = lock(&FILE).clone() else {
                 return;
             };
             if std::fs::metadata(&path).is_ok_and(|m| m.len() > MAX_BYTES) {
                 let _ = std::fs::remove_file(&path);
             }
-            let event = event.map_or_else(|| "-".to_owned(), describe);
             let ms = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map_or(0, |d| d.as_millis());
-            let text = format!(
-                "{ms}\t{kind}\tevent={event}\tfront={}\trecorded={}\n",
-                describe(front),
-                recorded.unwrap_or("nothing"),
-            );
             if let Ok(mut f) = std::fs::OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open(&path)
             {
-                let _ = f.write_all(text.as_bytes());
+                let _ = writeln!(f, "{ms}\t{fields}");
             }
         }
     }

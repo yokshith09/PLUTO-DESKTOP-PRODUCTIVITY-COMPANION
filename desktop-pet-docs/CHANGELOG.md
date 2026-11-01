@@ -7,13 +7,18 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 _(nothing yet)_
 
-## [0.5.6] — 2026-10-31 (draft for owner testing; Unverified)
+## [0.5.7] — 2026-11-01 (draft for owner testing; Unverified)
+
+Fixes on top of 0.5.6, which is published and stays as it is.
+
+- Fixed (Windows, **Unverified on a real PC**), second step for the same bug: the owner still saw 13 of 25 minutes counted on 0.5.6 (and 14 of 60 in the report, with gaps of 10 and 29 minutes in which even the once-a-minute look started nothing). Pluto now keeps asking every second while something untracked (the desktop, the Start menu, Pluto) is in front, instead of once, so a return to a real app that Windows does not announce is noticed within a second.
+- Added (temporary): a trace of what Windows said was in front, `tracking-trace.txt` in the data folder (program and window class names only, never titles; emptied at 2 MB). Each line also shows the idle time Windows reported, so the report shows whether input was seen while the time went missing. `scripts/tracking-report.py` prints it next to the sessions.
+
+## [0.5.6] — 2026-10-31 (published)
 
 Fixes on top of 0.5.5, which is published and stays as it is.
 
 - Fixed (Windows, **Unverified on a real PC**): **about half of the time in VS Code, Chrome and Claude was not counted** (owner, 2026-10-31: 29 of 60 minutes of continuous use). The stored sessions showed the pattern: each started at the once-a-minute look and ended seconds later. Windows' "window in front changed" signal sometimes named a window that was not the one in front, which closed the stretch, and nothing named the real window again until the next look. Pluto now asks Windows which window is really in front whenever the signal comes, and asks again one second later. The once-a-minute look stays as the last safety net.
-- Fixed (Windows, **Unverified on a real PC**), second step for the same bug: the owner still saw 13 of 25 minutes counted on the first 0.5.6 build. Pluto now keeps asking every second while something untracked (the desktop, the Start menu, Pluto) is in front, instead of once, so a return to a real app that Windows does not announce is noticed within a second.
-- Added (temporary): a trace of what Windows said was in front, `tracking-trace.txt` in the data folder (program and window class names only, never titles; emptied at 2 MB). `scripts/tracking-report.py` prints it next to the sessions, so the next report shows exactly which window took the time.
 - Added: `scripts/tracking-report.py`, a read-only list of the stored sessions and the gaps between them for any stretch of a day; this is how the half hour was found.
 - Fixed (**Unverified on a real PC**): **the live total could still drop by up to two minutes after you walked away.** The 0.5.4 fix only helped once a once-a-minute look had found you away; before that, the stretch was shown up to the present, so it climbed and then fell back to your last input (the "50 → 47" class). The total now asks the OS for the time of your last input every time it is read and shows the stretch only up to it; that time only moves forward, so the total cannot go down. While you work it is current to the second; if you come back within the five minutes the gap counts and the total jumps up. Two tests (a series of readings across a walk-away, and readings between looks); the series test had been failing on macOS CI intermittently and is now deterministic.
 
