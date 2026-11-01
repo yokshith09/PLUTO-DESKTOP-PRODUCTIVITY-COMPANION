@@ -536,3 +536,15 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 | **MCP protocol versions (Claude, checked)** | The MCP specification's current version is 2026-07-28 (no start-up handshake, `server/discover` required); Pluto will also accept 2025-11-25 clients, because assistants will move at different times. |
 | **The bridge runs before Tauri starts (Claude, from the code)** | `main` must handle `--mcp-bridge`, `--react` and `--run` before the single-instance plugin, which would otherwise hand the launch to the running Pluto. Whether the windowed release program can use piped stdio is proven by a first spike; the fallback (a console helper) would come back to the owner. |
 | **Open for the owner** | Nine questions in `MCP_PLAN.md` §15 (settings off limits to assistants, own protocol code vs `rmcp`, bridge does not start Pluto, reminder/meeting deletes, focus start/stop, starting level, "by assistant" tag, hook block Copy-only, dashboard time). |
+
+## 2026-11-01 (night, later) — Owner's answers to the MCP questions
+
+| Decision | Detail |
+|---|---|
+| **Full potential of MCP over stdio (owner)** | Tools with output schemas and hints, resources and subscriptions, prompts, completions, elicitation, progress (`MCP_PLAN.md` §4). |
+| **Q1 settings (owner)** | Assistants may change some everyday settings, each only after Allow in Pluto's own window; MCP, privacy, tracking and data settings never (`MCP_PLAN.md` §5.4). Optional "Ask me before every change". |
+| **Q2 library** | Official `rmcp` (3.8.0, supports 2026-07-28 and 2025-11-25), server side only, no network features. Supersedes "write it ourselves". |
+| **Q3 (owner)** | `open_pluto` starts Pluto when the user asks the assistant; never on its own. |
+| **Q4 (owner)** | Reminders and meetings get a Bin; assistants' deletes go there. |
+| **Q5-Q8 (owner, agreed)** | Focus start yes, stop no; new assistant at Read and write; "by <assistant>" tag; hook block Copy only. |
+| **Q9 (owner)** | Time in Pluto's dashboard counts, as "Pluto"; built (Unverified). |

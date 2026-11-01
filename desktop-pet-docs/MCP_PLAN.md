@@ -1,6 +1,6 @@
 # MCP plan — Pluto talks to your AI assistants (P4)
 
-*Written 2026-11-01 at the owner's request: "document what to build and what is what, everything, all features we talked about, no code yet". Nothing in this file is built. Confidence tags: [Certain] checked in a source or in our code, [Likely] strong inference, [Guessing] needs checking. Decisions already made by the owner are marked **(owner)** with the date; everything else is a proposal and is listed again in §15 for the owner to confirm.*
+*Revised 2026-11-01 (night) with the owner's answers to §15 and "use the full potential of MCP over stdio". Written 2026-11-01 at the owner's request: "document what to build and what is what, everything, all features we talked about, no code yet". Nothing in this file is built. Confidence tags: [Certain] checked in a source or in our code, [Likely] strong inference, [Guessing] needs checking. Decisions already made by the owner are marked **(owner)** with the date; everything else is a proposal and is listed again in §15 for the owner to confirm.*
 
 ---
 
@@ -26,7 +26,7 @@ What it is **not**: Pluto does not run an AI model, does not call any AI service
 | B2 | **No network code in P4's local part.** CI reactions, calendar feeds and connectors wait for the separate network layer. | Owner 2026-10-31 ("local first"); E1 |
 | B3 | **The diary is never readable or writable** through MCP, not even its existence, dates or count. | Owner 2026-10-31 |
 | B4 | **Deletes go to the Bin.** An assistant can never empty the Bin, purge an item, delete all data, import or export data, or delete tracked time. | Owner 2026-10-31 (E2 safeguards) |
-| B5 | **An assistant can never change its own permissions** or any MCP or privacy setting (the master switch, an assistant's switch, what is excluded, tracking on/off). Otherwise every safeguard is one tool call away from being turned off. | Claude's addition to E2, for the owner to confirm (§15 Q1) |
+| B5 | **Settings: some, only with your approval in Pluto (human in the loop).** An assistant may ask to change everyday settings (§5.4); each change waits for you to press Allow in Pluto's own window. It can **never** change its own permissions or any MCP, privacy, tracking or data setting, even with approval, because one click on a tricked request would switch every safeguard off. | Owner 2026-11-01: "yes, only up to some extent, with the user's permission" |
 | B6 | **Off by default.** One master switch on the MCP page. Switching it off closes the pipe at once. | FR-54, approved shape |
 | B7 | **Rate limit: 10 calls per minute per tool per assistant** to start; extra calls are refused with a clear error, not queued. | Owner 2026-10-31 |
 | B8 | **`pluto-core` stays free of Tauri and network crates** (`pnpm check:core-deps`). The protocol, tools and rules live in `pluto-core`; the pipe and the bridge live in the shell. | Build principles |
@@ -66,7 +66,7 @@ The same pipe also serves two command-line flags used by hooks and builds (P4.2,
 
 - **Handled in `main` before Tauri starts.** [Certain] Today `main` calls `pluto_lib::run()` at once, and the single-instance plugin hands any second launch to the running copy and exits. The bridge flags must be read first and must never start a window, the tray or tracking.
 - **The console problem.** [Certain] The release build is a Windows "windowed" program (`windows_subsystem = "windows"`), so it has no console. [Likely] A windowed program still gets the stdin and stdout pipes its parent gives it, which is all MCP over stdio needs, and no black window flashes. **This must be proven by a first spike** on Windows CI and on the owner's PC with a real assistant. If it fails, the fallback is a tiny console helper shipped inside the installer (`pluto-mcp.exe`), which changes the owner's option 1, so it would come back to the owner first.
-- **When Pluto is not running:** the bridge still answers discovery and the tools list, so the assistant shows Pluto's tools, and every tool call returns the plain error "Pluto is not running. Open Pluto and try again." It does not start Pluto itself (proposal, §15 Q3).
+- **When Pluto is not running:** the bridge still answers discovery and the tools list, so the assistant shows Pluto's tools. One tool works without Pluto: **`open_pluto`**, which starts Pluto when you ask the assistant to ("open Pluto") and waits up to 20 seconds for it to be ready (owner 2026-11-01). Every other tool returns "Pluto is not running. Ask me to open Pluto." The bridge never starts Pluto on its own.
 - **Version:** the bridge and the app are the same file, so they can never be out of step (the reason for option 1).
 - **Paths:** the generated config names the installed program: `C:\Users\<you>\AppData\Local\Pluto\Pluto.exe` (Windows, per-user install) or `/Applications/Pluto.app/Contents/MacOS/Pluto` (macOS). Pluto writes the exact path for you on the MCP page; nobody types it. [Likely] the per-user path; it is read from the running program at the time, not guessed.
 
@@ -87,15 +87,28 @@ The assistant's own name in the protocol (`clientInfo`) is whatever it says, so 
 
 ---
 
-## 4. Protocol
+## 4. Protocol: the full stdio feature set (owner: "use the full potential of MCP")
 
-- **Versions** [Certain, checked 2026-11-01]: the current MCP specification is **2026-07-28**, which removed the start-up handshake (`initialize`) and sessions; every request carries its version in `_meta`, and servers **must** answer `server/discover`. The previous version, **2025-11-25**, still uses `initialize`. Assistants on the market will speak either for a while [Likely], so Pluto supports **both**: `server/discover` and per-request version for 2026-07-28; `initialize` / `notifications/initialized` for 2025-11-25 (and 2025-06-18 if a tested assistant needs it). An unsupported version gets the specification's `UnsupportedProtocolVersionError`.
-- **Methods Pluto implements:** `server/discover`, `initialize` (older clients), `tools/list`, `tools/call`. That is all Pluto needs. No resources, prompts, sampling, roots, logging or tasks extension in P4 (they add surface without a use here).
-- **Tools list:** deterministic order; `ttlMs` and `cacheScope: "private"` on the result (required in 2026-07-28); the list only contains tools the calling assistant is allowed to use, so a read-only assistant never even sees write tools.
-- **Tool results:** a short human-readable text plus `structuredContent` (JSON matching an `outputSchema`), so assistants can both show and use the result. Every result carries `resultType: "complete"` for 2026-07-28 clients.
-- **Errors:** a tool that is refused (diary, rate limit, switched off, Pluto not running, not found, invalid input) returns a tool result with `isError: true` and one plain sentence saying why and what to do. Protocol errors (bad JSON, unknown method) use the JSON-RPC codes.
-- **Limits:** one message at most 1 MB; lists return at most 50 items with a `cursor` for the next page; note bodies in lists are cut to 300 characters (`note_get` gives the full text).
-- **Implementation choice (§15 Q2):** a small hand-written JSON-RPC layer in `pluto-core` (Claude's recommendation: four methods, no new dependency, every byte tested, easy to follow the 2026 change) versus the official Rust SDK `rmcp` (less code, but a large new dependency whose support for 2026-07-28 must be checked) [Guessing on its current version support].
+**Library (owner question Q2, answered):** the official Rust SDK **`rmcp`** (3.8.0, Apache-2.0, maintained by the MCP project) [Certain, checked 2026-11-01]. It implements the current specification **2026-07-28** and stays compatible with **2025-11-25** and earlier, and it already has tools, resources, prompts, completions and elicitation. Only its `server` side is used, with no HTTP or network features, so `pluto-core` stays free of network code (B8). Writing the protocol ourselves made sense for three tools; for the whole feature set it would mean re-implementing and maintaining the specification, which `rmcp` does for us. The cost: one sizeable dependency, checked with `cargo audit` like every other.
+
+**Versions:** 2026-07-28 (no start-up handshake, `server/discover`, version and capabilities in each request's `_meta`) and 2025-11-25 (with `initialize`), because assistants move at different times [Likely]. Unsupported versions get the specification's error.
+
+| MCP feature | What Pluto does with it | Step |
+|---|---|---|
+| **Tools** | The catalogue in §5, each with an input schema, an **output schema and structured result**, a short title, and the hints `readOnlyHint`, `destructiveHint`, `idempotentHint`, so assistants can ask you before risky calls on their side too. Deterministic order; only the tools the assistant's level allows. | P4.1a-c |
+| **Resources** | Things an assistant (or you, in the assistant's "attach" menu) can read by address: `pluto://today`, `pluto://tasks/{id}`, `pluto://notes/{id}`, `pluto://projects/{name}`, `pluto://meetings/{id}`, `pluto://time/{date}`. Resource templates for the `{…}` ones. Never `pluto://diary…` (B3). | P4.1b |
+| **Subscriptions** | An assistant can ask to be told when a resource changes (for example today's tasks), through `subscriptions/listen`; Pluto sends the change notice from its event bus. | P4.1b |
+| **Prompts** | Ready-made requests that show up as slash commands in assistants that support them: **plan my day**, **weekly review**, **turn these meeting notes into tasks**, **stand-up summary**, **study plan for an exam** (student pack), **tidy my overdue tasks**. Each prompt names the tools it expects to use. | P4.1d |
+| **Completions** | Suggestions while typing a prompt or resource argument: project names, labels, courses, task titles. | P4.1d |
+| **Elicitation** (multi-round-trip in 2026-07-28) | When a request is missing something, Pluto asks you through the assistant ("Which project should this go in?"). **Not used for approvals**: an approval must come from Pluto's own window, which a web page cannot fake (§6). | P4.1d |
+| **Progress** | Long calls (creating many tasks from meeting notes, a week of time data) report progress so the assistant does not look stuck. | P4.1c |
+| **List-changed notices** | When you change an assistant's level or switch MCP off, its tool list changes at once. | P4.1a |
+| **Server instructions** | One short text the assistant reads first: what Pluto is, that the diary is private, that deletes go to the Bin, that settings need your approval. | P4.1a |
+| **Not used** | Sampling, roots and logging (deprecated in 2026-07-28), the tasks extension (no long jobs), HTTP transports (B1). | — |
+
+**Errors:** a refused call (diary, rate limit, switched off, waiting for approval was declined, Pluto not running, not found, invalid input) is a tool result with `isError: true` and one plain sentence saying why and what to do. Protocol errors use the JSON-RPC codes.
+
+**Limits:** one message at most 1 MB; lists at most 50 items with a `cursor`; note bodies in lists cut to 300 characters (`note_get` and the note resource give the full text).
 
 ---
 
@@ -144,15 +157,25 @@ Names are plain and grouped; the assistant shows them under "pluto". Each maps t
 | `task_delete` | **To the Bin**, restorable. | `task_delete` |
 | `note_create`, `note_update` | Create or edit a note (Markdown), its labels, project, course, pin, archive. | `note_create`, `note_update`, `note_set_pinned`, `note_set_archived` |
 | `note_delete` | **To the Bin**. | `note_delete` |
-| `reminder_create`, `reminder_update`, `reminder_set_done`, `reminder_delete` | Reminders, including lead time and sound. Delete: proposal, to the Bin like tasks (§15 Q4; today reminders delete directly). | reminders |
-| `meeting_create`, `meeting_update`, `action_item_to_task` | Meetings and turning action items into tasks. Meeting delete: to the Bin (same question as reminders). | meetings |
+| `reminder_create`, `reminder_update`, `reminder_set_done`, `reminder_delete` | Reminders, including lead time and sound. **Delete goes to the Bin** (owner 2026-11-01: reminders get a Bin, for you and for assistants). | reminders + Bin (new) |
+| `meeting_create`, `meeting_update`, `meeting_delete`, `action_item_to_task` | Meetings and turning action items into tasks. **Delete goes to the Bin** (owner 2026-11-01). | meetings + Bin (new) |
 | `label_create`, `label_rename` | Labels (no label delete: it touches many items; proposal). | labels |
-| `focus_start`, `focus_stop` | Start or stop a focus session (proposal, §15 Q5: starting a session from an assistant could surprise you). | `focus_start`, `focus_stop` |
-| `restore` | Put back an item from the Bin. | `note_restore`, `task_restore` |
+| `focus_start` | Start a focus session (owner 2026-11-01: start yes, stop no; you stop it yourself). | `focus_start` |
+| `restore` | Put back a task, note, reminder or meeting from the Bin. | restores |
+| `setting_request` | Ask to change one everyday setting (§5.4); waits for your Allow in Pluto. | settings + approval |
+| `open_pluto` | Start Pluto when you ask the assistant to; works while Pluto is closed. | bridge |
 
-**Never available (B3, B4, B5):** diary anything; `bin_empty`, `note_purge`, `data_delete_all`, `data_export`, `data_import`, `usage_delete`, `retention_apply`; any settings change; importing or removing character packs; `open_url` (an assistant tricked by a web page could open links on your PC); closing browser tabs.
+**Never available (B3, B4, B5):** diary anything; `bin_empty`, `note_purge`, `data_delete_all`, `data_export`, `data_import`, `usage_delete`, `retention_apply`; `focus_stop`; MCP, privacy, tracking and data settings; importing or removing character packs; `open_url` (an assistant tricked by a web page could open links on your PC); closing browser tabs.
 
-### 5.4 Size and safety of inputs
+### 5.4 Settings an assistant may ask to change (with your Allow, B5)
+
+| May ask (each change waits for Allow) | Never, even with Allow |
+|---|---|
+| Theme (light, dark, system); the pet shown or hidden, its character, its size, hover card on or off; focus and break lengths; reminder default lead time and sound; break and water nudges; typing-along; the student pack on or off; Today tiles shown | MCP on/off, any assistant's switch or level, the approval rule itself; app and website tracking on/off, excluded apps and sites, auto-delete rules; data folder, export, import, delete all; start at login; global shortcuts; the diary lock |
+
+**How Allow works:** the pet shows a card in Pluto's own window: "**Claude Code** wants to change **Theme** from **Light** to **Dark**. Allow / Deny". Nothing changes until you press Allow; after 2 minutes it counts as Deny and the assistant is told so. Allowed and denied requests both go into the change list. An option on the MCP page, **"Ask me before every change"** (off by default), puts every write behind the same Allow card, for when you want the human in the loop for everything.
+
+### 5.5 Size and safety of inputs
 
 - Titles at most 300 characters, note bodies at most 100,000, the same limits the app already enforces; anything larger is refused, not cut.
 - Dates as `YYYY-MM-DD` or ISO times, interpreted in your time zone.
@@ -166,7 +189,8 @@ Names are plain and grouped; the assistant shows them under "pluto". Each maps t
 |---|---|
 | **Master switch** | MCP page, off by default. Off = pipe closed, token deleted, bridge calls answer "Pluto's MCP is off". |
 | **Per-assistant switch and level** | Each assistant: **Pet only** (status, react, say), **Read** (plus §5.2), or **Read and write** (plus §5.3). The owner chose full read and write; proposal: a new assistant starts at **Read and write** as decided, and the level is there to lower it (§15 Q6). |
-| **Bin rules** | Every delete by an assistant goes to the Bin; restore works as usual. An assistant can restore but never purge or empty. |
+| **Approval in Pluto (human in the loop)** | Settings changes always; every write too if "Ask me before every change" is on. The card is in Pluto's own window, never in the assistant, so a tricked assistant cannot approve for you. |
+| **Bin rules** | Every delete by an assistant goes to the Bin (tasks, notes, and from now reminders and meetings); restore works as usual. An assistant can restore but never purge or empty. |
 | **"Changed by assistants" list** | Every successful write is recorded: when, which assistant, which tool, what item (kind, id, title), and a short "before → after" of the fields it changed. Shown on the MCP page with filters, and an **Undo** per change where possible (edits put back the earlier fields; creates go to the Bin; deletes are restored). Kept 90 days (proposal). |
 | **Mark on the item** | Proposal: a task or note an assistant created or last changed shows a small "by Claude Code" tag in its editor, so you see it where you work (§15 Q7). |
 | **Rate limit** | 10 calls per minute per tool per assistant (owner). Refused calls are logged once per minute, not each time. |
@@ -243,6 +267,8 @@ Each appears in the Character page's Reactions list like every existing reaction
 | `mcp_changes` | id, at, assistant id, tool, item kind, item id, item title at the time, before (JSON of changed fields), after (JSON), undone at |
 | `mcp_log` | at, assistant id (or "unknown"), tool, outcome, duration ms |
 | `git_watch` (P4.3a) | folder path, enabled, added at |
+| `reminders`, `meetings` | new `binned_at` column: deletes go to the Bin and can be restored (owner 2026-11-01); the Bin page shows them and auto-delete clears them with the rest |
+| `mcp_approvals` | id, assistant, what, from, to, asked at, answered at, answer |
 
 **Settings keys:** `mcp.enabled` (false), `mcp.focus_say` ("bubble" | "badge"), `mcp.agent_done_cooldown_s` (30).
 
@@ -281,8 +307,9 @@ Each appears in the Character page's Reactions list like every existing reaction
 | Step | Contents | Done when |
 |---|---|---|
 | **P4.1a** Spike + pet tools | Prove stdio works from the windowed `Pluto.exe` (§3.1); pipe + token; bridge; protocol (both versions); `status`, `react`, `say`; master switch; minimal MCP page (switch, add assistant, config, connected now, log) | Inspector and Claude Code list three tools and the pet reacts; wrong token refused; switch off closes the pipe |
-| **P4.1b** Read tools | §5.2 with paging; diary refusal tests | Claude Code answers "what's due today" from Pluto |
-| **P4.1c** Write tools + safeguards | §5.3, levels, Bin rules, change list with Undo, migration 012 | "Add a task", "mark it done", "delete it" work and all three show in the list and can be undone |
+| **P4.1b** Read tools + resources | §5.2 with paging, resources and subscriptions; diary refusal tests | Claude Code answers "what's due today" from Pluto |
+| **P4.1c** Write tools + safeguards | §5.3, levels, Bin for reminders and meetings, settings with Allow, change list with Undo, migration 012 | "Add a task", "mark it done", "delete it" work and all three show in the list and can be undone |
+| **P4.1d** Prompts, completions, elicitation | §4: the six prompts, completions for names, elicitation for missing details | Claude Code shows "plan my day" and it works end to end |
 | **P4.2** Hooks | `--react`, generated hook block, cooldown and "you are looking at it" rule, reactions in the Character page | The pet cheers when Claude Code finishes while you are in another app |
 | **P4.3a / P4.3b** Git and builds | Git watcher, `--run` | Reactions fire on a test repository and a failing build |
 | **P4.4** Project Spaces | Mostly built already (Projects tab, 2026-10-25); what is left is MCP access to projects (in 5.2/5.3) and the per-project pet (FR-67) | Re-scoped with the owner when P4.3 is done |
@@ -292,19 +319,19 @@ Each step can be released on its own when the owner says. P4 as a whole was plan
 
 ---
 
-## 15. Questions for the owner (Claude's recommendation first)
+## 15. The owner's answers (2026-11-01)
 
-| # | Question | Recommendation |
+| # | Question | Answer |
 |---|---|---|
-| Q1 | B5: assistants can never change settings, including their own permissions. | **Yes.** Otherwise one tool call can switch every safeguard off. |
-| Q2 | Write the protocol layer ourselves or use the official `rmcp` crate? | **Ourselves.** Four methods, both versions, no big dependency; revisit if MCP needs more later. |
-| Q3 | When Pluto is not running, should the bridge start it? | **No:** answer "Pluto is not running". Starting a GUI app from an assistant's background process surprises people. |
-| Q4 | Reminder and meeting deletes by an assistant: to the Bin (needs Bin support for them) or refused? | **Refuse for now** (they have no Bin today); add Bin support later if you want it. |
-| Q5 | May an assistant start or stop a focus session? | **Stop: no. Start: yes**, it is easy to stop yourself. |
-| Q6 | A new assistant's level: Read and write (as decided) or Read first? | **Read and write as you decided**, with the level visible on the card so it is one click to lower. |
-| Q7 | Show "by <assistant>" on items it created or changed? | **Yes**, small, in the editor only. |
-| Q8 | Should Pluto write the hook block into Claude Code's settings file for you? | **No, Copy only.** Editing another app's files is easy to get wrong and hard to undo. |
-| Q9 | Count time in Pluto's own dashboard? (from the tracking fix) | **No**, as today. |
+| Q1 | May assistants change settings? | **Some, only with the user's approval** (human in the loop): §5.4 and §6. MCP, privacy, tracking and data settings stay off limits. |
+| Q2 | Our own protocol code or the official `rmcp`? | Owner asked why; with the full feature set (§4), **`rmcp`**. Reason in §4. |
+| Q3 | May the bridge start Pluto? | **Yes, when the user asks the assistant to** (`open_pluto`); never on its own. |
+| Q4 | Reminder and meeting deletes | **Add a Bin for them and give assistants access** (to the Bin, restorable). |
+| Q5 | Focus start and stop | **Start yes, stop no** (agreed). |
+| Q6 | Starting level of a new assistant | **Read and write**, level visible to lower (agreed). |
+| Q7 | "by <assistant>" tag on items | **Yes.** |
+| Q8 | Write the hook block into the assistant's settings? | **No, Copy only** (agreed). |
+| Q9 | Count time in Pluto's dashboard | **Yes.** Done in code 2026-11-01: dashboard and note windows count as "Pluto"; the pet and its card stay see-through (Windows by window, macOS by which Pluto window has the focus). |
 
 ---
 
@@ -313,6 +340,7 @@ Each step can be released on its own when the owner says. P4 as a whole was plan
 | Risk | What we do |
 |---|---|
 | The windowed `Pluto.exe` cannot use piped stdio on some Windows setups | Spike first (P4.1a); fallback console helper, owner decides |
+| `rmcp` changes its API between versions | Pin the exact version; all of Pluto's use sits behind one module in `pluto-core`, so an upgrade touches one place |
 | Assistants change their protocol version or hook names | Support two protocol versions; check each assistant's current docs before generating its config; the generated text is versioned in one place |
 | Prompt injection through an assistant that browses | Levels, change list with Undo, Bin rules, B5, no `open_url` |
 | A stuck or flooding assistant | Rate limit, 1 MB message cap, one task per connection, the master switch |

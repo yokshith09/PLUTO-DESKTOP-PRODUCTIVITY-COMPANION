@@ -17,10 +17,12 @@ Every claim is tagged with how it was checked. **Fact** = seen in code, tests, G
 | **Release rule** | Releases only on the owner's word; the Release workflow now builds only when the version number changes (eb4d520; its run built nothing). | Release run 41330372909 (9 s, plan only) |
 | **Time tracking (Windows)** | Foreground re-check (0.5.6), per-second re-check and trace (0.5.7), 10-minute away limit, pet and card seen through (after 0.5.7). The trace found the last known gap (Pluto's own window in front). **Unverified on a real PC**; the owner's next one-hour report decides it. | 0.5.7 trace, owner's clock 53/62 min |
 | **Hover card** | Own window, same size and place. **Unverified on a real PC.** | 486 UI tests; placement test |
+| **Dashboard time** | Counts as "Pluto" (owner Q9); pet and card see-through on Windows and macOS. **Unverified on a real PC**; macOS part compiled in CI only. | 492 core tests |
+| **Owner's installed build** | **The old 0.5.7** (downloaded before the draft was rebuilt): none of the 2026-11-01 fixes. | Owner 2026-11-01 |
 | **Phase** | P1 and P2 done in code (Unverified on a real PC); P3 Characters paused; **P4 Developer & MCP is next: plan written, nothing built** ([`MCP_PLAN.md`](MCP_PLAN.md)). | `MASTER_PLAN.md` |
-| **Tests (re-run 2026-11-01)** | UI 486 passed / 7 skipped; pluto-core 492; shell tests on Linux; Windows-only tests on Windows CI; CI and End-to-end green on 2c1f9ba and eb4d520. Clippy clean (Linux and Windows target). | CI runs 41328018337, 41328018317 |
+| **Tests (re-run 2026-11-01)** | UI 486 passed / 7 skipped; pluto-core 492; shell tests on Linux; Windows-only tests on Windows CI; CI and End-to-end green on 2c1f9ba and 84b4586 (CI on eb4d520 was cancelled by the next push). Clippy clean (Linux and Windows target). | CI runs 41328018337, 41328018317 |
 | **Clean-up promised** | Testing code (the tracking trace, the in-window card fallback, old-name migration later) is removed once the owner confirms the tracking fix; list in `MCP_PLAN.md` §17. | Owner 2026-11-01 |
-| **Waiting on the owner** | (1) a one-hour tracking report on the build with the see-through fix; (2) Mac test; (3) the nine MCP questions in `MCP_PLAN.md` §15; (4) whether time in Pluto's dashboard counts (recommendation: no); (5) the name before outside users (Tomodo recommended). | — |
+| **Waiting on the owner** | (1) a one-hour tracking report on the build with the see-through fix; (2) Mac test; (3) ~~the nine MCP questions~~ answered 2026-11-01; (4) ~~dashboard time~~ counts (built); (5) the name before outside users (Tomodo recommended). | — |
 
 ---
 

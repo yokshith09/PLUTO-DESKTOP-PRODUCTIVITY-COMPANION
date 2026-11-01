@@ -1411,7 +1411,7 @@ fn coming_back_makes_the_live_stretch_follow_the_clock_again_and_nothing_is_lost
 }
 
 #[test]
-fn time_in_pluto_itself_is_not_counted_and_ends_the_stretch_before_it() {
+fn time_in_plutos_dashboard_counts_as_pluto() {
     let mut t = Tracker::default();
     let done = run(
         &mut t,
@@ -1426,6 +1426,7 @@ fn time_in_pluto_itself_is_not_counted_and_ends_the_stretch_before_it() {
         brief(&done),
         vec![
             ("VS Code", T0, T0 + 10 * MIN),
+            ("Pluto", T0 + 10 * MIN, T0 + 15 * MIN),
             ("VS Code", T0 + 15 * MIN, T0 + 20 * MIN)
         ]
     );

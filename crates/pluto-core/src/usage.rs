@@ -108,6 +108,9 @@ const KNOWN: &[Known] = &[
     browser("vivaldi", "Vivaldi"),
     browser("safari", "Safari"),
     browser("arc", "Arc"),
+    // Pluto's own dashboard and note windows (owner 2026-11-01: time in Pluto counts). The pet and
+    // its card are seen through by the shell, so they never reach here.
+    app("pluto", "Pluto", "Notes"),
     app("code", "VS Code", "Coding"),
     app("visual studio code", "VS Code", "Coding"),
     app("cursor", "Cursor", "Coding"),
@@ -192,7 +195,6 @@ const IGNORED: &[&str] = &[
     "startmenuexperiencehost",
     "shellexperiencehost",
     "textinputhost",
-    "pluto",
     // macOS: the login and lock screen, the screen saver.
     "loginwindow",
     "screensaverengine",

@@ -87,6 +87,16 @@ pub fn start(
     Err(Unsupported)
 }
 
+#[cfg(any(windows, target_os = "macos"))]
+/// The pet and its card float over the app being used and come forward when touched (a click,
+/// Sleep, a task ticked) while the person carries on reading or scrolling in that app. They do
+/// not stop its time (owner 2026-11-01: the gaps in the trace were all `pluto.exe` in front for
+/// minutes while the input never stopped). The dashboard and note windows are real use of
+/// Pluto and count as "Pluto" (owner 2026-11-01).
+pub(crate) fn is_see_through(label: &str) -> bool {
+    label == crate::pet::LABEL || label == crate::pet::CARD_LABEL
+}
+
 #[cfg(windows)]
 pub(crate) mod win {
     use std::ffi::OsString;
@@ -380,14 +390,7 @@ pub(crate) mod win {
             .find_map(|h| own.iter().find(|(o, _)| *o == *h as usize).map(|(_, l)| *l))
     }
 
-    /// The pet and its card float over the app being used and come forward when touched (a click,
-    /// Sleep, a task ticked) while the person carries on reading or scrolling in that app. They do
-    /// not stop its time (owner 2026-11-01: the gaps in the trace were all `pluto.exe` in front for
-    /// minutes while the input never stopped). The dashboard and note windows are real use of
-    /// Pluto and stay uncounted, as before.
-    pub(crate) fn is_see_through(label: &str) -> bool {
-        label == crate::pet::LABEL || label == crate::pet::CARD_LABEL
-    }
+    pub(crate) use super::is_see_through;
 
     fn is_overlay(hwnd: HWND) -> bool {
         own_label(hwnd).is_some_and(is_see_through)
@@ -611,7 +614,8 @@ pub(crate) mod win {
         #[test]
         fn rechecking_continues_only_while_nothing_tracked_is_in_front() {
             assert!(super::is_tracked("Code.exe"));
-            assert!(!super::is_tracked("pluto.exe"));
+            // Pluto's dashboard counts (owner 2026-11-01); the pet and card are see-through instead.
+            assert!(super::is_tracked("pluto.exe"));
             assert!(!super::is_tracked("StartMenuExperienceHost.exe"));
         }
     }
@@ -650,6 +654,37 @@ pub(crate) mod mac {
 
     /// How often the app in front is looked at.
     const LOOK_EVERY: Duration = Duration::from_secs(1);
+
+    /// Which of Pluto's own windows has the keyboard (from the window focus events), so the pet
+    /// and its card can be seen through as on Windows, while the dashboard counts as "Pluto".
+    static FOCUSED: Mutex<Option<String>> = Mutex::new(None);
+
+    /// Called from the window events: `label` gained (`true`) or lost (`false`) the focus.
+    pub(crate) fn set_focused(label: &str, focused: bool) {
+        let mut slot = FOCUSED.lock().unwrap_or_else(PoisonError::into_inner);
+        if focused {
+            *slot = Some(label.to_owned());
+        } else if slot.as_deref() == Some(label) {
+            *slot = None;
+        }
+    }
+
+    /// Pluto is in front but only through the pet or its card (or no Pluto window has the focus,
+    /// such as the tray menu): the app before it keeps counting.
+    fn only_pet_in_front() -> bool {
+        let focused = FOCUSED
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
+        !focused.is_some_and(|label| !super::is_see_through(&label))
+    }
+
+    /// Whether the app in front is this Pluto.
+    fn pluto_in_front() -> bool {
+        NSWorkspace::sharedWorkspace()
+            .frontmostApplication()
+            .is_some_and(|app| i64::from(app.processIdentifier()) == i64::from(std::process::id()))
+    }
 
     /// The name of the app in front, as macOS shows it ("Google Chrome", "Code", "Finder").
     /// Finder with no window open is the desktop and reports nothing.
@@ -721,6 +756,10 @@ pub(crate) mod mac {
                 .spawn(move || {
                     let mut last: Option<Option<String>> = None;
                     while !flag.load(Ordering::Relaxed) {
+                        if pluto_in_front() && only_pet_in_front() {
+                            std::thread::sleep(LOOK_EVERY);
+                            continue;
+                        }
                         let now = frontmost_app();
                         if last.as_ref() != Some(&now) {
                             if sink.send(now.clone()).is_err() {

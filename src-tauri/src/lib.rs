@@ -272,6 +272,11 @@ pub fn run() {
             notify::notification_settings_open,
         ])
         .on_window_event(|window, event| {
+            // macOS: which Pluto window has the keyboard decides whether Pluto's time counts.
+            #[cfg(target_os = "macos")]
+            if let WindowEvent::Focused(focused) = event {
+                tracking::mac::set_focused(window.label(), *focused);
+            }
             // Closing the main window hides it; the process keeps running (R0-03).
             if window.label() == pet::LABEL {
                 match event {
