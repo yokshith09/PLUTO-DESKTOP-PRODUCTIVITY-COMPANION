@@ -7,11 +7,13 @@ name: Release build
 # release is: bump the version, push to main, wait, test the draft's installers, publish. It also
 # starts when you push a tag `v*` or press "Run workflow" in the Actions tab. If the release for the
 # version is already PUBLISHED, a push does nothing (published installers never change under people).
-# If it is still a DRAFT, a push that touches the version file or this workflow rebuilds it and
-# points the draft at the commit that was built, so publishing tags exactly that commit.
+# A branch push builds only when the version NUMBER changed in that push (other edits to
+# tauri.conf.json, such as a new window, build nothing: owner rule 2026-11-01, releases only on the
+# owner's word; a window added on 2026-11-01 had refreshed the 0.5.7 draft by mistake). A new
+# version's draft points at the commit that was built, so publishing tags exactly that commit.
 #
 # Publishing the draft creates the tag `v<version>` on the commit that was built.
-# To rebuild the same unpublished version (for example after a fix), change this file or press "Run workflow".
+# To rebuild the same unpublished version (for example after a fix), press "Run workflow".
 # (0.5.2 was rebuilt this way after a case-clash in the sources broke its first build; 0.5.6 after
 # the Windows foreground fix for the owner's missing half hour, and again for its second step.)
 #
@@ -22,7 +24,8 @@ on:
   push:
     tags: ["v*"]
     branches: [main]
-    # A branch push only builds when the version file (or this workflow) changes.
+    # A branch push only runs when the version file (or this workflow) changes; `plan` then builds
+    # only if the version number itself changed.
     paths:
       - "src-tauri/tauri.conf.json"
       - ".github/workflows/release.yml"
@@ -50,12 +53,22 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
           EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
         run: |
           version=$(jq -r .version src-tauri/tauri.conf.json)
           if [ "$REF_TYPE" = "tag" ]; then tag="$REF_NAME"; else tag="v$version"; fi
           build=true
+          # A branch push builds only when it changed the version number.
+          if [ "$EVENT" = "push" ] && [ "$REF_TYPE" = "branch" ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            git fetch --quiet --depth=1 origin "$BEFORE"
+            previous=$(git show "$BEFORE:src-tauri/tauri.conf.json" | jq -r .version)
+            if [ "$previous" = "$version" ]; then
+              echo "Version unchanged ($version): nothing to build."
+              build=false
+            fi
+          fi
           # An automatic branch push must not rebuild a release that already exists.
-          if [ "$EVENT" = "push" ] && [ "$REF_TYPE" = "branch" ]; then
+          if [ "$build" = "true" ] && [ "$EVENT" = "push" ] && [ "$REF_TYPE" = "branch" ]; then
             # Only a published release stops a rebuild; a draft is refreshed.
             if gh release list --repo "$REPO" --limit 100 --json tagName,isDraft -q '.[] | select(.isDraft | not) | .tagName' | grep -qx "$tag"; then
               build=false

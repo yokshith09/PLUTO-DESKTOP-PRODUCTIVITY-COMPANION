@@ -11,6 +11,8 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [0.5.7] — 2026-11-01 (draft for owner testing; Unverified)
 
+Note: the draft's installers were rebuilt by mistake from 2c1f9ba (which also has everything under Unreleased above), because that commit edited `tauri.conf.json`. The Release workflow now builds only when the version number changes.
+
 Fixes on top of 0.5.6, which is published and stays as it is.
 
 - Fixed (Windows, **Unverified on a real PC**), second step for the same bug: the owner still saw 13 of 25 minutes counted on 0.5.6 (and 14 of 60 in the report, with gaps of 10 and 29 minutes in which even the once-a-minute look started nothing). Pluto now keeps asking every second while something untracked (the desktop, the Start menu, Pluto) is in front, instead of once, so a return to a real app that Windows does not announce is noticed within a second.
