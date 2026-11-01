@@ -224,6 +224,12 @@ pub fn is_bare_finder(app: &str, has_window: bool) -> bool {
 }
 
 /// `C:\Apps\Chrome.EXE` -> `chrome`: the key used to look an app up.
+/// Whether time in front of this program is never recorded (Pluto itself, the lock screen, the
+/// Start menu and other shell surfaces that flash in front of the real app).
+pub fn is_ignored_program(exe: &str) -> bool {
+    IGNORED.contains(&stem_key(exe).as_str())
+}
+
 fn stem_key(path: &str) -> String {
     let base = base_name(path).to_lowercase();
     base.strip_suffix(".exe").unwrap_or(&base).trim().to_owned()

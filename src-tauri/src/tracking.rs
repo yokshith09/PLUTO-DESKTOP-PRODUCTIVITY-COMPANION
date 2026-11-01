@@ -192,7 +192,10 @@ pub(crate) mod win {
 
         fn current_app(&self) -> Option<Option<String>> {
             // SAFETY: plain FFI call with no arguments; it returns null when no window is in front.
-            Some(foreground_app(unsafe { GetForegroundWindow() }))
+            let front = unsafe { GetForegroundWindow() };
+            let app = foreground_app(front);
+            trace::line("look", None, front, app.as_deref());
+            Some(app)
         }
     }
 
@@ -283,7 +286,9 @@ pub(crate) mod win {
     ) {
         if event == EVENT_SYSTEM_FOREGROUND && id_object == OBJID_WINDOW {
             // SAFETY: plain FFI call with no arguments.
-            report(in_front(unsafe { GetForegroundWindow() }, hwnd));
+            let front = unsafe { GetForegroundWindow() };
+            let app = report(in_front(front, hwnd));
+            trace::line("event", Some(hwnd), front, app.as_deref());
             schedule_recheck();
         }
     }
@@ -316,17 +321,86 @@ pub(crate) mod win {
     /// Runs on the hook thread from its message loop. Must not panic or block.
     unsafe extern "system" fn recheck(_hwnd: HWND, _msg: u32, id: usize, _time: u32) {
         // SAFETY: plain FFI calls; `id` is the thread timer that fired.
-        unsafe {
+        let front = unsafe {
             KillTimer(std::ptr::null_mut(), id);
             RECHECK.store(0, Ordering::Relaxed);
-            report(GetForegroundWindow());
+            GetForegroundWindow()
+        };
+        let app = report(front);
+        trace::line("recheck", None, front, app.as_deref());
+        // Something untracked is still in front (the desktop, the Start menu, Pluto): keep asking
+        // every second until a real app is back, because Windows does not always announce the
+        // return (owner 2026-11-01: time still missing after the one-shot re-check).
+        if !app.as_deref().is_some_and(is_tracked) {
+            schedule_recheck();
         }
     }
 
-    fn report(hwnd: HWND) {
+    /// Whether time in front of this program is recorded.
+    pub(crate) fn is_tracked(exe: &str) -> bool {
+        !pluto_core::usage::is_ignored_program(exe)
+    }
+
+    fn report(hwnd: HWND) -> Option<String> {
         let app = foreground_app(hwnd);
         if let Some(sink) = lock(&SINK).as_ref() {
-            let _ = sink.send(app);
+            let _ = sink.send(app.clone());
+        }
+        app
+    }
+
+    /// A plain-text trace of what Windows said was in front, for finding uncounted time
+    /// (`scripts/tracking-report.py` prints it next to the sessions). Program file names and
+    /// window class names only: never window titles. One file in the data folder, emptied when
+    /// it passes 2 MB. Temporary, while the owner's missing time is being found.
+    pub(crate) mod trace {
+        use std::io::Write;
+        use std::path::PathBuf;
+        use std::sync::Mutex;
+
+        use super::{class_name, executable_name, lock, HWND};
+
+        const MAX_BYTES: u64 = 2 * 1024 * 1024;
+        static FILE: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+        /// Where the trace goes; called once at start-up with the data folder.
+        pub(crate) fn set_folder(dir: &std::path::Path) {
+            *lock(&FILE) = Some(dir.join("tracking-trace.txt"));
+        }
+
+        fn describe(hwnd: HWND) -> String {
+            if hwnd.is_null() {
+                return "-".to_owned();
+            }
+            let exe = executable_name(hwnd).unwrap_or_else(|| "?".to_owned());
+            format!("{exe}|{}", class_name(hwnd))
+        }
+
+        /// One line: time (ms since 1970), what asked, the event's window, the window in front, what was
+        /// recorded. Errors are ignored: the trace must never disturb tracking.
+        pub(crate) fn line(kind: &str, event: Option<HWND>, front: HWND, recorded: Option<&str>) {
+            let Some(path) = lock(&FILE).clone() else {
+                return;
+            };
+            if std::fs::metadata(&path).is_ok_and(|m| m.len() > MAX_BYTES) {
+                let _ = std::fs::remove_file(&path);
+            }
+            let event = event.map_or_else(|| "-".to_owned(), describe);
+            let ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_millis());
+            let text = format!(
+                "{ms}\t{kind}\tevent={event}\tfront={}\trecorded={}\n",
+                describe(front),
+                recorded.unwrap_or("nothing"),
+            );
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&path)
+            {
+                let _ = f.write_all(text.as_bytes());
+            }
         }
     }
 
@@ -441,6 +515,13 @@ pub(crate) mod win {
             let event = 0x20 as super::HWND;
             assert_eq!(in_front(real, event), real);
             assert_eq!(in_front(std::ptr::null_mut(), event), event);
+        }
+
+        #[test]
+        fn rechecking_continues_only_while_nothing_tracked_is_in_front() {
+            assert!(super::is_tracked("Code.exe"));
+            assert!(!super::is_tracked("pluto.exe"));
+            assert!(!super::is_tracked("StartMenuExperienceHost.exe"));
         }
     }
 }

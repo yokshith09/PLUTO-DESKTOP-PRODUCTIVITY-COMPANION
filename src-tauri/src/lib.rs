@@ -307,6 +307,8 @@ pub fn run() {
             };
             // Logs first, so everything after (including a failed start) is recorded.
             let logs = logs::init(&log_dir).map(Arc::new);
+            #[cfg(windows)]
+            tracking::win::trace::set_folder(&data_dir);
             // An earlier build kept its data in a folder named after its old identifier; copy it
             // across once (never moved, never overwritten) so an update doesn't open empty.
             if own_folder {

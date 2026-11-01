@@ -67,6 +67,22 @@ def main() -> None:
     tail = max(0, end - previous)
     gaps += tail
     print(f"\ncounted {mins(counted)}, not counted {mins(gaps)} (of which {mins(tail)} after the last session)")
+    trace(path.parent / "tracking-trace.txt", start, end)
+
+
+def trace(path: Path, start: int, end: int) -> None:
+    """What Windows said was in front (Pluto 0.5.6 and later): program and window class names."""
+    if not path.exists():
+        print("\n(no tracking trace yet: it is written by Pluto 0.5.6 and later, on Windows)")
+        return
+    lines = []
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        parts = raw.split("\t")
+        if len(parts) == 5 and parts[0].isdigit() and start <= int(parts[0]) < end:
+            lines.append(parts)
+    print(f"\nWhat Windows said was in front ({len(lines)} lines):")
+    for t, kind, event, front, recorded in lines:
+        print(f"{clock(int(t))}  {kind:<7}  {event:<45}  {front:<45}  {recorded}")
 
 
 if __name__ == "__main__":
