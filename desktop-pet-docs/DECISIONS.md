@@ -548,3 +548,11 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 | **Q4 (owner)** | Reminders and meetings get a Bin; assistants' deletes go there. |
 | **Q5-Q8 (owner, agreed)** | Focus start yes, stop no; new assistant at Read and write; "by <assistant>" tag; hook block Copy only. |
 | **Q9 (owner)** | Time in Pluto's dashboard counts, as "Pluto"; built (Unverified). |
+
+## 2026-11-02 — Owner: bridge rules, and ship the fixes with MCP
+
+| Decision | Detail |
+|---|---|
+| **No console (owner: yes)** | Pluto stays a windowed program with no console window. The MCP bridge uses the stdin/stdout pipes the assistant gives it; proven by the P4.1a spike before anything else is built on it. |
+| **One Pluto at a time (owner: record)** | The single-instance rule stays for the app. `--mcp-bridge`, `--react` and `--run` are read in `main` before that rule runs, so a bridge or hook launch never hands itself to the running Pluto or opens a window. |
+| **Release (owner)** | No 0.5.8 on its own: the tracking fixes (pet and card see-through, dashboard counted, 10-minute limit), the card window and the release-workflow fix ship together with MCP, when the owner says. The owner's 2026-11-02 trace (old 0.5.7: 24 of 36 min, the 12 lost minutes were `pluto.exe` in front during input) confirms the cause the fix addresses. |
