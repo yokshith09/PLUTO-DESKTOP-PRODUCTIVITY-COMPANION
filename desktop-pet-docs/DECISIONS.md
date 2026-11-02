@@ -625,3 +625,5 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 | **Allow card on the pet** | One card for both settings (Allow/Deny) and questions (2-4 buttons); 2 minutes without an answer is no; a hidden pet is never asked. Settings allowed are listed; assistants, tracking, shortcuts and start-up are not. |
 | **Bin for reminders and meetings** | Migration 012 (`binned_at`), 30 days like notes and tasks; binned items cannot be edited until restored. |
 | **Left out on purpose** | Name completions (little use; the tools return ids). Git reactions in every project automatically: it needs `core.hooksPath`, which would replace each project's own hooks, so it stays copy-per-project. |
+
+- 2026-11-02: Connect writes every Claude app config folder that exists (usual %APPDATA%\Claude and each Store/MSIX package folder), not just the usual one; missing folders are never created.

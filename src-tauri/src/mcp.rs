@@ -546,25 +546,26 @@ const ASSISTANTS: &[(&str, &str)] = &[
 
 /// Where each assistant keeps its settings under these folders (home, and the OS's config folder:
 /// %APPDATA%, ~/Library/Application Support, or ~/.config).
-fn places_in(id: &str, home: &Path, config: &Path) -> Vec<Place> {
+fn places_in(id: &str, home: &Path, config: &Path, local: Option<&Path>) -> Vec<Place> {
     match id {
-        // One setup for both: Claude Code and the Claude app.
-        "claude" => vec![
-            Place {
+        // One setup for both: Claude Code and the Claude app (every copy of its settings folder).
+        "claude" => {
+            let mut list = vec![Place {
                 label: "Claude Code",
                 path: home.join(".claude.json"),
                 format: Format::McpServers,
                 id: "claude-code",
                 needs_file: true,
-            },
-            Place {
+            }];
+            list.extend(claude_app_dirs(config, local).into_iter().map(|dir| Place {
                 label: "Claude app",
-                path: config.join("Claude").join("claude_desktop_config.json"),
+                path: dir.join("claude_desktop_config.json"),
                 format: Format::McpServers,
                 id: "claude-desktop",
                 needs_file: false,
-            },
-        ],
+            }));
+            list
+        }
         "vscode" => vec![Place {
             label: "VS Code",
             path: config.join("Code").join("User").join("mcp.json"),
@@ -581,6 +582,24 @@ fn places_in(id: &str, home: &Path, config: &Path) -> Vec<Place> {
         }],
         _ => Vec::new(),
     }
+}
+
+/// The Claude app's settings folders: the usual one, plus on Windows the folder of a Store or
+/// MSIX install (`%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude`), which is the
+/// one such an install really reads; writing only the usual one left Pluto out of the app.
+fn claude_app_dirs(config: &Path, local: Option<&Path>) -> Vec<PathBuf> {
+    let mut dirs = vec![config.join("Claude")];
+    if let Some(Ok(entries)) = local.map(|l| std::fs::read_dir(l.join("Packages"))) {
+        let mut found: Vec<PathBuf> = entries
+            .flatten()
+            .filter(|e| e.file_name().to_string_lossy().starts_with("Claude_"))
+            .map(|e| e.path().join("LocalCache").join("Roaming").join("Claude"))
+            .filter(|d| d.is_dir())
+            .collect();
+        found.sort();
+        dirs.extend(found);
+    }
+    dirs
 }
 
 fn os_folders() -> Option<(PathBuf, PathBuf)> {
@@ -601,7 +620,14 @@ fn os_folders() -> Option<(PathBuf, PathBuf)> {
 
 fn places(id: &str) -> Vec<Place> {
     os_folders()
-        .map(|(home, config)| places_in(id, &home, &config))
+        .map(|(home, config)| {
+            let local = if cfg!(windows) {
+                std::env::var_os("LOCALAPPDATA").map(PathBuf::from)
+            } else {
+                None
+            };
+            places_in(id, &home, &config, local.as_deref())
+        })
         .unwrap_or_default()
 }
 
@@ -942,6 +968,50 @@ mod tests {
     }
 
     #[test]
+    fn a_store_install_of_the_claude_app_gets_pluto_in_the_file_it_really_reads() {
+        let dir = tempfile::tempdir().unwrap();
+        let (home, config, local) = (
+            dir.path().join("home"),
+            dir.path().join("config"),
+            dir.path().join("local"),
+        );
+        let store = local.join("Packages/Claude_pzs8sxrjxfjjc/LocalCache/Roaming/Claude");
+        std::fs::create_dir_all(&store).unwrap();
+        std::fs::create_dir_all(local.join("Packages/Other_123")).unwrap();
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(
+            store.join("claude_desktop_config.json"),
+            r#"{"mcpServers":{},"preferences":{"sidebarMode":"epitaxy"}}"#,
+        )
+        .unwrap();
+        let places = places_in("claude", &home, &config, Some(&local));
+        assert_eq!(
+            places.len(),
+            3,
+            "Claude Code, the usual folder, the Store folder"
+        );
+        let done = connect_places(&places, "C:\\Pluto\\pluto.exe").unwrap();
+        assert_eq!(
+            done,
+            ["Claude app"],
+            "only the installed Store folder is written"
+        );
+        let app: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(store.join("claude_desktop_config.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(app["mcpServers"]["pluto"]["args"][2], "claude-desktop");
+        assert_eq!(
+            app["preferences"]["sidebarMode"], "epitaxy",
+            "settings kept"
+        );
+        assert!(
+            !config.join("Claude").exists(),
+            "no folder made for an app not there"
+        );
+    }
+
+    #[test]
     fn one_claude_setup_covers_claude_code_and_the_claude_app_and_keeps_other_servers() {
         let dir = tempfile::tempdir().unwrap();
         let (home, config) = (dir.path().join("home"), dir.path().join("config"));
@@ -952,7 +1022,7 @@ mod tests {
             r#"{"numStartups":3,"mcpServers":{"github":{"command":"gh"}}}"#,
         )
         .unwrap();
-        let places = places_in("claude", &home, &config);
+        let places = places_in("claude", &home, &config, None);
         let done = connect_places(&places, "C:\\Pluto\\pluto.exe").unwrap();
         assert_eq!(done, ["Claude Code", "Claude app"]);
         let code: serde_json::Value =
@@ -1003,7 +1073,7 @@ mod tests {
     #[test]
     fn an_assistant_that_is_not_installed_is_left_alone() {
         let dir = tempfile::tempdir().unwrap();
-        let places = places_in("cursor", dir.path(), dir.path());
+        let places = places_in("cursor", dir.path(), dir.path(), None);
         assert!(connect_places(&places, "pluto").unwrap().is_empty());
         assert!(!dir.path().join(".cursor").exists());
         let info = describe("cursor", "Cursor", &places, "pluto");

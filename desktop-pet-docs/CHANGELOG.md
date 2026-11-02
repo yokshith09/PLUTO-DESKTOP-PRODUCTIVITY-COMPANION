@@ -5,6 +5,9 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+### Fixed
+- Assistants → Claude → Connect now also adds Pluto to the Claude app installed from the Microsoft Store / MSIX installer (`%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\claude_desktop_config.json`), the file that install really reads. Before, Pluto worked in Claude Code but never showed under the Claude app's Local MCP servers (owner's PC). Unverified on Windows until the owner reconnects.
+
 ## [0.5.9] — 2026-11-02 (draft for owner testing on Windows and Mac; Unverified)
 
 Everything since 0.5.8: Assistants (MCP) complete for testing, no-flicker pet window, hover card as before, stretch reminder after a night away, Bin for reminders and meetings.
