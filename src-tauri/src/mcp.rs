@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use pluto_core::mcp::link;
 use pluto_core::mcp::{Host, HostFuture, PetMessage, RateLimit, Status};
-use tauri::{AppHandle, Emitter, Runtime};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 /// The flag an assistant's config uses: `Pluto --mcp-bridge --assistant <id>`.
 pub const BRIDGE_FLAG: &str = "--mcp-bridge";
@@ -110,8 +110,13 @@ struct ShellHost<R: Runtime> {
 
 impl<R: Runtime> Host for ShellHost<R> {
     fn status(&self) -> HostFuture<'_, Status> {
-        // Focus, the app in front and today's counts are filled in with the read tools (P4.1b).
-        Box::pin(async { Status::default() })
+        // The focus session and today's tasks; the app in front comes with the read tools (P4.1b).
+        Box::pin(async move {
+            let Some(core) = self.app.try_state::<crate::Core>() else {
+                return Status::default();
+            };
+            pluto_core::mcp::status::read(&core.db, &*core.clock, None).await
+        })
     }
 
     fn show(&self, message: PetMessage) {

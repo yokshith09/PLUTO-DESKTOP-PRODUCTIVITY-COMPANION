@@ -7,6 +7,10 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 (MCP, 0.6.0, is built on top of 0.5.8.)
 
+- Added (MCP P4.1a): `status` now answers with the running focus session (kind, minutes left, paused) and today's tasks (done, open, overdue), read in the core and tested; the app in front follows with the read tools.
+- Fixed (tests only): the crash-recovery test for time tracking could time out on a slow machine (Windows CI under coverage), because it waited a fixed 40 ms per simulated minute; it now waits until each minute is in the journal. Passes repeatedly with every core busy.
+- Preview (not built): the MCP page ("Assistants") and the pet's Allow card, for the owner's approval.
+
 - Added (MCP P4.1a, **Unverified on a real PC**, off by default): **the bridge and the private pipe.** `Pluto --mcp-bridge --assistant <id>` runs before any window, tray or one-at-a-time rule and relays an assistant's stdio to the running Pluto over a named pipe (Windows, local clients only) or a Unix socket (macOS, owner-only), after a first line carrying this run's token. Wrong token, no first line in 5 s, or a bad id: closed. With Pluto closed the bridge still lists the tools and each call says "Pluto is not running". New setting `mcp.enabled` (off); Pluto listens only if it is on at start-up (the switch on the MCP page comes next). `react` and `say` show on the real pet; `status` returns empty counts until the read tools. Tests: 16 MCP tests in the core (including assistant ⇄ bridge ⇄ pipe ⇄ Pluto in memory), 4 in the shell (including the real Unix socket), and the real binary driven over stdio with no display. Windows target type-checked and linted.
 
 ## [0.5.8] — 2026-11-02 (draft for owner testing; Unverified)

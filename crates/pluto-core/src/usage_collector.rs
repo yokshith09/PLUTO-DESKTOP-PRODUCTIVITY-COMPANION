@@ -957,10 +957,15 @@ mod tests {
         f.platform.set_idle(0);
         f.platform.focus(Some("Code.exe"));
         settle().await;
-        // Twenty minutes of work, looked at every minute (a longer gap would read as sleep).
-        for _ in 0..20 {
+        // Twenty minutes of work, looked at every minute (a longer gap would read as sleep). Each
+        // minute waits until its look is in the journal, not for a fixed time: a slow machine (CI
+        // under coverage) could otherwise miss looks, and three missed minutes read as sleep.
+        for minute in 1..=20 {
             f.clock.advance_ms(MIN);
-            settle().await;
+            eventually(|| async {
+                journal_rows(&f).await == vec![("VS Code".to_owned(), T0, T0 + minute * MIN)]
+            })
+            .await;
         }
         eventually(|| async {
             journal_rows(&f).await == vec![("VS Code".to_owned(), T0, T0 + 20 * MIN)]

@@ -572,3 +572,9 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 | **Where** | Windows: `\\.\pipe\pluto-mcp-<user>`, first instance only, remote clients rejected. macOS: `mcp.sock` in the data folder, mode 0600. Token: `mcp-token` in the data folder (0600 on macOS), new each run, deleted at start-up when MCP is off. |
 | **Switch for now** | `mcp.enabled`, read at start-up; turning it on takes effect after a restart until the MCP page adds a live switch. |
 | **Assistant id for now** | From `--assistant <id>` (lowercase, digits, `-`); unknown ids are accepted until the assistant list (migration 012) exists, and named from the id ("claude-code" → "Claude Code"). |
+
+## 2026-11-02 — MCP page preview (waiting for the owner)
+
+| Decision | Detail |
+|---|---|
+| **Preview first (CLAUDE.md: ask before design choices)** | A preview of the MCP page, named **Assistants** in the sidebar, and of the pet's Allow card was shown to the owner. Open in it: the name "Assistants" vs "MCP"; dark only shown (light follows the app theme); where Developer reactions live (this page vs Settings). Nothing is built until the owner approves. |

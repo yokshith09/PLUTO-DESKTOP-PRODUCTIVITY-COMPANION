@@ -7,6 +7,7 @@
 
 mod limit;
 pub mod link;
+pub mod status;
 #[cfg(test)]
 mod tests;
 
