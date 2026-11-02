@@ -422,3 +422,12 @@ F1-20 and F1-21 (search) are cancelled; their numbers are retired.
 ## Later (added 2026-10-27)
 
 - **Music buttons under the pet** (parked): the first try pressed system media keys and did not work reliably. Re-plan before building: per-OS media session (Windows SMTC, macOS MediaRemote), what to show when nothing plays, and a way to test without a real player. Not Planned until the owner approves.
+
+## After 0.6.0 (owner 2026-11-02: "plan these after 6.0")
+
+Order to be confirmed with the owner after 0.6.0 ships.
+
+1. **Project Spaces and a pet per project** (P4.4, FR-67): MCP access to projects; each project can have its own character.
+2. **Opt-in network layer**: one HTTP client, off by default, a Connections page; then CI reactions (GitHub Actions), calendar feed, connectors (`RESEARCH_INTEGRATIONS.md` F).
+3. **Characters** (P3, paused): the remaining character work.
+4. **Clean-up before an outside release**: tracking trace (after a full day matches), old-name migration (after testers pass 0.5.x), history comments (`MCP_PLAN.md` §17).
