@@ -7,19 +7,6 @@ import { cn } from "@/lib/utils";
 import { addItem, pending, removeItem, renameItem, toggle, weekCount, MAX_ITEMS, TITLE_MAX } from "./routine";
 import { useRoutine } from "./useRoutine";
 
-/** Small progress ring: how much of today's routine is done. */
-function Ring({ done, total }: { done: number; total: number }) {
-  const r = 14;
-  const c = 2 * Math.PI * r;
-  const p = total ? done / total : 0;
-  return (
-    <svg viewBox="0 0 36 36" className="size-9 -rotate-90" aria-hidden>
-      <circle cx="18" cy="18" r={r} fill="none" stroke="currentColor" strokeWidth="4" className="text-muted" />
-      <circle cx="18" cy="18" r={r} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" className="text-primary transition-all" strokeDasharray={`${c * p} ${c}`} />
-    </svg>
-  );
-}
-
 /**
  * Daily routine tile (FR-85): things you do every day, ticked off and fresh again tomorrow,
  * with a reminder when some are left.
@@ -43,7 +30,7 @@ export function RoutineCard({ className }: { className?: string }) {
     <Tile
       className={className}
       title="Daily routine"
-      count={total}
+      count={total ? `${total - left} of ${total}` : 0}
       action={
         <button
           type="button"
@@ -57,13 +44,16 @@ export function RoutineCard({ className }: { className?: string }) {
         </button>
       }
     >
-      <div className="flex h-full flex-col gap-2">
+      <div className="flex flex-col gap-2">
         {total > 0 && (
           <div className="flex items-center gap-3 px-1">
-            <Ring done={total - left} total={total} />
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium" aria-live="polite">{total - left} of {total} done</p>
-              <p className="text-[11px] text-muted-foreground">{left === 0 ? "All done for today" : `${left} left · fresh again tomorrow`}</p>
+            <div className="min-w-0 flex-1">
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Routine done today" aria-valuemin={0} aria-valuemax={total} aria-valuenow={total - left}>
+                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${total ? ((total - left) / total) * 100 : 0}%` }} />
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground" aria-live="polite">
+                <span>{total - left} of {total} done</span> · {left === 0 ? "all done for today" : "fresh again tomorrow"}
+              </p>
             </div>
             {remind.on && (
               <label className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -78,16 +68,16 @@ export function RoutineCard({ className }: { className?: string }) {
           </div>
         )}
 
-        <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto" aria-label="Routine items">
+        <ul className="max-h-[22rem] divide-y overflow-y-auto" aria-label="Routine items">
           {state.items.map((item) => {
             const done = state.done.includes(item.id);
             const days = weekCount(state, item.id, today);
             return (
-              <li key={item.id} className="group flex items-center gap-2 rounded-md px-1 py-1 hover:bg-accent/50">
+              <li key={item.id} className="group flex items-start gap-2 px-1 py-1.5 hover:bg-accent/50">
                 <button
                   type="button" role="checkbox" aria-checked={done} aria-label={item.title}
                   onClick={() => void apply((s) => toggle(s, item.id))}
-                  className={cn("grid size-5 shrink-0 place-items-center rounded-full border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring", done ? "border-primary bg-primary text-primary-foreground" : "border-input hover:border-primary")}
+                  className={cn("mt-px grid size-5 shrink-0 place-items-center rounded-full border outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring", done ? "border-primary bg-primary text-primary-foreground" : "border-input hover:border-primary")}
                 >
                   {done && <Check className="size-3" strokeWidth={3} />}
                 </button>
@@ -103,17 +93,15 @@ export function RoutineCard({ className }: { className?: string }) {
                   <button
                     type="button" onDoubleClick={() => { setEditing(item.id); setEditText(item.title); }}
                     title="Double-click to rename"
-                    className={cn("min-w-0 flex-1 truncate text-left text-[13px]", done && "text-muted-foreground line-through")}
+                    className={cn("min-w-0 flex-1 break-words text-left text-[13px] leading-5 [overflow-wrap:anywhere]", done && "text-muted-foreground line-through")}
                   >
                     {item.title}
                   </button>
                 )}
                 {/* FR-90: "5/7" this week, never a streak that resets (no-guilt rule). */}
-                {days >= 2 && (
-                  <span className="text-[11px] tabular-nums text-muted-foreground" title={`Done on ${days} of the last 7 days`}>
-                    {days}/7
-                  </span>
-                )}
+                <span className="shrink-0 text-[11px] leading-5 tabular-nums text-muted-foreground" title={`Done on ${days} of the last 7 days`}>
+                  {days > 0 ? `${days}/7` : "—"}
+                </span>
                 <ConfirmAction message={`Remove “${item.title}” from the routine?`} verb="Remove" onConfirm={() => void apply((s) => removeItem(s, item.id))}>
                 <button
                   type="button" aria-label={`Remove ${item.title}`}

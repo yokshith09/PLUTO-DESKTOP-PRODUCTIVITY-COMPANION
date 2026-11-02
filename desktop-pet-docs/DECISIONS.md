@@ -627,3 +627,5 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 | **Left out on purpose** | Name completions (little use; the tools return ids). Git reactions in every project automatically: it needs `core.hooksPath`, which would replace each project's own hooks, so it stays copy-per-project. |
 
 - 2026-11-02: Connect writes every Claude app config folder that exists (usual %APPDATA%\Claude and each Store/MSIX package folder), not just the usual one; missing folders are never created.
+
+- 2026-11-02 (owner): Today overview has no layout choices; tiles in a row share it equally and size to content. Next on Now pauses it and starts the first in Next up; Next up has no limit; when Now ends the next starts without asking. Today keeps Tasks and Reminders sections only; other categories are tags beside a task. Daily routine keeps x/7 (FR-90) rather than a streak in days shown in the preview.

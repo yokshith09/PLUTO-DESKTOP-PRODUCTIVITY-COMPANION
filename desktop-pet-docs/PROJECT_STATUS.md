@@ -310,3 +310,5 @@ Run `pnpm tauri dev` or install the CI build. Write pass or fail next to each li
 Never: rewrite working code without a reason, add dependencies silently, mix a future feature into a P0 change, or claim Windows or macOS behaviour was tested when only CI compiled it.
 
 - 2026-11-02: Claude app (Store/MSIX install) did not list Pluto; Connect now writes its packaged config too. Unverified on Windows.
+
+- 2026-11-02: Today overview auto-fitting rows, Now / Next up / ordering on the Today tile, Daily routine fix. Tested in UI tests and the dev mock; Unverified in the real app.

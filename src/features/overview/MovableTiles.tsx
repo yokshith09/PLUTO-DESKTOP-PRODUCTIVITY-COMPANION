@@ -12,13 +12,19 @@ import { ipc } from "@/ipc";
 import { cn } from "@/lib/utils";
 
 export type TileId = "agenda" | "focus" | "routine" | "time" | "links";
-export const DEFAULT_ORDER: TileId[] = ["agenda", "focus", "routine", "time", "links"];
+/** Today and Time side by side, then the three small tiles (owner 2026-11-02). */
+export const DEFAULT_ORDER: TileId[] = ["agenda", "time", "focus", "routine", "links"];
+/** The order before 2026-11-02; stored as-is it means "never moved", so it becomes the new default. */
+const OLD_DEFAULT: TileId[] = ["agenda", "focus", "routine", "time", "links"];
+/** The big tiles: a row with one holds two tiles, a row of small ones holds three. */
+const BIG: TileId[] = ["agenda", "time"];
 const KEY = ["prefs", "ui.overview_order"] as const;
 
 /** Stored order, with anything unknown dropped and anything missing put back at the end. */
 export function cleanOrder(stored: unknown): TileId[] {
   const known = Array.isArray(stored) ? stored.filter((x): x is TileId => DEFAULT_ORDER.includes(x as TileId)) : [];
   const unique = [...new Set(known)];
+  if (unique.length === OLD_DEFAULT.length && unique.every((id, i) => id === OLD_DEFAULT[i])) return DEFAULT_ORDER;
   return [...unique, ...DEFAULT_ORDER.filter((id) => !unique.includes(id))];
 }
 
@@ -67,8 +73,34 @@ export function useTileSizes() {
   return { sizes, set, reset };
 }
 
-/** `span` is the normal size; `wide` is the full-width one (a tile with none cannot be resized). */
-interface TileSpec { span: string; wide?: string; title: string; node: ReactNode }
+/**
+ * Tiles in rows, in your order: a full-width tile has a row to itself; a row with a big tile
+ * (Today, Time) holds two, a row of small ones three. Tiles in a row share it equally, so a tile
+ * moved beside Today takes half and Today the other half (owner 2026-11-02).
+ */
+export function packRows(order: TileId[], sizes: Partial<Record<TileId, TileSize>>): TileId[][] {
+  const rows: TileId[][] = [];
+  let row: TileId[] = [];
+  for (const id of order) {
+    if (sizes[id] === "w") {
+      if (row.length) rows.push(row);
+      rows.push([id]);
+      row = [];
+      continue;
+    }
+    const cap = row.some((x) => BIG.includes(x)) || BIG.includes(id) ? 2 : 3;
+    if (row.length >= cap) {
+      rows.push(row);
+      row = [];
+    }
+    row.push(id);
+  }
+  if (row.length) rows.push(row);
+  return rows;
+}
+
+/** `wide`: the tile can be made full width. Height always follows the content. */
+interface TileSpec { wide?: boolean; title: string; node: ReactNode }
 
 function Handle({ title, ...props }: { title: string } & Record<string, unknown>) {
   return (
@@ -97,12 +129,11 @@ function ResizeButton({ title, size, onChange }: { title: string; size: TileSize
 
 function SortableTile({ id, spec, size, onSize }: { id: TileId; spec: TileSpec; size: TileSize; onSize: (s: TileSize) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const span = size === "w" && spec.wide ? spec.wide : spec.span;
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn("min-h-60 min-w-0 lg:min-h-0", span, isDragging && "relative z-10 opacity-90 shadow-2xl ring-1 ring-primary/50")}
+      className={cn("flex min-h-60 min-w-0 flex-1 basis-0 flex-col [&>*]:flex-1", isDragging && "relative z-10 opacity-90 shadow-2xl ring-1 ring-primary/50")}
     >
       <TileHandleContext.Provider value={<div className="flex items-center gap-0.5">{spec.wide && <ResizeButton title={spec.title} size={size} onChange={onSize} />}<Handle title={spec.title} {...attributes} {...listeners} /></div>}>
         {spec.node}
@@ -111,7 +142,7 @@ function SortableTile({ id, spec, size, onSize }: { id: TileId; spec: TileSpec; 
   );
 }
 
-/** Overview tiles in a 12-column grid of 15rem rows (big tiles span two rows). Drag a tile by its grip (or use the keyboard) to reorder; the order is remembered. */
+/** Overview tiles in rows that fit their content (see `packRows`). Drag a tile by its grip (or use the keyboard) to reorder; the order is remembered. */
 export function MovableTiles({ tiles }: { tiles: Record<TileId, TileSpec> }) {
   const { order, save, isDefault } = useTileOrder();
   const sizes = useTileSizes();
@@ -131,8 +162,12 @@ export function MovableTiles({ tiles }: { tiles: Record<TileId, TileSpec> }) {
     <div>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => setActive(true)} onDragCancel={() => setActive(false)} onDragEnd={onEnd}>
         <SortableContext items={order} strategy={rectSortingStrategy}>
-          <div className={cn("grid gap-5 md:grid-cols-2 lg:grid-flow-row-dense lg:auto-rows-[15rem] lg:grid-cols-12", active && "select-none")}>
-            {order.map((id) => <SortableTile key={id} id={id} spec={tiles[id]} size={sizes.sizes[id] ?? "n"} onSize={(v) => void sizes.set(id, v)} />)}
+          <div className={cn("flex flex-col gap-5", active && "select-none")}>
+            {packRows(order, sizes.sizes).map((row) => (
+              <div key={row.join("|")} className="flex flex-col gap-5 lg:flex-row lg:items-stretch">
+                {row.map((id) => <SortableTile key={id} id={id} spec={tiles[id]} size={sizes.sizes[id] ?? "n"} onSize={(v) => void sizes.set(id, v)} />)}
+              </div>
+            ))}
           </div>
         </SortableContext>
       </DndContext>

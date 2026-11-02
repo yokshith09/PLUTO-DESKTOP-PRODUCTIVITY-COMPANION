@@ -19,14 +19,13 @@ export function TodayOverviewPage({ onShowTasks = () => {}, onNavigate = () => {
   const now = new Date();
   const flagged = agenda.overdue + agenda.missed;
 
-  // A 12-column grid whose rows all split 7 | 5, so every tile edge lines up. The big tiles (Today,
-  // Time) are the 7s and take two rows; the small ones stack beside them. "Wide" is the full row.
-  const tiles: Record<TileId, { span: string; wide?: string; node: React.ReactNode; title: string }> = {
-    agenda: { span: "md:col-span-2 lg:col-span-7 lg:row-span-2", wide: "md:col-span-2 lg:col-span-12 lg:row-span-2", title: "Today", node: <AgendaCard className="h-full" /> },
-    focus: { span: "lg:col-span-5", wide: "lg:col-span-12", title: "Focus", node: <FocusTile className="h-full" /> },
-    routine: { span: "lg:col-span-5", wide: "lg:col-span-12", title: "Daily routine", node: <RoutineCard className="h-full" /> },
-    time: { span: "md:col-span-2 lg:col-span-7 lg:row-span-2", wide: "md:col-span-2 lg:col-span-12 lg:row-span-2", title: "Total time today", node: <TimeHero className="h-full" /> },
-    links: { span: "lg:col-span-5 lg:row-span-2", wide: "lg:col-span-12 lg:row-span-2", title: "Links", node: <LinksCard className="h-full" /> },
+  // Rows that share their width equally and take the height their content needs (MovableTiles).
+  const tiles: Record<TileId, { wide?: boolean; node: React.ReactNode; title: string }> = {
+    agenda: { wide: true, title: "Today", node: <AgendaCard className="h-full" /> },
+    focus: { wide: true, title: "Focus", node: <FocusTile className="h-full" /> },
+    routine: { wide: true, title: "Daily routine", node: <RoutineCard className="h-full" /> },
+    time: { wide: true, title: "Total time today", node: <TimeHero className="h-full" /> },
+    links: { wide: true, title: "Links", node: <LinksCard className="h-full" /> },
   };
 
   return (

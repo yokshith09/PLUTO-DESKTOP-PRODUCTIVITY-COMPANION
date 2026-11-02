@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { ConfirmAction } from "@/components/ConfirmAction";
-import { Bell, BellRing, CalendarCheck2, CalendarClock, Plus, Trash2, Users } from "lucide-react";
+import { ArrowUp, ArrowDown, Bell, BellRing, CalendarCheck2, CalendarClock, Check, ListOrdered, MoreHorizontal, Pause, Play, Plus, SkipForward, Trash2, Users, X } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { addToQueue, following, liveQueue, moveInOrder, moveToNext, orderTasks, ORDER_MODES, queueUp, takeOut } from "./todayPlan";
+import { useTodayPlan } from "./useTodayPlan";
 import { completed, notify } from "@/lib/notify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -80,22 +83,68 @@ function ReminderRow({ r }: { r: Reminder }) {
 
 export function TodayAgenda({ showUpcoming = false }: { showUpcoming?: boolean }) {
   const { tasks, reminders, upcoming } = useAgenda();
-  const { setDone, star, tick } = useTaskActions();
+  const { setDone, star, tick, transition } = useTaskActions();
+  const { plan, save } = useTodayPlan();
   const [openId, setOpenId] = useState<string | null>(null);
   const today = ymd(new Date());
-  const late = tasks.filter((r) => r.overdue);
-  const onTime = tasks.filter((r) => !r.overdue);
+  const open = tasks.map((r) => r.task.id);
+  // Now: the task you started (owner 2026-11-02). Next up: your queue, no limit. Tasks: the rest.
+  const current = tasks.find((r) => r.task.status === "IN_PROGRESS") ?? null;
+  const queue = liveQueue(plan, open).filter((id) => id !== current?.task.id);
+  const byId = new Map(tasks.map((r) => [r.task.id, r]));
+  const queued = queue.flatMap((id) => byId.get(id) ?? []);
+  const rest = orderTasks(tasks.filter((r) => r.task.id !== current?.task.id && !queue.includes(r.task.id)), plan);
+  const shown = rest.map((r) => r.task.id);
+
+  /** Start a task now: whatever was in progress is paused first. */
+  const startNow = async (id: string) => {
+    if (current && current.task.id !== id) await transition(current.task.id, "PENDING");
+    await transition(id, "IN_PROGRESS");
+    await save(takeOut(plan, id));
+  };
+  /** Now ended (done or Next): the first in Next up starts right away (owner: no question). */
+  const advance = async (ended: string) => {
+    const f = following(plan, open.filter((x) => x !== ended), ended);
+    await save(f.plan);
+    if (f.start) {
+      await transition(f.start, "IN_PROGRESS");
+      notify.success("Started the next one", { description: byId.get(f.start)?.task.title ?? "" });
+    }
+  };
   const complete = async (task: Task) => {
     // A repeating task is ticked for today only; it comes back on its next day (FR-109).
     if (task.repeat) {
-      const today = ymd(new Date());
       await tick(task.id, today, true);
       notify.success(`Ticked for today: “${task.title}”`, { action: { label: "Undo", onClick: () => void tick(task.id, today, false) } });
-      return;
+    } else {
+      await setDone(task.id, true);
+      completed(task.title, () => void setDone(task.id, false));
     }
-    await setDone(task.id, true);
-    completed(task.title, () => void setDone(task.id, false));
+    if (task.id === current?.task.id) await advance(task.id);
   };
+  const menu = (task: Task, where: "queue" | "list") => (
+    <RowMenu
+      title={task.title}
+      items={[
+        { label: "Start now", icon: <Play />, run: () => void startNow(task.id) },
+        ...(where === "list"
+          ? [
+              { label: "Move to next", icon: <SkipForward />, run: () => void save(moveToNext(plan, task.id)) },
+              { label: "Add to Next up", icon: <ListOrdered />, run: () => void save(addToQueue(plan, task.id)) },
+              { label: "Move up", icon: <ArrowUp />, run: () => void save(moveInOrder(plan, shown, task.id, -1)) },
+              { label: "Move down", icon: <ArrowDown />, run: () => void save(moveInOrder(plan, shown, task.id, 1)) },
+            ]
+          : [
+              { label: "Move to next", icon: <SkipForward />, run: () => void save(moveToNext(plan, task.id)) },
+              { label: "Move up", icon: <ArrowUp />, run: () => void save(queueUp(plan, task.id)) },
+              { label: "Take out of Next up", icon: <X />, run: () => void save(takeOut(plan, task.id)) },
+            ]),
+      ]}
+    />
+  );
+  const line = (r: { task: Task; overdue: boolean }, where: "queue" | "list", n?: number) => (
+    <TaskLine key={r.task.id} row={r} today={today} n={n} menu={menu(r.task, where)} onOpen={setOpenId} onComplete={complete} onStar={(t) => void star(t.id, !t.starred)} />
+  );
 
   if (tasks.length === 0 && reminders.length === 0 && !(showUpcoming && upcoming.length)) {
     return (
@@ -110,16 +159,46 @@ export function TodayAgenda({ showUpcoming = false }: { showUpcoming?: boolean }
   }
   return (
     <div className="space-y-5">
-      {late.length > 0 && (
-        <section aria-label="Overdue">
-          <SectionLabel icon={<CalendarClock />} count={late.length} tone="danger">Overdue</SectionLabel>
-          <ul className="space-y-0.5">{late.map((r) => <TaskLine key={r.task.id} row={r} today={today} onOpen={setOpenId} onComplete={complete} onStar={(t) => void star(t.id, !t.starred)} />)}</ul>
+      {current && (
+        <section aria-label="Now" className="rounded-lg border border-primary/30 bg-primary/[0.06] px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-primary">Now</span>
+            <button type="button" onClick={() => setOpenId(current.task.id)} title="Open the task"
+              className="min-w-0 flex-1 break-words rounded text-left text-[13.5px] font-medium outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring">
+              {current.task.title}
+            </button>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <Button size="sm" onClick={() => void complete(current.task)}><Check />Done</Button>
+            <Button size="sm" variant="secondary" onClick={() => void transition(current.task.id, "PENDING")}><Pause />Pause</Button>
+            <Button size="sm" variant="secondary" disabled={queue.length === 0}
+              title={queue.length ? `Pause this and start “${queued[0]?.task.title}”` : "Nothing in Next up"}
+              onClick={() => void transition(current.task.id, "PENDING").then(() => advance(current.task.id))}>
+              <SkipForward />Next
+            </Button>
+          </div>
         </section>
       )}
-      {onTime.length > 0 && (
+      {queued.length > 0 && (
+        <section aria-label="Next up">
+          <SectionLabel icon={<ListOrdered />} count={queued.length}>Next up</SectionLabel>
+          <ul className="space-y-0.5">{queued.map((r, i) => line(r, "queue", i + 1))}</ul>
+        </section>
+      )}
+      {rest.length > 0 && (
         <section aria-label="Tasks">
-          <SectionLabel icon={<CalendarCheck2 />} count={onTime.length}>Tasks</SectionLabel>
-          <ul className="space-y-0.5">{onTime.map((r) => <TaskLine key={r.task.id} row={r} today={today} onOpen={setOpenId} onComplete={complete} onStar={(t) => void star(t.id, !t.starred)} />)}</ul>
+          <div className="flex items-center justify-between gap-2">
+            <SectionLabel icon={<CalendarCheck2 />} count={rest.length}>Tasks</SectionLabel>
+            <div role="radiogroup" aria-label="Order tasks by" className="mb-1.5 flex gap-0.5 rounded-md bg-muted p-0.5">
+              {ORDER_MODES.map((m) => (
+                <button key={m.id} type="button" role="radio" aria-checked={plan.mode === m.id} onClick={() => void save({ ...plan, mode: m.id })}
+                  className={cn("rounded px-2 py-0.5 text-[11px] outline-none focus-visible:ring-2 focus-visible:ring-ring", plan.mode === m.id ? "bg-card font-medium text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <ul className="space-y-0.5">{rest.map((r) => line(r, "list"))}</ul>
         </section>
       )}
       {reminders.length > 0 && (
@@ -143,12 +222,35 @@ export function TodayAgenda({ showUpcoming = false }: { showUpcoming?: boolean }
   );
 }
 
+/** The ⋯ menu on a task row. */
+function RowMenu({ title, items }: { title: string; items: { label: string; icon: React.ReactNode; run: () => void }[] }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" aria-label={`More for ${title}`}
+          className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground opacity-0 outline-none hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 data-[state=open]:opacity-100">
+          <MoreHorizontal className="size-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {items.map((it, i) => (
+          <span key={it.label}>
+            {i === 1 && <DropdownMenuSeparator />}
+            <DropdownMenuItem onSelect={it.run} className="[&_svg]:size-3.5">{it.icon}{it.label}</DropdownMenuItem>
+          </span>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /** One task on Today: tick, title (opens the task), links, and on the right what matters most. */
-function TaskLine({ row: { task, overdue }, today, onOpen, onComplete, onStar }: {
-  row: { task: Task; overdue: boolean }; today: string; onOpen: (id: string) => void; onComplete: (t: Task) => void; onStar: (t: Task) => void;
+function TaskLine({ row: { task, overdue }, today, n, menu, onOpen, onComplete, onStar }: {
+  row: { task: Task; overdue: boolean }; today: string; n?: number | undefined; menu?: React.ReactNode; onOpen: (id: string) => void; onComplete: (t: Task) => void; onStar: (t: Task) => void;
 }) {
   return (
     <li className={cn("group flex min-h-10 items-center gap-3 rounded-lg px-2 hover:bg-accent/50", task.starred && "bg-primary/[0.06]")}>
+      {n !== undefined && <span className="w-4 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground" aria-label={`Number ${n} in Next up`}>{n}</span>}
       <Checkbox aria-label={task.repeat ? `Tick ${task.title} for today` : `Complete ${task.title}`} checked={false} onCheckedChange={() => onComplete(task)} />
       <button type="button" title="Open the task" aria-label={`Edit ${task.title}`} onClick={() => onOpen(task.id)}
         className={cn("min-w-0 shrink truncate rounded text-left text-[13.5px] outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring", task.starred && "font-medium")}>
@@ -164,6 +266,7 @@ function TaskLine({ row: { task, overdue }, today, onOpen, onComplete, onStar }:
         </span>
       )}
       {task.status === "IN_PROGRESS" && <Badge variant="primary">In progress</Badge>}
+      {task.status === "PENDING" && <Badge>Paused</Badge>}
       {overdue && task.due_date ? (
         <span className="shrink-0 text-xs font-medium text-destructive">{overdueLabel(task.due_date, today)}</span>
       ) : task.due_date ? (
@@ -175,6 +278,7 @@ function TaskLine({ row: { task, overdue }, today, onOpen, onComplete, onStar }:
         </span>
       )}
       <StarButton starred={task.starred} title={task.title} onToggle={() => onStar(task)} />
+      {menu}
       <DeleteTaskButton task={task} />
     </li>
   );

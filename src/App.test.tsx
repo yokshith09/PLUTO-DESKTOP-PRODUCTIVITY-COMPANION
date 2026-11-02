@@ -89,11 +89,29 @@ describe("Notes screen (against the in-memory shell)", () => {
     expect(within(row).getByTitle("Deadline")).toBeTruthy();
   });
 
-  it("an overdue task on Today says how many days late it is", async () => {
+  it("Today: the started task is Now; Move to next queues another; Next pauses Now and starts it", async () => {
+    const user = userEvent.setup();
     render(<App />);
-    const late = await screen.findByRole("region", { name: "Overdue" });
-    expect(within(late).getByRole("button", { name: "Edit Finish the sync spec" })).toBeTruthy();
-    expect(within(late).getByText(/overdue$/)).toBeTruthy();
+    const now = await screen.findByRole("region", { name: "Now" });
+    expect(within(now).getByText("Design the notes screen")).toBeTruthy();
+    const list = screen.getByRole("region", { name: "Tasks" });
+    await user.click(within(list).getByRole("button", { name: "More for Refactor the tray menu" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Move to next" }));
+    const queue = await screen.findByRole("region", { name: "Next up" });
+    expect(within(queue).getByRole("button", { name: "Edit Refactor the tray menu" })).toBeTruthy();
+    await user.click(within(now).getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(within(screen.getByRole("region", { name: "Now" })).getByText("Refactor the tray menu")).toBeTruthy());
+    expect(screen.queryByRole("region", { name: "Next up" })).toBeNull();
+    const back = within(screen.getByRole("region", { name: "Tasks" })).getByRole("button", { name: "Edit Design the notes screen" }).closest("li") as HTMLElement;
+    expect(within(back).getByText("Paused")).toBeTruthy();
+  });
+
+  it("an overdue task on Today sits in Tasks with how many days late it is beside it (no Overdue section)", async () => {
+    render(<App />);
+    const list = await screen.findByRole("region", { name: "Tasks" });
+    const row = within(list).getByRole("button", { name: "Edit Finish the sync spec" }).closest("li") as HTMLElement;
+    expect(within(row).getByText(/overdue$/)).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Overdue" })).toBeNull();
   });
 
   it("browsers list their sites with time under the browser", async () => {

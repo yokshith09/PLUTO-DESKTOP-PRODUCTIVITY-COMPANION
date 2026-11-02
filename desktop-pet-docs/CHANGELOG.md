@@ -5,6 +5,14 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+### Added
+- Today overview: tiles sit in rows that share the width equally and take the height their content needs. Today and Time side by side by default; any tile moved beside Today gets half and Today the other half. No layout choices (owner 2026-11-02). A saved order that was never moved switches to the new default.
+- Today tile: **Now** (the task you started) with Done, Pause and Next; **Next up** queue (no limit, numbered) with a ⋯ menu (Start now, Move to next, Move up, Take out); order buttons My order / Priority / Due with Move up/down. When Now finishes or you press Next, the first in Next up starts right away, without asking (owner). Order and queue kept in `ui.today_plan`.
+
+### Changed
+- Today tile keeps only Tasks and Reminders as sections; overdue, paused, priority and meeting show as tags beside the task (no Overdue section).
+- Daily routine tile: height follows the list (scrolls only when very long), long names wrap, a progress bar, and each habit's x/7 days (the no-guilt count from FR-90, not a streak).
+
 ### Fixed
 - Assistants → Claude → Connect now also adds Pluto to the Claude app installed from the Microsoft Store / MSIX installer (`%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\claude_desktop_config.json`), the file that install really reads. Before, Pluto worked in Claude Code but never showed under the Claude app's Local MCP servers (owner's PC). Unverified on Windows until the owner reconnects.
 

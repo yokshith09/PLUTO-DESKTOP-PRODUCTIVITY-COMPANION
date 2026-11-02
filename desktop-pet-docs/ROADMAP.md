@@ -431,3 +431,5 @@ Order to be confirmed with the owner after 0.6.0 ships.
 2. **Opt-in network layer**: one HTTP client, off by default, a Connections page; then CI reactions (GitHub Actions), calendar feed, connectors (`RESEARCH_INTEGRATIONS.md` F).
 3. **Characters** (P3, paused): the remaining character work.
 4. **Clean-up before an outside release**: tracking trace (after a full day matches), old-name migration (after testers pass 0.5.x), history comments (`MCP_PLAN.md` §17).
+
+- 2026-11-02: Today overview (auto-fitting tiles, Now / Next up, ordering) and Daily routine fix built for the next build; owner to test.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanOrder, cleanSizes, DEFAULT_ORDER } from "./MovableTiles";
+import { cleanOrder, cleanSizes, DEFAULT_ORDER, packRows } from "./MovableTiles";
 
 describe("cleanOrder", () => {
   it("keeps a valid saved order", () => {
@@ -26,5 +26,26 @@ describe("cleanSizes", () => {
     expect(cleanSizes({ agenda: "huge", nope: "l", links: "s" })).toEqual({ links: "n" });
     expect(cleanSizes(null)).toEqual({});
     expect(cleanSizes("x")).toEqual({});
+  });
+});
+
+describe("packRows (tiles share a row equally, height follows content)", () => {
+  it("puts Today and Time side by side, then the three small tiles", () => {
+    expect(packRows(DEFAULT_ORDER, {})).toEqual([["agenda", "time"], ["focus", "routine", "links"]]);
+  });
+  it("a tile moved beside Today shares the row with it, half each", () => {
+    expect(packRows(["agenda", "focus", "time", "routine", "links"], {})).toEqual([["agenda", "focus"], ["time", "routine"], ["links"]]);
+  });
+  it("a full-width tile gets a row of its own", () => {
+    expect(packRows(DEFAULT_ORDER, { agenda: "w" })).toEqual([["agenda"], ["time", "focus"], ["routine", "links"]]);
+  });
+  it("a big tile never joins two small ones", () => {
+    expect(packRows(["focus", "routine", "agenda", "time", "links"], {})).toEqual([["focus", "routine"], ["agenda", "time"], ["links"]]);
+  });
+});
+
+describe("cleanOrder after the 2026-11-02 layout", () => {
+  it("the old default order, never moved, becomes the new default", () => {
+    expect(cleanOrder(["agenda", "focus", "routine", "time", "links"])).toEqual(DEFAULT_ORDER);
   });
 });
