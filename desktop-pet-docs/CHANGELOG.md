@@ -5,7 +5,9 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
-(MCP, 0.6.0, is built on top of 0.5.8.)
+## [0.5.9] — 2026-11-02 (draft for owner testing on Windows and Mac; Unverified)
+
+Everything since 0.5.8: Assistants (MCP) complete for testing, no-flicker pet window, hover card as before, stretch reminder after a night away, Bin for reminders and meetings.
 
 - Fixed (owner 2026-11-02, "no flicker in 0.5.9"): the pet window no longer changes size on hover. It is laid out once at the size of pet and card and keeps it; the card, bubbles and the timer appear inside it, and clicks go through its empty part (the shell checks the pointer every 40 ms and lets it through anywhere but the pet and an open card). The old "invisible while resizing" step is gone. The card looks as it did before 0.5.8. Change you will see: the focus timer now sits on the card's side of the pet (above it when the pet is at the bottom of the screen) instead of always below. **Unverified on a real PC and Mac.**
 - Added (Assistants page): **Try it**, seven prompts to paste into a connected assistant (reading, pet, adding, changing, reminder, notes, review), each with Copy.
