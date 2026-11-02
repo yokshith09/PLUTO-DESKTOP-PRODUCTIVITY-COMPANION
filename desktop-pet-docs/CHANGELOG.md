@@ -6,6 +6,7 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 ## [Unreleased]
 
 ### Added
+- Developer reactions, one-time setup for all projects (P4.3a): Assistants → Developer reactions → **Add a folder** (for example E:\Projects). Every git project inside it (up to 4 folders down, 200 projects; node_modules, build output and hidden folders skipped) is watched, and new projects are found by themselves within a minute. The pet reacts to each commit and each push that worked, from any tool (VS Code, terminal, Claude Code). Pluto reads only git's own logs in `.git/logs`, never your code. No hooks to paste. Verified against the real git binary in a test; Unverified on Windows. Builds keep one line to set once as your build command (builds leave no log to watch).
 - Today overview: tiles sit in rows that share the width equally and take the height their content needs. Today and Time side by side by default; any tile moved beside Today gets half and Today the other half. No layout choices (owner 2026-11-02). A saved order that was never moved switches to the new default.
 - Today tile: **Now** (the task you started) with Done, Pause and Next; **Next up** queue (no limit, numbered) with a ⋯ menu (Start now, Move to next, Move up, Take out); order buttons My order / Priority / Due with Move up/down. When Now finishes or you press Next, the first in Next up starts right away, without asking (owner). Order and queue kept in `ui.today_plan`.
 

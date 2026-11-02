@@ -13,6 +13,8 @@ export type AssistantPlace = { label: string; path: string; installed: boolean; 
 export type AssistantInfo = { id: string; name: string; installed: boolean; connected: boolean; places: AssistantPlace[] };
 
 export type DeveloperLines = { gitCommit: string; gitPush: string; build: string };
+/** Folders watched for commits and pushes, and the repositories found in them. */
+export type GitWatchInfo = { roots: string[]; repos: string[] };
 
 export const ipc = {
   settingsGetAll: () => call<Settings>("settings_get_all"),
@@ -31,6 +33,9 @@ export const ipc = {
   mcpUndo: (id: number) => call<string>("mcp_undo", { id }),
   /** Lines to copy for git and build reactions. */
   mcpDeveloper: () => call<DeveloperLines>("mcp_developer"),
+  devGitWatch: () => call<GitWatchInfo>("dev_git_watch"),
+  devGitAddFolder: () => call<GitWatchInfo | null>("dev_git_add_folder"),
+  devGitRemoveFolder: (path: string) => call<GitWatchInfo>("dev_git_remove_folder", { path }),
   /** The last calls assistants made, newest first (in memory only). */
   mcpActivity: () => call<AssistantCall[]>("mcp_activity"),
 

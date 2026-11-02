@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BellOff, BookOpen, Check, CircleSlash, Code2, Copy, Eye, ListChecks, Lock, MessageCircle, PartyPopper, PenLine, Plus, Settings2, ShieldCheck, Undo2 } from "lucide-react";
-import { errorMessage, ipc, type AssistantCall, type AssistantInfo } from "@/ipc";
+import { errorMessage, ipc, type AssistantCall, type AssistantInfo, type GitWatchInfo } from "@/ipc";
 import { useSetting } from "@/hooks/useTheme";
 import { notify } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
@@ -220,35 +220,47 @@ function FocusGuard() {
 }
 
 function DeveloperReactions() {
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const { data } = useQuery({ queryKey: ["mcp", "developer"], queryFn: ipc.mcpDeveloper, enabled: open });
+  const { data: lines } = useQuery({ queryKey: ["mcp", "developer"], queryFn: ipc.mcpDeveloper, enabled: open });
+  const { data: watch } = useQuery({ queryKey: ["dev", "git"], queryFn: ipc.devGitWatch });
+  const roots = watch?.roots ?? [];
+  const repos = watch?.repos ?? [];
+  const set = (next: GitWatchInfo | null) => { if (next) qc.setQueryData(["dev", "git"], next); };
   const copy = async (text: string) => {
     try { await navigator.clipboard.writeText(text); notify.success("Copied"); } catch { notify.error("Could not copy"); }
   };
-  const lines = data ? [
-    { label: "After a commit (.git/hooks/post-commit)", text: data.gitCommit },
-    { label: "Before a push (.git/hooks/pre-push)", text: data.gitPush },
-    { label: "A build", text: data.build },
-  ] : [];
   return (
     <Panel className="p-5">
       <div className="flex items-start gap-4">
         <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-muted/60"><Code2 className="size-4 text-muted-foreground" aria-hidden /></span>
         <div className="min-w-0 flex-1">
           <h2 className="text-[15px] font-semibold">Developer reactions</h2>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">The pet cheers when Claude Code finishes and waves when it needs you; Connect on the Claude tile sets that up. It can also react to your commits, pushes and builds.</p>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">The pet cheers when Claude Code finishes and waves when it needs you; Connect on the Claude tile sets that up. Pick the folder that holds your projects once, and the pet also reacts to every commit and every push that worked, in all of them, from any tool.</p>
         </div>
-        <Button size="sm" variant="ghost" onClick={() => setOpen((o) => !o)} aria-expanded={open}>{open ? "Hide" : "Git and builds"}</Button>
       </div>
-      {open && (
-        <div className="mt-4 space-y-3 border-t pt-4">
-          {lines.map((l) => (
-            <div key={l.label}>
-              <p className="text-[12px] font-medium">{l.label}</p>
-              <pre aria-label={l.label} className="mt-1 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed">{l.text}</pre>
-              <Button size="sm" variant="outline" className="mt-2" onClick={() => void copy(l.text)}><Copy className="size-3.5" />Copy</Button>
-            </div>
-          ))}
+      <div className="mt-4 space-y-2 border-t pt-4" aria-label="Watched folders">
+        {roots.length === 0 && <p className="text-[12px] text-muted-foreground">No folder yet. Pick the one that holds your projects (for example E:\Projects); every git project inside it is included, and new ones are found by themselves.</p>}
+        {roots.map((r) => (
+          <div key={r} className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2">
+            <span className="min-w-0 flex-1 truncate font-mono text-[12px]" title={r}>{r}</span>
+            <Button size="sm" variant="ghost" aria-label={`Stop watching ${r}`} onClick={() => void ipc.devGitRemoveFolder(r).then(set)}>Remove</Button>
+          </div>
+        ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <Button size="sm" variant="outline" onClick={() => void ipc.devGitAddFolder().then(set).catch((e: unknown) => notify.error(errorMessage(e)))}><Plus className="size-3.5" />Add a folder</Button>
+          {roots.length > 0 && <span className="text-[12px] text-muted-foreground" aria-live="polite">{repos.length === 0 ? "No git projects found inside yet" : `Watching ${repos.length} project${repos.length === 1 ? "" : "s"}`}</span>}
+          <span className="flex-1" />
+          <Button size="sm" variant="ghost" onClick={() => setOpen((o) => !o)} aria-expanded={open}>{open ? "Hide" : "Builds"}</Button>
+        </div>
+        <p className="text-[11px] text-muted-foreground">Pluto reads only git's own logs inside each project's .git folder, never your code.</p>
+      </div>
+      {open && lines && (
+        <div className="mt-4 space-y-2 border-t pt-4">
+          <p className="text-[12px] font-medium">A build</p>
+          <p className="text-[12px] text-muted-foreground">Builds have no log to watch, so set this once as your build command (for example a VS Code task, or a script in package.json), with your own command in place of &lt;your build&gt;.</p>
+          <pre aria-label="A build" className="overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed">{lines.build}</pre>
+          <Button size="sm" variant="outline" onClick={() => void copy(lines.build)}><Copy className="size-3.5" />Copy</Button>
         </div>
       )}
     </Panel>

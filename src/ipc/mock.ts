@@ -13,6 +13,7 @@ const HOUR = 3_600_000;
 
 export function createMock() {
   let seq = 100;
+  let gitRoots: string[] = [];
   const now = () => Date.now();
   const listeners = new Set<(e: PlutoEvent) => void>();
   // Events carry the same fields as the real ones where the UI reads them (the pet does).
@@ -350,6 +351,9 @@ export function createMock() {
     },
     mcp_listening: () => settings["mcp.enabled"] === true,
     mcp_undo: (a) => { const c = mcpCalls.find((x) => x.undoId === a.id); if (c) { c.undone = true; c.undoId = null; } return "Removed the task \"Call the bank\"."; },
+    dev_git_watch: () => ({ roots: [...gitRoots], repos: gitRoots.map((r) => `${r}/pluto`) }),
+    dev_git_add_folder: () => { gitRoots.push("E:/Projects"); return { roots: [...gitRoots], repos: gitRoots.map((r) => `${r}/pluto`) }; },
+    dev_git_remove_folder: (a) => { gitRoots = gitRoots.filter((r) => r !== a.path); return { roots: [...gitRoots], repos: gitRoots.map((r) => `${r}/pluto`) }; },
     mcp_developer: () => ({ gitCommit: `#!/bin/sh\n"${exe}" --react git_commit --assistant git\n`, gitPush: `#!/bin/sh\n"${exe}" --react git_push --assistant git\n`, build: `<your build> && "${exe}" --react build_ok --assistant build || "${exe}" --react build_failed --assistant build` }),
     mcp_activity: () => (settings["mcp.enabled"] === true ? mcpCalls.map((c) => ({ ...c })) : []),
     setting_set: (a) => { settings[String(a.key)] = a.value; emit("SettingChanged"); return null; },

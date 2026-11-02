@@ -433,3 +433,5 @@ Order to be confirmed with the owner after 0.6.0 ships.
 4. **Clean-up before an outside release**: tracking trace (after a full day matches), old-name migration (after testers pass 0.5.x), history comments (`MCP_PLAN.md` §17).
 
 - 2026-11-02: Today overview (auto-fitting tiles, Now / Next up, ordering) and Daily routine fix built for the next build; owner to test.
+
+- 2026-11-02: P4.3a done in code (git watcher, one-time folders). Next: Project Spaces (preview first), then UI polish (preview first), then 0.5.10.

@@ -28,7 +28,8 @@ function renderPage({ enabled = false, connected = false, dev = false } = {}) {
     { atMs: 1, assistant: "Claude Code", tool: "task_add", ok: true, detail: "Added the task \"Call the bank\".", changed: true, undoId: 7, undone: false },
   ]);
   vi.spyOn(ipc, "mcpUndo").mockResolvedValue("Removed the task \"Call the bank\".");
-  vi.spyOn(ipc, "mcpDeveloper").mockResolvedValue({ gitCommit: "#!/bin/sh\npluto --react git_commit", gitPush: "x", build: "y" });
+  vi.spyOn(ipc, "mcpDeveloper").mockResolvedValue({ gitCommit: "#!/bin/sh\npluto --react git_commit", gitPush: "x", build: "make && pluto --react build_ok" });
+  if (!vi.isMockFunction(ipc.devGitWatch)) vi.spyOn(ipc, "devGitWatch").mockResolvedValue({ roots: [], repos: [] });
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><AssistantsPage /></QueryClientProvider>);
   return { connect, disconnect, prefsSet, activity };
 }
@@ -104,9 +105,19 @@ describe("Assistants page", () => {
     await waitFor(() => expect(ipc.settingSet).toHaveBeenCalledWith("mcp.focus_guard", true));
   });
 
-  it("developer reactions show the git and build lines to copy when opened", async () => {
+  it("developer reactions: one folder picked once watches every project in it; builds keep a line to copy", async () => {
+    let roots: string[] = [];
+    const info = () => ({ roots: [...roots], repos: roots.flatMap((r) => [`${r}/a`, `${r}/b`]) });
+    vi.spyOn(ipc, "devGitWatch").mockImplementation(async () => info());
+    vi.spyOn(ipc, "devGitAddFolder").mockImplementation(async () => { roots = ["E:/Projects"]; return info(); });
+    vi.spyOn(ipc, "devGitRemoveFolder").mockImplementation(async () => { roots = []; return info(); });
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Git and builds" }));
-    expect((await screen.findByLabelText("After a commit (.git/hooks/post-commit)")).textContent).toContain("--react git_commit");
+    fireEvent.click(await screen.findByRole("button", { name: "Add a folder" }));
+    expect(await screen.findByText("Watching 2 projects")).toBeTruthy();
+    expect(screen.getByText("E:/Projects")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Stop watching E:/Projects" }));
+    await waitFor(() => expect(screen.queryByText("E:/Projects")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Builds" }));
+    expect((await screen.findByLabelText("A build")).textContent).toContain("build_ok");
   });
 });

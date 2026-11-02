@@ -9,6 +9,7 @@ pub mod courses;
 pub mod daily_log;
 pub mod data;
 pub mod db;
+pub mod devwatch;
 pub mod diary;
 pub mod error;
 pub mod events;

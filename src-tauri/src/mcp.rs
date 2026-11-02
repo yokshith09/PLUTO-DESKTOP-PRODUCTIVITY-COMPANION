@@ -413,6 +413,16 @@ impl Mcp {
     }
 }
 
+/// The pet side of Pluto, for reactions raised inside Pluto itself (the git watcher).
+pub fn shell_host<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp) -> Arc<dyn Host> {
+    Arc::new(ShellHost {
+        app: app.clone(),
+        activity: mcp.activity.clone(),
+        guard: mcp.guard.clone(),
+        asks: mcp.asks.clone(),
+    })
+}
+
 /// Starts listening for bridges with a fresh token.
 fn listen_now<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp, data_dir: &Path) {
     mcp.stop(data_dir);

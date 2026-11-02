@@ -312,3 +312,5 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-02: Claude app (Store/MSIX install) did not list Pluto; Connect now writes its packaged config too. Unverified on Windows.
 
 - 2026-11-02: Today overview auto-fitting rows, Now / Next up / ordering on the Today tile, Daily routine fix. Tested in UI tests and the dev mock; Unverified in the real app.
+
+- 2026-11-02: P4.3a git watcher built (folders picked once, all repos inside). Tests incl. real git. Unverified on Windows/macOS.

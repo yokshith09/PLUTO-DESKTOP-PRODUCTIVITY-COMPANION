@@ -2,6 +2,7 @@
 //! here; logic lives in `pluto-core` (ADR-002).
 
 mod autostart;
+mod devwatch;
 mod earlier_app;
 mod ipc;
 mod logs;
@@ -168,6 +169,9 @@ pub fn run() {
             mcp::mcp_undo,
             mcp::pet_answer,
             mcp::mcp_developer,
+            devwatch::dev_git_watch,
+            devwatch::dev_git_add_folder,
+            devwatch::dev_git_remove_folder,
             mcp::mcp_activity,
             ipc::setting_set,
             ipc::prefs_get,
@@ -432,6 +436,8 @@ pub fn run() {
             // MCP: the private pipe for assistants, only while switched on (off by default).
             app.manage(mcp::Mcp::default());
             mcp::start(app.handle().clone(), settings.clone(), &bus, data_dir.clone());
+            app.manage(devwatch::DevWatch::default());
+            devwatch::start(app.handle().clone(), settings.clone());
             if let Some(logs) = logs {
                 logs::follow_setting(logs, settings.clone(), &bus);
             }
