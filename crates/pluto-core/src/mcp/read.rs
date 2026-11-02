@@ -18,6 +18,8 @@ use crate::tasks::{self, Task, TaskFilters, TaskRow, TaskView};
 pub struct Data {
     pub db: Arc<Database>,
     pub clock: Arc<dyn Clock>,
+    /// For a setting the person allowed (`setting_change`); `None` where settings are not open.
+    pub settings: Option<Arc<crate::settings_service::SettingsService>>,
 }
 
 /// Most rows one answer carries.
@@ -234,6 +236,86 @@ pub async fn notes_search(data: &Data, query: &str) -> Result<NoteHits, String> 
     hits.truncate(LIST_MAX);
     Ok(NoteHits {
         notes: hits.into_iter().map(note_brief).collect(),
+    })
+}
+
+/// A reminder, with its time in the person's local time.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct ReminderBrief {
+    pub id: String,
+    pub title: String,
+    /// "YYYY-MM-DD HH:MM" where the person is.
+    pub at: String,
+    pub done: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct ReminderList {
+    pub reminders: Vec<ReminderBrief>,
+}
+
+/// A meeting, without its notes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct MeetingBrief {
+    pub id: String,
+    pub title: String,
+    /// "YYYY-MM-DD HH:MM" where the person is.
+    pub starts: String,
+    pub participants: Vec<String>,
+    pub open_action_items: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct MeetingList {
+    pub meetings: Vec<MeetingBrief>,
+}
+
+fn local(data: &Data, ms: i64) -> String {
+    use chrono::TimeZone;
+    data.clock
+        .tz()
+        .timestamp_millis_opt(ms)
+        .single()
+        .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
+        .unwrap_or_default()
+}
+
+/// Reminders still to come, soonest first (done ones too when asked).
+pub async fn reminders_list(data: &Data, include_done: bool) -> Result<ReminderList, String> {
+    let rows = crate::reminders::list(&data.db, include_done)
+        .await
+        .map_err(|e| say(&e, "list"))?;
+    Ok(ReminderList {
+        reminders: rows
+            .into_iter()
+            .take(LIST_MAX)
+            .map(|r| ReminderBrief {
+                at: local(data, r.remind_at),
+                done: r.done_at.is_some(),
+                id: r.id,
+                title: r.title,
+            })
+            .collect(),
+    })
+}
+
+/// The latest meetings, newest first.
+pub async fn meetings_list(data: &Data) -> Result<MeetingList, String> {
+    let rows = crate::meetings::list(&data.db, crate::meetings::MeetingFilters::default())
+        .await
+        .map_err(|e| say(&e, "list"))?;
+    Ok(MeetingList {
+        meetings: rows
+            .into_iter()
+            .take(LIST_MAX)
+            .map(|m| MeetingBrief {
+                starts: local(data, m.starts_at),
+                id: m.id,
+                title: m.title,
+                participants: m.participants,
+                open_action_items: m.open_action_items,
+            })
+            .collect(),
     })
 }
 

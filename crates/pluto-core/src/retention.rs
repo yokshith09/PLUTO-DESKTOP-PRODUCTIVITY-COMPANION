@@ -119,6 +119,8 @@ pub async fn apply(
             )?;
         }
         tx.execute("DELETE FROM tasks WHERE binned_at IS NOT NULL AND binned_at < ?1", [now - BIN_DAYS * DAY_MS])?;
+        tx.execute("DELETE FROM reminders WHERE binned_at IS NOT NULL AND binned_at < ?1", [now - BIN_DAYS * DAY_MS])?;
+        tx.execute("DELETE FROM meetings WHERE binned_at IS NOT NULL AND binned_at < ?1", [now - BIN_DAYS * DAY_MS])?;
         let events = if c == RetentionCounts::default() { vec![] } else { vec![Event::RetentionApplied { at: now, counts: c }] };
         Ok((c, events))
     })

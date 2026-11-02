@@ -86,6 +86,16 @@ describe("Assistants page", () => {
     await waitFor(() => expect(ipc.mcpUndo).toHaveBeenCalledWith(7));
   });
 
+  it("offers test prompts to paste into the assistant, each with Copy", async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText: write } });
+    renderPage();
+    const list = await screen.findByRole("list", { name: "Test prompts" });
+    expect(within(list).getAllByRole("listitem").length).toBe(7);
+    fireEvent.click(within(list).getByRole("button", { name: "Copy: Using Pluto, what's on my plan today?" }));
+    await waitFor(() => expect(write).toHaveBeenCalledWith("Using Pluto, what's on my plan today?"));
+  });
+
   it("the focus guard is off by default and switches on from this page", async () => {
     renderPage();
     const guard = await screen.findByRole("switch", { name: "Quiet while you focus" });

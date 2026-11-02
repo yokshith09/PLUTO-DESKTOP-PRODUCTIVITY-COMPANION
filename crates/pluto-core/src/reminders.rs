@@ -159,7 +159,7 @@ fn from_row(r: &Row) -> rusqlite::Result<Reminder> {
 
 fn load(conn: &Connection, id: &str) -> Result<Reminder> {
     conn.query_row(
-        &format!("SELECT {COLUMNS} FROM reminders WHERE id = ?1"),
+        &format!("SELECT {COLUMNS} FROM reminders WHERE id = ?1 AND binned_at IS NULL"),
         [id],
         from_row,
     )
@@ -318,7 +318,60 @@ pub async fn set_starred(
 pub async fn delete(db: &Database, clock: &dyn Clock, id: &str) -> Result<()> {
     let (id, now) = (id.to_owned(), clock.now_ms());
     db.write(move |tx| {
-        if tx.execute("DELETE FROM reminders WHERE id = ?1", [&id])? == 0 {
+        // To the Bin: restorable for 30 days (owner Q4), never fires there.
+        if tx.execute(
+            "UPDATE reminders SET binned_at = ?2 WHERE id = ?1 AND binned_at IS NULL",
+            params![&id, now],
+        )? == 0
+        {
+            return Err(not_found());
+        }
+        Ok(((), vec![Event::ReminderDeleted { at: now, id }]))
+    })
+    .await
+}
+
+/// Reminders in the Bin, most recently deleted first.
+pub async fn list_binned(db: &Database) -> Result<Vec<Reminder>> {
+    db.read(|conn| {
+        let mut stmt = conn.prepare(&format!(
+            "SELECT {COLUMNS} FROM reminders WHERE binned_at IS NOT NULL ORDER BY binned_at DESC, id"
+        ))?;
+        let rows = stmt.query_map([], from_row)?.collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    })
+    .await
+}
+
+/// Puts a reminder from the Bin back.
+pub async fn restore(db: &Database, clock: &dyn Clock, id: &str) -> Result<Reminder> {
+    let (id, now) = (id.to_owned(), clock.now_ms());
+    db.write(move |tx| {
+        if tx.execute(
+            "UPDATE reminders SET binned_at = NULL WHERE id = ?1 AND binned_at IS NOT NULL",
+            [&id],
+        )? == 0
+        {
+            return Err(not_found());
+        }
+        let reminder = load(tx, &id)?;
+        Ok((
+            reminder.clone(),
+            vec![Event::ReminderCreated { at: now, reminder }],
+        ))
+    })
+    .await
+}
+
+/// Deletes a reminder in the Bin for good.
+pub async fn purge(db: &Database, clock: &dyn Clock, id: &str) -> Result<()> {
+    let (id, now) = (id.to_owned(), clock.now_ms());
+    db.write(move |tx| {
+        if tx.execute(
+            "DELETE FROM reminders WHERE id = ?1 AND binned_at IS NOT NULL",
+            [&id],
+        )? == 0
+        {
             return Err(not_found());
         }
         Ok(((), vec![Event::ReminderDeleted { at: now, id }]))
@@ -331,7 +384,7 @@ pub async fn list(db: &Database, include_done: bool) -> Result<Vec<Reminder>> {
     db.read(move |conn| {
         let mut stmt = conn.prepare(&format!(
             "SELECT {COLUMNS} FROM reminders
-              WHERE (?1 OR done_at IS NULL)
+              WHERE binned_at IS NULL AND (?1 OR done_at IS NULL)
               ORDER BY (done_at IS NOT NULL), starred DESC, remind_at ASC, id ASC"
         ))?;
         let rows = stmt
@@ -346,7 +399,7 @@ pub async fn list(db: &Database, include_done: bool) -> Result<Vec<Reminder>> {
 pub async fn next_pending(db: &Database) -> Result<Option<i64>> {
     db.read(|conn| {
         Ok(conn.query_row(
-            "SELECT MIN(remind_at) FROM reminders WHERE done_at IS NULL AND fired_at IS NULL",
+            "SELECT MIN(remind_at) FROM reminders WHERE binned_at IS NULL AND done_at IS NULL AND fired_at IS NULL",
             [],
             |r| r.get(0),
         )?)
@@ -359,7 +412,7 @@ pub async fn due(db: &Database, now: i64) -> Result<Vec<Reminder>> {
     db.read(move |conn| {
         let mut stmt = conn.prepare(&format!(
             "SELECT {COLUMNS} FROM reminders
-              WHERE done_at IS NULL AND fired_at IS NULL AND remind_at <= ?1
+              WHERE binned_at IS NULL AND done_at IS NULL AND fired_at IS NULL AND remind_at <= ?1
               ORDER BY remind_at ASC, id ASC"
         ))?;
         let rows = stmt
@@ -832,6 +885,29 @@ mod tests {
         .await
         .unwrap_err();
         assert_eq!(err.field.as_deref(), Some("title"));
+    }
+
+    #[tokio::test]
+    async fn a_deleted_reminder_waits_in_the_bin_never_fires_and_can_come_back() {
+        let f = setup();
+        let r = create(&f.db, &f.clock, input("Call mum", 5_000))
+            .await
+            .unwrap();
+        delete(&f.db, &f.clock, &r.id).await.unwrap();
+        assert!(list(&f.db, true).await.unwrap().is_empty());
+        assert_eq!(next_pending(&f.db).await.unwrap(), None);
+        assert!(
+            due(&f.db, 99_000).await.unwrap().is_empty(),
+            "never fires from the Bin"
+        );
+        assert_eq!(list_binned(&f.db).await.unwrap()[0].id, r.id);
+        let back = restore(&f.db, &f.clock, &r.id).await.unwrap();
+        assert_eq!(back.title, "Call mum");
+        assert_eq!(list(&f.db, true).await.unwrap().len(), 1);
+        delete(&f.db, &f.clock, &r.id).await.unwrap();
+        purge(&f.db, &f.clock, &r.id).await.unwrap();
+        assert!(list_binned(&f.db).await.unwrap().is_empty());
+        assert!(restore(&f.db, &f.clock, &r.id).await.is_err());
     }
 
     #[tokio::test]

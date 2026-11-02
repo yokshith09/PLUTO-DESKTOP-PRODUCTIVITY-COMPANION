@@ -235,6 +235,42 @@ pub async fn reminder_delete(id: String, core: State<'_, Core>) -> Result<()> {
     reminders::delete(&core.db, &*core.clock, &id).await
 }
 
+// ---- the Bin for reminders and meetings (owner Q4) -------------------------------------------
+
+#[tauri::command]
+pub async fn reminders_binned(core: State<'_, Core>) -> Result<Vec<reminders::Reminder>> {
+    reminders::list_binned(&core.db).await
+}
+
+#[tauri::command]
+pub async fn reminder_restore(id: String, core: State<'_, Core>) -> Result<reminders::Reminder> {
+    reminders::restore(&core.db, &*core.clock, &id).await
+}
+
+#[tauri::command]
+pub async fn reminder_purge(id: String, core: State<'_, Core>) -> Result<()> {
+    reminders::purge(&core.db, &*core.clock, &id).await
+}
+
+#[tauri::command]
+pub async fn meetings_binned(
+    core: State<'_, Core>,
+) -> Result<Vec<pluto_core::meetings::BinMeeting>> {
+    pluto_core::meetings::list_binned(&core.db).await
+}
+
+#[tauri::command]
+pub async fn meeting_restore(id: String, core: State<'_, Core>) -> Result<()> {
+    pluto_core::meetings::restore(&core.db, &*core.clock, &id)
+        .await
+        .map(|_| ())
+}
+
+#[tauri::command]
+pub async fn meeting_purge(id: String, core: State<'_, Core>) -> Result<()> {
+    pluto_core::meetings::purge(&core.db, &*core.clock, &id).await
+}
+
 // ---- diary (FR-86) ---------------------------------------------------------------------------
 
 #[tauri::command]

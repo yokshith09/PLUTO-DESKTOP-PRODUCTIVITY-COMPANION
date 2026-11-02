@@ -19,11 +19,24 @@ export const CAN = [
   { icon: MessageCircle, text: "Show you a short message on the pet." },
   { icon: ListChecks, text: "See today's plan and your tasks, and plan your day or week with you." },
   { icon: BookOpen, text: "Find and read your notes when you ask about them." },
-  { icon: PenLine, text: "Add tasks, reminders and notes, change a task or mark it done, when you ask. Every change can be undone." },
+  { icon: PenLine, text: "Add tasks, reminders and notes, change a task or mark it done, and move a reminder or meeting to the Bin, when you ask. Every change can be undone." },
+  { icon: ShieldCheck, text: "Change a setting like the theme, only after you press Allow on the pet." },
+  { icon: MessageCircle, text: "Ask you a quick question on the pet, with buttons, while you are in another app." },
   { icon: Eye, text: "See if you are in a focus session, so they don't disturb you." },
 ] as const;
-export const COMING = { icon: ShieldCheck, text: "Change a setting for you, only after you press Allow on the pet." } as const;
+export const COMING = { icon: Lock, text: "Turn assistants off, change tracking, shortcuts or start-up. Those stay with you." } as const;
 export const NEVER = { icon: Lock, text: "Your diary. Assistants can never see it." } as const;
+
+/** Paste these into a connected assistant to check each part works (owner 2026-11-02). */
+export const TRY = [
+  { what: "Reading", text: "Using Pluto, what's on my plan today?" },
+  { what: "Pet", text: "Make my Pluto pet cheer, then say \"Test from my assistant\" on it." },
+  { what: "Adding", text: "Add a task in Pluto: \"Test task from my assistant\", due tomorrow." },
+  { what: "Changing", text: "In Pluto, mark \"Test task from my assistant\" as done." },
+  { what: "Reminder", text: "Add a Pluto reminder \"Stretch\" for 10 minutes from now." },
+  { what: "Notes", text: "Search my Pluto notes for \"meeting\" and tell me what you find." },
+  { what: "Review", text: "Give me a short daily review from Pluto. Don't save it." },
+] as const;
 
 const DEV_PREF = "assistants.devPreview";
 const parseDev = (raw: unknown) => raw === true;
@@ -62,6 +75,7 @@ export function AssistantsPage() {
         )}
       </Panel>
 
+      <TryIt />
       <Capabilities />
       <FocusGuard />
       <DeveloperReactions />
@@ -154,7 +168,7 @@ function Capabilities() {
         ))}
       </ul>
       <div className="mt-4 grid gap-2 border-t pt-4 sm:grid-cols-2">
-        <Note icon={COMING.icon} label="Coming next" text={COMING.text} />
+        <Note icon={COMING.icon} label="Not allowed" text={COMING.text} />
         <Note icon={NEVER.icon} label="Never" text={NEVER.text} />
       </div>
     </Panel>
@@ -167,6 +181,27 @@ function Note({ icon: Icon, label, text }: { icon: typeof Lock; label: string; t
       <Icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
       <p><span className="font-medium">{label}. </span><span className="text-muted-foreground">{text}</span></p>
     </div>
+  );
+}
+
+function TryIt() {
+  const copy = async (text: string) => {
+    try { await navigator.clipboard.writeText(text); notify.success("Copied. Paste it into your assistant."); } catch { notify.error("Could not copy"); }
+  };
+  return (
+    <Panel className="p-5">
+      <h2 className="text-[15px] font-semibold">Try it</h2>
+      <p className="mt-0.5 text-[13px] text-muted-foreground">After connecting, paste one of these into your assistant. Anything it adds can be undone in the developer preview.</p>
+      <ul aria-label="Test prompts" className="mt-3 divide-y rounded-lg border">
+        {TRY.map((t) => (
+          <li key={t.what} className="flex items-center gap-3 px-3 py-2.5">
+            <span className="w-20 shrink-0 text-[12px] text-muted-foreground">{t.what}</span>
+            <span className="min-w-0 flex-1 text-[13px]">{t.text}</span>
+            <Button size="icon-sm" variant="ghost" aria-label={`Copy: ${t.text}`} onClick={() => void copy(t.text)}><Copy className="size-3.5" /></Button>
+          </li>
+        ))}
+      </ul>
+    </Panel>
   );
 }
 
@@ -236,7 +271,7 @@ function DeveloperPreview({ on }: { on: boolean }) {
       <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
           <h2 className="text-[15px] font-semibold">Developer preview</h2>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">See every request an assistant makes and everything it changed, as it happens, with Undo. Useful for testing an assistant. Kept only until Pluto closes.</p>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">See every request an assistant makes and everything it changed, as it happens, with Undo. Useful for testing an assistant. The last 50 are kept on this computer, so Undo works after a restart.</p>
         </div>
         <Switch checked={show} onCheckedChange={(v) => void dev.set(v)} aria-label="Developer preview" />
       </div>

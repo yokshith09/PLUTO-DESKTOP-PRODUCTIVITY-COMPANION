@@ -193,7 +193,26 @@ pub struct PetState {
     save_pending: AtomicBool,
     /// The last spot written, so opening and closing the card does not write the same spot again.
     saved: Mutex<Option<(i32, i32)>>,
+    /// The parts of the window that are drawn (the pet, an open card or bubble), in CSS pixels
+    /// from the window's top-left. Everywhere else clicks go through to the app underneath.
+    /// `None` until the page has said: then the whole window takes the pointer.
+    solid: Mutex<Option<Vec<[f64; 4]>>>,
+    /// A drag is on: the whole window keeps the pointer until it ends.
+    holding: AtomicBool,
 }
+
+/// Is the point (CSS pixels from the window's top-left) on a drawn part of the window?
+pub fn on_solid(solid: Option<&[[f64; 4]]>, x: f64, y: f64) -> bool {
+    match solid {
+        None => true,
+        Some(rects) => rects
+            .iter()
+            .any(|[l, t, w, h]| x >= *l && x < l + w && y >= *t && y < t + h),
+    }
+}
+
+/// How often the pointer is looked at to let clicks through the empty part of the window.
+const HIT_TICK: Duration = Duration::from_millis(40);
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     m.lock().unwrap_or_else(PoisonError::into_inner)
@@ -230,6 +249,14 @@ fn work_area<R: Runtime>(w: &WebviewWindow<R>) -> Option<Rect> {
 }
 
 // ---- commands ------------------------------------------------------------------------------
+
+/// The page says which parts of the window are drawn (`rects`: left, top, width, height in CSS
+/// pixels) and whether a drag is on. The window keeps its size; only these parts take the pointer.
+#[tauri::command]
+pub fn pet_solid(rects: Vec<[f64; 4]>, holding: bool, state: State<'_, Arc<PetState>>) {
+    *lock(&state.solid) = Some(rects);
+    state.holding.store(holding, Ordering::SeqCst);
+}
 
 /// Grow the window to show the card (`expanded: true`) or shrink it back. Returns where the pet
 /// sits in the grown window. Card size is in logical pixels.
@@ -272,22 +299,6 @@ pub async fn pet_hover(
         }
         Ok(None)
     }
-}
-
-/// Where the card would go, without moving anything. The page lays itself out for this first
-/// (pet in its corner), so when the window grows the pet is already where it will stay.
-#[tauri::command]
-pub fn pet_plan(
-    card_width: f64,
-    card_height: f64,
-    below: Option<bool>,
-    app: AppHandle,
-    state: State<'_, Arc<PetState>>,
-) -> Result<Option<Anchor>> {
-    let Some(w) = window(&app) else {
-        return Ok(None);
-    };
-    Ok(Some(plan(&w, &state, card_width, card_height, below)?.2))
 }
 
 /// The pet's square, the grown window and where the pet sits in it.
@@ -758,6 +769,14 @@ async fn apply<R: Runtime>(app: &AppHandle<R>, settings: &SettingsService, reset
         .to_owned();
     let scale = w.scale_factor().unwrap_or(1.0);
     let size = (logical_size(&size_name) * scale).round() as u32;
+    // Back to the pet's own square at its spot; the page lays the window out again after
+    // `pet://placed`.
+    if let Some(state) = app.try_state::<Arc<PetState>>() {
+        state.expanded.store(false, Ordering::SeqCst);
+        *lock(&state.base) = None;
+        *lock(&state.grown) = None;
+        *lock(&state.solid) = None;
+    }
     warn_on("set_size", w.set_size(PhysicalSize::new(size, size)));
     // Character › "Always on top" (on by default).
     let on_top = all
@@ -813,6 +832,7 @@ async fn apply<R: Runtime>(app: &AppHandle<R>, settings: &SettingsService, reset
         if on_screen { "show" } else { "hide" },
         if on_screen { w.show() } else { w.hide() },
     );
+    let _ = app.emit_to(LABEL, "pet://placed", ());
 }
 
 /// `pet.hide_fullscreen` (on by default): step aside while a game, film or presentation is on.
@@ -967,6 +987,43 @@ fn monitor_layout<R: Runtime>(app: &AppHandle<R>) -> Vec<Rect> {
 /// and tells every window `pluto://wake` so reminders and the greeting can catch up.
 pub fn start<R: Runtime>(app: AppHandle<R>, settings: Arc<SettingsService>, bus: &EventBus) {
     {
+        // Clicks go through the window's empty part: the window stays the size of pet and card,
+        // so showing the card never resizes it (no flicker), and only the drawn parts take the
+        // pointer. Looked at every 40 ms while the pet is out; one call when it changes.
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let mut ignoring: Option<bool> = None;
+            loop {
+                tokio::time::sleep(HIT_TICK).await;
+                let (Some(w), Some(state)) = (window(&app), app.try_state::<Arc<PetState>>())
+                else {
+                    continue;
+                };
+                if !w.is_visible().unwrap_or(false) {
+                    continue;
+                }
+                let inside = state.holding.load(Ordering::SeqCst) || {
+                    let solid = lock(&state.solid).clone();
+                    match (app.cursor_position(), w.outer_position(), w.scale_factor()) {
+                        (Ok(c), Ok(p), Ok(scale)) if scale > 0.0 => on_solid(
+                            solid.as_deref(),
+                            (c.x - f64::from(p.x)) / scale,
+                            (c.y - f64::from(p.y)) / scale,
+                        ),
+                        _ => true,
+                    }
+                };
+                if ignoring != Some(!inside) {
+                    ignoring = Some(!inside);
+                    warn_on(
+                        "set_ignore_cursor_events",
+                        w.set_ignore_cursor_events(!inside),
+                    );
+                }
+            }
+        });
+    }
+    {
         let (app, settings) = (app.clone(), Arc::clone(&settings));
         tauri::async_runtime::spawn(async move {
             let mut layout = monitor_layout(&app);
@@ -1056,6 +1113,24 @@ mod tests {
         w: 1920,
         h: 1040,
     };
+
+    #[test]
+    fn clicks_go_through_everywhere_but_the_drawn_parts() {
+        let pet = [172.0, 412.0, 128.0, 128.0];
+        let card = [0.0, 0.0, 300.0, 404.0];
+        assert!(
+            on_solid(None, 5.0, 5.0),
+            "until the page says, the whole window"
+        );
+        assert!(on_solid(Some(&[pet]), 200.0, 450.0), "on the pet");
+        assert!(
+            !on_solid(Some(&[pet]), 50.0, 50.0),
+            "where the closed card would be"
+        );
+        assert!(!on_solid(Some(&[pet]), 50.0, 450.0), "beside the pet");
+        assert!(on_solid(Some(&[pet, card]), 50.0, 50.0), "on the open card");
+        assert!(!on_solid(Some(&[]), 200.0, 450.0));
+    }
 
     #[test]
     fn the_card_opens_up_and_left_when_the_pet_is_bottom_right() {

@@ -616,3 +616,12 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 | **Focus guard off by default** | Setting `mcp.focus_guard`, switch on the Assistants page. Held messages show when the session ends (the last one, plus a count). |
 | **Developer reactions without a console** | `--react` only; builds chain it with `&&`/`||`. Claude Code hooks come with Connect on the Claude tile. |
 | **Tracking trace kept for now** | Owner's check (16:44 → 4 h, 17:29 → 4 h 45 min) matches; the clean-up rule is a full day matching. The trace stays in 0.5.9 to diagnose any drift, then goes. |
+
+## 2026-11-02 — No flicker, Allow card, Bin, what stays out
+
+| Decision | Detail |
+|---|---|
+| **Fixed-size pet window** | Owner: "I don't want to see flicker in 0.5.9". Every hover resized the window and one old frame showed. Now the window keeps the size of pet + card, panels show inside it, and clicks pass through the empty part (pointer checked every 40 ms; `set_ignore_cursor_events`). Risk: if the pointer check fails, the empty area would catch clicks; it defaults to letting the whole window take the pointer only before the page has laid out. Timer moves to the card's side. |
+| **Allow card on the pet** | One card for both settings (Allow/Deny) and questions (2-4 buttons); 2 minutes without an answer is no; a hidden pet is never asked. Settings allowed are listed; assistants, tracking, shortcuts and start-up are not. |
+| **Bin for reminders and meetings** | Migration 012 (`binned_at`), 30 days like notes and tasks; binned items cannot be edited until restored. |
+| **Left out on purpose** | Name completions (little use; the tools return ids). Git reactions in every project automatically: it needs `core.hooksPath`, which would replace each project's own hooks, so it stays copy-per-project. |

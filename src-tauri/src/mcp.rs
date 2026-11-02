@@ -14,6 +14,7 @@ use pluto_core::events::Event;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use pluto_core::mcp::activity::{Activity, Call};
+use pluto_core::mcp::ask::{Question, ANSWER_WAIT};
 use pluto_core::mcp::link;
 use pluto_core::mcp::setup::{self, Format};
 use pluto_core::mcp::write::{self, Change};
@@ -159,6 +160,43 @@ struct ShellHost<R: Runtime> {
     app: AppHandle<R>,
     activity: Arc<Activity>,
     guard: Arc<Guard>,
+    asks: Arc<Asks>,
+}
+
+/// Questions waiting on the pet for a button press, by id.
+#[derive(Default)]
+pub struct Asks {
+    next: std::sync::atomic::AtomicU64,
+    waiting: Mutex<std::collections::HashMap<u64, tokio::sync::oneshot::Sender<String>>>,
+}
+
+impl Asks {
+    fn open(&self) -> (u64, tokio::sync::oneshot::Receiver<String>) {
+        let id = self.next.fetch_add(1, Ordering::SeqCst) + 1;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.waiting
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(id, tx);
+        (id, rx)
+    }
+
+    /// The person pressed `answer`; false when the question was no longer waiting.
+    fn answer(&self, id: u64, answer: String) -> bool {
+        let tx = self
+            .waiting
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(&id);
+        tx.is_some_and(|tx| tx.send(answer).is_ok())
+    }
+
+    fn forget(&self, id: u64) {
+        self.waiting
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(&id);
+    }
 }
 
 /// The focus guard (owner 2026-11-02, off by default): while it is on and a focus session runs,
@@ -202,6 +240,21 @@ fn show_on_pet<R: Runtime>(app: &AppHandle<R>, message: PetMessage) {
     let _ = app.emit("pet://say", serde_json::json!({ "text": bubble(message) }));
 }
 
+/// Where the request log and its Undo are kept on this computer.
+const ACTIVITY_PREF: &str = "mcp.activity";
+
+/// Saves the log (with each change's Undo) and tells the page.
+fn save_activity<R: Runtime>(app: &AppHandle<R>, activity: &Activity) {
+    let saved = activity.saved();
+    if let Some(settings) = app.try_state::<Arc<SettingsService>>() {
+        let settings = Arc::clone(&settings);
+        tauri::async_runtime::spawn(async move {
+            let _ = settings.set_pref(ACTIVITY_PREF, saved).await;
+        });
+    }
+    let _ = app.emit("mcp://activity", ());
+}
+
 fn now_ms<R: Runtime>(app: &AppHandle<R>) -> i64 {
     app.try_state::<crate::Core>()
         .map(|core| core.clock.now_ms())
@@ -227,6 +280,30 @@ impl<R: Runtime> Host for ShellHost<R> {
         self.guard.hold(message)
     }
 
+    fn ask(&self, question: Question) -> HostFuture<'_, Option<String>> {
+        Box::pin(async move {
+            // Only a pet on screen can be asked.
+            let pet = self.app.get_webview_window(crate::pet::LABEL)?;
+            if !pet.is_visible().unwrap_or(false) {
+                return None;
+            }
+            let (id, answer) = self.asks.open();
+            let _ = self.app.emit_to(
+                crate::pet::LABEL,
+                "pet://ask",
+                serde_json::json!({ "id": id, "title": question.title, "detail": question.detail, "options": question.options }),
+            );
+            match tokio::time::timeout(ANSWER_WAIT, answer).await {
+                Ok(Ok(chosen)) => Some(chosen),
+                _ => {
+                    self.asks.forget(id);
+                    let _ = self.app.emit_to(crate::pet::LABEL, "pet://ask-done", id);
+                    None
+                }
+            }
+        })
+    }
+
     fn changed(&self, tool: &'static str, assistant: &str, change: Change) {
         self.activity.record_change(
             Call {
@@ -241,7 +318,7 @@ impl<R: Runtime> Host for ShellHost<R> {
             },
             change.undo,
         );
-        let _ = self.app.emit("mcp://activity", ());
+        save_activity(&self.app, &self.activity);
     }
 
     fn data(&self) -> Option<pluto_core::mcp::read::Data> {
@@ -249,6 +326,10 @@ impl<R: Runtime> Host for ShellHost<R> {
         Some(pluto_core::mcp::read::Data {
             db: core.db.clone(),
             clock: core.clock.clone(),
+            settings: self
+                .app
+                .try_state::<Arc<SettingsService>>()
+                .map(|s| Arc::clone(&s)),
         })
     }
 
@@ -263,7 +344,7 @@ impl<R: Runtime> Host for ShellHost<R> {
             undo_id: None,
             undone: false,
         });
-        let _ = self.app.emit("mcp://activity", ());
+        save_activity(&self.app, &self.activity);
     }
 }
 
@@ -306,6 +387,7 @@ pub fn forget(dir: &Path) {
 pub struct Mcp {
     activity: Arc<Activity>,
     guard: Arc<Guard>,
+    asks: Arc<Asks>,
     listener: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
 }
 
@@ -343,6 +425,7 @@ fn listen_now<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp, data_dir: &Path) {
         app: app.clone(),
         activity: mcp.activity.clone(),
         guard: mcp.guard.clone(),
+        asks: mcp.asks.clone(),
     });
     let limits = Arc::new(Limits::default());
     let dir = data_dir.to_owned();
@@ -365,6 +448,10 @@ pub fn start(app: AppHandle, settings: Arc<SettingsService>, bus: &EventBus, dat
     tauri::async_runtime::spawn(async move {
         let mcp = app.state::<Mcp>();
         forget(&data_dir);
+        // The log from last time, with its Undo.
+        if let Ok(Some(saved)) = settings.get_pref(ACTIVITY_PREF).await {
+            mcp.activity.restore(&saved);
+        }
         let mut on = false;
         if let Some(core) = app.try_state::<crate::Core>() {
             let running = pluto_core::focus::current(&core.db, &*core.clock)
@@ -411,7 +498,12 @@ pub fn start(app: AppHandle, settings: Arc<SettingsService>, bus: &EventBus, dat
                     }
                     continue;
                 }
-                Recv::Event(Event::AllDataDeleted { .. }) | Recv::Resync { .. } => {}
+                Recv::Event(Event::AllDataDeleted { .. }) => {
+                    // "Delete all my data" includes what assistants did.
+                    mcp.activity.restore(&serde_json::json!([]));
+                    save_activity(&app, &mcp.activity);
+                }
+                Recv::Resync { .. } => {}
                 Recv::Event(_) => continue,
                 Recv::Closed => break,
             }
@@ -727,6 +819,12 @@ pub fn mcp_listening(mcp: State<'_, Mcp>) -> bool {
     mcp.listening()
 }
 
+/// The person pressed a button on a question the pet showed.
+#[tauri::command]
+pub fn pet_answer(mcp: State<'_, Mcp>, id: u64, answer: String) -> bool {
+    mcp.asks.answer(id, answer)
+}
+
 /// Puts one assistant change back (the Undo next to it on the Assistants page).
 #[tauri::command]
 pub async fn mcp_undo(app: AppHandle, mcp: State<'_, Mcp>, id: u64) -> Result<String, String> {
@@ -739,10 +837,13 @@ pub async fn mcp_undo(app: AppHandle, mcp: State<'_, Mcp>, id: u64) -> Result<St
     let data = pluto_core::mcp::read::Data {
         db: core.db.clone(),
         clock: core.clock.clone(),
+        settings: app
+            .try_state::<Arc<SettingsService>>()
+            .map(|s| Arc::clone(&s)),
     };
     let said = write::undo(&data, &undo).await?;
     mcp.activity.mark_undone(id);
-    let _ = app.emit("mcp://activity", ());
+    save_activity(&app, &mcp.activity);
     Ok(said)
 }
 
@@ -908,6 +1009,18 @@ mod tests {
         let info = describe("cursor", "Cursor", &places, "pluto");
         assert!(!info.installed && !info.connected);
         assert!(info.places[0].manual.contains("--mcp-bridge"));
+    }
+
+    #[tokio::test]
+    async fn a_question_gets_the_button_pressed_once_and_a_late_press_is_ignored() {
+        let asks = Asks::default();
+        let (id, answer) = asks.open();
+        assert!(asks.answer(id, "Allow".into()));
+        assert_eq!(answer.await.unwrap(), "Allow");
+        assert!(!asks.answer(id, "Deny".into()), "already answered");
+        let (late, _gone) = asks.open();
+        asks.forget(late);
+        assert!(!asks.answer(late, "Allow".into()), "timed out");
     }
 
     #[test]

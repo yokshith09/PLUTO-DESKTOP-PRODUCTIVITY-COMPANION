@@ -6,6 +6,7 @@
 //! Step P4.1a: the pet tools `status`, `react` and `say`, the rate limit and the input rules.
 
 pub mod activity;
+pub mod ask;
 mod limit;
 pub mod link;
 pub mod read;
@@ -20,11 +21,17 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use rmcp::handler::server::wrapper::{Json, Parameters};
-use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
+use rmcp::model::{
+    CallToolResult, ContentBlock, Implementation, ListResourceTemplatesResult, ListResourcesResult,
+    PaginatedRequestParams, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult,
+    Resource, ResourceContents, ResourceTemplate, ServerCapabilities, ServerConfig,
+};
 use rmcp::model::{PromptMessage, Role};
+use rmcp::service::RequestContext;
 use rmcp::{
     prompt, prompt_handler, prompt_router, schemars, tool, tool_handler, tool_router, ServerHandler,
 };
+use rmcp::{ErrorData, RoleServer};
 use serde::{Deserialize, Serialize};
 
 pub use limit::{RateLimit, CALLS_PER_MINUTE};
@@ -37,8 +44,10 @@ to show a named moment on the pet (for example agent_done when you finish), `say
 bubble, `status` to see what the person is doing, `today` for today's plan, `tasks_list` and \
 `task_get` for tasks, `notes_search` and `note_get` for notes. To change things use `task_add`, \
 `task_update`, `task_complete`, `reminder_add`, `note_add` and `note_append`; only do so when the \
-person asked, and tell them what you changed. Every change shows in Pluto with an Undo. Nothing is \
-deleted. The diary is private and never available. Calls are limited to 10 per minute per tool.";
+person asked, and tell them what you changed. Every change shows in Pluto with an Undo. Reminders \
+and meetings go to the Bin when deleted (`reminder_delete`, `meeting_delete`); nothing is deleted \
+for good. `setting_change` asks the person to Allow on the pet first; `ask_person` asks them a short \
+question with buttons on the pet. The diary is private and never available. Calls are limited to 10 per minute per tool.";
 
 /// What every tool answers while Pluto itself is not running.
 pub const NOT_RUNNING: &str = "Pluto is not running. Open Pluto and try again.";
@@ -62,6 +71,10 @@ pub trait Host: Send + Sync {
     }
     /// Note a change for the Assistants page, with its way back.
     fn changed(&self, _tool: &'static str, _assistant: &str, _change: write::Change) {}
+    /// Ask the person on the pet; `None` when they did not answer in time or cannot be asked.
+    fn ask(&self, _question: ask::Question) -> HostFuture<'_, Option<String>> {
+        Box::pin(async { None })
+    }
     /// Keep a pet message back for now (focus guard); true when it was kept.
     fn hold(&self, _message: &PetMessage) -> bool {
         false
@@ -169,6 +182,13 @@ pub struct TasksArgs {
 pub struct IdArgs {
     /// The id from a list or search.
     pub id: String,
+}
+
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
+pub struct RemindersArgs {
+    /// Also list reminders already done.
+    #[serde(default)]
+    pub include_done: bool,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -602,6 +622,73 @@ impl PlutoMcp {
     }
 
     #[tool(
+        title = "List reminders",
+        description = "The person's reminders still to come, soonest first, with their local time. Read only.",
+        annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
+    )]
+    async fn reminders_list(
+        &self,
+        Parameters(a): Parameters<RemindersArgs>,
+    ) -> Result<Json<read::ReminderList>, CallToolResult> {
+        self.reading("reminders_list", "the reminders", |d| async move {
+            read::reminders_list(&d, a.include_done).await
+        })
+        .await
+    }
+
+    #[tool(
+        title = "List meetings",
+        description = "The person's latest meetings, newest first: title, time, participants and open action items. Read only.",
+        annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
+    )]
+    async fn meetings_list(&self) -> Result<Json<read::MeetingList>, CallToolResult> {
+        self.reading("meetings_list", "the meetings", |d| async move {
+            read::meetings_list(&d).await
+        })
+        .await
+    }
+
+    #[tool(
+        title = "Delete a reminder (to the Bin)",
+        description = "Move one of the person's reminders to Pluto's Bin, when they ask. It can be restored for 30 days, and the change shows with an Undo.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    async fn reminder_delete(
+        &self,
+        Parameters(a): Parameters<IdArgs>,
+    ) -> Result<Json<write::Done>, CallToolResult> {
+        self.writing("reminder_delete", |d| async move {
+            write::reminder_delete(&d, &a.id).await
+        })
+        .await
+    }
+
+    #[tool(
+        title = "Delete a meeting (to the Bin)",
+        description = "Move one of the person's meetings to Pluto's Bin, when they ask. Tasks made from it stay. It can be restored for 30 days, and the change shows with an Undo.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    async fn meeting_delete(
+        &self,
+        Parameters(a): Parameters<IdArgs>,
+    ) -> Result<Json<write::Done>, CallToolResult> {
+        self.writing("meeting_delete", |d| async move {
+            write::meeting_delete(&d, &a.id).await
+        })
+        .await
+    }
+
+    #[tool(
         title = "Add a reminder",
         description = "Add a reminder that pops up on the pet at a time in the person's local time (\"YYYY-MM-DD HH:MM\"). Shown in Pluto with an Undo.",
         annotations(
@@ -657,6 +744,57 @@ impl PlutoMcp {
             "note_append",
             |d| async move { write::note_append(&d, a).await },
         )
+        .await
+    }
+
+    #[tool(
+        title = "Ask the person on the pet",
+        description = "Show a short question (at most 140 characters) on the desktop pet with two to four answer buttons, and wait up to two minutes for the press. Use it when you need a quick choice while the person may be in another app. Returns the answer, or null if they did not answer.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    async fn ask_person(
+        &self,
+        Parameters(a): Parameters<ask::AskArgs>,
+    ) -> Result<Json<ask::Answer>, CallToolResult> {
+        if let Some(refused) = self.over_limit("ask_person") {
+            return Err(self.noted("ask_person", refused));
+        }
+        let host = self.host()?.clone();
+        match ask::ask(&*host, &self.assistant, a).await {
+            Ok(answer) => {
+                let said = match &answer.answer {
+                    Some(a) => format!("The person answered: {a}."),
+                    None => "The person did not answer.".to_owned(),
+                };
+                self.noted(
+                    "ask_person",
+                    CallToolResult::success(vec![ContentBlock::text(said)]),
+                );
+                Ok(Json(answer))
+            }
+            Err(why) => Err(self.noted("ask_person", Self::refused(why))),
+        }
+    }
+
+    #[tool(
+        title = "Change a setting (with the person's Allow)",
+        description = "Change one of Pluto's settings. The pet shows the change with Allow and Deny; nothing changes unless the person presses Allow within two minutes. Allowed keys: general.theme (system, light, dark), pet.size (S, M, L), pet.hover_card, pet.typing, pet.hide_fullscreen, pet.always_on_top, mcp.focus_guard (true or false). Shown in Pluto with an Undo.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    async fn setting_change(
+        &self,
+        Parameters(a): Parameters<ask::SettingArgs>,
+    ) -> Result<Json<write::Done>, CallToolResult> {
+        let host = self.host()?.clone();
+        let assistant = self.assistant.to_string();
+        self.writing("setting_change", |d| async move {
+            ask::setting_change(&*host, &d, &assistant, a).await
+        })
         .await
     }
 }
@@ -736,9 +874,91 @@ impl ServerHandler for PlutoMcp {
             ServerCapabilities::builder()
                 .enable_tools()
                 .enable_prompts()
+                .enable_resources()
                 .build(),
         )
         .with_server_info(me)
         .with_instructions(INSTRUCTIONS)
+    }
+
+    async fn list_resources(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListResourcesResult, ErrorData> {
+        let one = |uri: &str, name: &str, about: &str| {
+            Resource::new(uri, name)
+                .with_description(about)
+                .with_mime_type("application/json")
+        };
+        Ok(ListResourcesResult::with_all_items(vec![
+            one(
+                "pluto://today",
+                "Today's plan",
+                "Today's date and open tasks, as the today tool gives them.",
+            ),
+            one(
+                "pluto://status",
+                "What Pluto is doing",
+                "The focus session and today's task counts.",
+            ),
+        ]))
+    }
+
+    async fn list_resource_templates(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListResourceTemplatesResult, ErrorData> {
+        Ok(ListResourceTemplatesResult::with_all_items(vec![
+            ResourceTemplate::new("pluto://note/{id}", "A note")
+                .with_description("One whole note by its id (never the diary or the Bin).")
+                .with_mime_type("application/json"),
+            ResourceTemplate::new("pluto://task/{id}", "A task")
+                .with_description("One task with its description and links.")
+                .with_mime_type("application/json"),
+        ]))
+    }
+
+    async fn read_resource(
+        &self,
+        request: ReadResourceRequestParams,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ReadResourceResponse, ErrorData> {
+        let uri = request.uri;
+        let refused = |why: String| ErrorData::resource_not_found(why, None);
+        if self.over_limit("resources").is_some() {
+            return Err(ErrorData::invalid_request(
+                format!("Pluto allows {CALLS_PER_MINUTE} reads a minute. Try again in a minute."),
+                None,
+            ));
+        }
+        let host = self
+            .host
+            .as_ref()
+            .ok_or_else(|| refused(NOT_RUNNING.into()))?;
+        let data = host
+            .data()
+            .ok_or_else(|| refused("Pluto is still starting. Try again in a moment.".into()))?;
+        let json = match uri.as_str() {
+            "pluto://today" => serde_json::to_string(&read::today(&data).await.map_err(refused)?),
+            "pluto://status" => serde_json::to_string(&host.status().await),
+            _ => {
+                if let Some(id) = uri.strip_prefix("pluto://note/") {
+                    serde_json::to_string(&read::note_get(&data, id).await.map_err(refused)?)
+                } else if let Some(id) = uri.strip_prefix("pluto://task/") {
+                    serde_json::to_string(&read::task_get(&data, id).await.map_err(refused)?)
+                } else {
+                    return Err(refused(format!("Pluto has no resource {uri}.")));
+                }
+            }
+        }
+        .map_err(|e| ErrorData::internal_error(e.to_string(), None))?;
+        host.record("resources", &self.assistant, true, format!("Read {uri}."));
+        let mut contents = ResourceContents::text(json, uri);
+        if let ResourceContents::TextResourceContents { mime_type, .. } = &mut contents {
+            *mime_type = Some("application/json".into());
+        }
+        Ok(ReadResourceResult::new(vec![contents]).into())
     }
 }

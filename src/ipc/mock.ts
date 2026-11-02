@@ -325,6 +325,14 @@ export function createMock() {
 
   const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
     settings_get_all: () => settings,
+    pet_solid: () => null,
+    reminders_binned: () => [],
+    reminder_restore: () => null,
+    reminder_purge: () => null,
+    meetings_binned: () => [],
+    meeting_restore: () => null,
+    meeting_purge: () => null,
+    pet_answer: () => true,
     mcp_assistants: () => mockAssistants.map((x) => ({ ...x, places: x.places.map((p) => ({ ...p })) })),
     mcp_connect: (a) => {
       const x = mockAssistants.find((m) => m.id === a.id);
@@ -688,7 +696,6 @@ export function createMock() {
       const back = Math.round((new Date(today + "T00:00:00").getTime() - d.getTime()) / 86_400_000);
       return back < 0 || back > 20 ? null : sampleLog(String(a.date), back);
     },
-    pet_plan: () => ({ pet: "right", card: "above" }),
     pet_hover: (a) => (a.expanded ? { pet: "right", card: "above" } : null),
     pet_click: () => null,
     pet_command: () => null,

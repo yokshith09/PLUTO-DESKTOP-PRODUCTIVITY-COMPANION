@@ -73,7 +73,7 @@ export function TaskReminders({ task }: { task: Task }) {
                 className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
                 {r.sound ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5" />}
               </button>
-              <ConfirmAction message="Remove this reminder?" verb="Remove" onConfirm={() => run(ipc.reminderDelete(r.id))}>
+              <ConfirmAction message="Move this reminder to the Bin? You can restore it for 30 days." verb="Remove" onConfirm={() => run(ipc.reminderDelete(r.id))}>
                 <button type="button" aria-label="Remove reminder"
                   className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-destructive/15 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring">
                   <X className="size-3.5" />

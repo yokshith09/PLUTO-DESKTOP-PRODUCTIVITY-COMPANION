@@ -1,10 +1,11 @@
-//! What assistants asked Pluto to do, for the Assistants page: the last [`KEEP`] calls, in
-//! memory only (gone when Pluto closes), never the text of the person's tasks or notes.
+//! What assistants asked Pluto to do, for the Assistants page: the last [`KEEP`] calls. The
+//! shell saves them with their Undo on this computer (`saved`/`restore`), so a change can be
+//! undone after Pluto restarts.
 
 use std::collections::VecDeque;
 use std::sync::{Mutex, PoisonError};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::write::Undo;
 
@@ -12,7 +13,7 @@ use super::write::Undo;
 pub const KEEP: usize = 50;
 
 /// One call an assistant made.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(
     feature = "ts",
     derive(ts_rs::TS),
@@ -88,6 +89,34 @@ impl Activity {
             .and_then(|(_, u)| u.clone())
     }
 
+    /// Everything, to save: each call with its way back.
+    pub fn saved(&self) -> serde_json::Value {
+        let inner = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        let rows: Vec<_> = inner
+            .calls
+            .iter()
+            .map(|(c, u)| serde_json::json!({ "call": c, "undo": u }))
+            .collect();
+        serde_json::Value::Array(rows)
+    }
+
+    /// Back from what [`saved`](Self::saved) gave; rows that do not read are skipped.
+    pub fn restore(&self, saved: &serde_json::Value) {
+        let mut inner = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        inner.calls.clear();
+        let rows = saved.as_array().map(Vec::as_slice).unwrap_or(&[]);
+        for row in &rows[rows.len().saturating_sub(KEEP)..] {
+            let Ok(call) = serde_json::from_value::<Call>(row["call"].clone()) else {
+                continue;
+            };
+            let undo = serde_json::from_value::<Option<Undo>>(row["undo"].clone())
+                .ok()
+                .flatten();
+            inner.next_id = inner.next_id.max(call.undo_id.unwrap_or(0));
+            inner.calls.push_back((call, undo));
+        }
+    }
+
     /// Marks the change undone; false when it already was (so it is never undone twice).
     pub fn mark_undone(&self, id: u64) -> bool {
         let mut inner = self.0.lock().unwrap_or_else(PoisonError::into_inner);
@@ -121,6 +150,27 @@ mod tests {
             undo_id: None,
             undone: false,
         }
+    }
+
+    #[test]
+    fn the_list_and_its_undo_survive_a_restart() {
+        let a = Activity::default();
+        a.record(call(1));
+        a.record_change(call(2), Some(Undo::ReminderAdded { id: "r".into() }));
+        let saved = a.saved();
+        let b = Activity::default();
+        b.restore(&saved);
+        assert_eq!(b.recent(), a.recent());
+        let id = b.recent()[0].undo_id.unwrap();
+        assert_eq!(b.undo_for(id), Some(Undo::ReminderAdded { id: "r".into() }));
+        b.record_change(call(3), Some(Undo::NoteAdded { id: "n".into() }));
+        assert_ne!(
+            b.recent()[0].undo_id,
+            Some(id),
+            "new ids never repeat old ones"
+        );
+        b.restore(&serde_json::json!("not a list"));
+        assert!(b.recent().is_empty());
     }
 
     #[test]

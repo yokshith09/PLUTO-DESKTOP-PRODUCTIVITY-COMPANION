@@ -13,13 +13,39 @@ use crate::tasks::{self, Priority, TaskInput, TaskPatch, TaskStatus};
 
 use super::read::Data;
 
-/// How to put one change back.
-#[derive(Debug, Clone, PartialEq)]
+/// One field of a task as it was before an assistant changed it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "field", content = "was", rename_all = "snake_case")]
+pub enum TaskField {
+    Title(String),
+    Description(String),
+    Priority(Option<Priority>),
+    Planned(Option<NaiveDate>),
+    Due(Option<NaiveDate>),
+}
+
+fn patch_of(fields: &[TaskField]) -> TaskPatch {
+    let mut p = TaskPatch::default();
+    for f in fields {
+        match f {
+            TaskField::Title(t) => p.title = Some(t.clone()),
+            TaskField::Description(d) => p.description = Some(d.clone()),
+            TaskField::Priority(v) => p.priority = Some(*v),
+            TaskField::Planned(v) => p.planned_date = Some(*v),
+            TaskField::Due(v) => p.due_date = Some(*v),
+        }
+    }
+    p
+}
+
+/// How to put one change back. Saved with the change list, so Undo works after a restart.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Undo {
     /// A task the assistant added: cancelled, then removed.
     TaskAdded { id: String },
     /// A task the assistant edited: these fields go back.
-    TaskEdited { id: String, before: TaskPatch },
+    TaskEdited { id: String, before: Vec<TaskField> },
     /// A task the assistant finished: open again.
     TaskCompleted { id: String },
     /// A reminder the assistant added: removed.
@@ -28,6 +54,15 @@ pub enum Undo {
     NoteAdded { id: String },
     /// Text the assistant added to a note: the note's text as it was.
     NoteAppended { id: String, body: String },
+    /// A reminder the assistant deleted: back from the Bin.
+    ReminderBinned { id: String },
+    /// A meeting the assistant deleted: back from the Bin.
+    MeetingBinned { id: String },
+    /// A setting the person allowed: back to what it was.
+    SettingChanged {
+        key: String,
+        before: serde_json::Value,
+    },
 }
 
 /// What a change did, in words, and how to undo it (`None` when it cannot be undone).
@@ -159,26 +194,26 @@ pub async fn task_add(data: &Data, a: TaskAddArgs) -> Result<(Done, Change), Str
 pub async fn task_update(data: &Data, a: TaskUpdateArgs) -> Result<(Done, Change), String> {
     let before = tasks::get(&data.db, a.id.trim()).await.map_err(words)?;
     let mut patch = TaskPatch::default();
-    let mut back = TaskPatch::default();
+    let mut back = Vec::new();
     if let Some(t) = a.title {
         patch.title = Some(t);
-        back.title = Some(before.title.clone());
+        back.push(TaskField::Title(before.title.clone()));
     }
     if let Some(d) = a.description {
         patch.description = Some(d);
-        back.description = Some(before.description.clone());
+        back.push(TaskField::Description(before.description.clone()));
     }
     if let Some(p) = a.priority {
         patch.priority = Some(priority(&p)?);
-        back.priority = Some(before.priority);
+        back.push(TaskField::Priority(before.priority));
     }
     if let Some(p) = a.planned {
         patch.planned_date = Some(date("planned", &p)?);
-        back.planned_date = Some(before.planned_date);
+        back.push(TaskField::Planned(before.planned_date));
     }
     if let Some(d) = a.due {
         patch.due_date = Some(date("due", &d)?);
-        back.due_date = Some(before.due_date);
+        back.push(TaskField::Due(before.due_date));
     }
     if patch == TaskPatch::default() {
         return Err(
@@ -302,6 +337,42 @@ pub async fn note_append(data: &Data, a: NoteAppendArgs) -> Result<(Done, Change
     ))
 }
 
+/// Moves a reminder to the Bin (restorable for 30 days; undo brings it back).
+pub async fn reminder_delete(data: &Data, id: &str) -> Result<(Done, Change), String> {
+    let id = id.trim();
+    let title = reminders::list(&data.db, true)
+        .await
+        .map_err(words)?
+        .into_iter()
+        .find(|r| r.id == id)
+        .map(|r| r.title)
+        .ok_or("There is no reminder with that id.")?;
+    reminders::delete(&data.db, &*data.clock, id)
+        .await
+        .map_err(words)?;
+    Ok(done(
+        id,
+        format!("Moved the reminder \"{title}\" to the Bin."),
+        Some(Undo::ReminderBinned { id: id.to_owned() }),
+    ))
+}
+
+/// Moves a meeting to the Bin (restorable for 30 days; undo brings it back).
+pub async fn meeting_delete(data: &Data, id: &str) -> Result<(Done, Change), String> {
+    let id = id.trim();
+    let m = crate::meetings::get(&data.db, id)
+        .await
+        .map_err(|_| "There is no meeting with that id.".to_string())?;
+    crate::meetings::delete(&data.db, &*data.clock, id)
+        .await
+        .map_err(words)?;
+    Ok(done(
+        id,
+        format!("Moved the meeting \"{}\" to the Bin.", m.title),
+        Some(Undo::MeetingBinned { id: id.to_owned() }),
+    ))
+}
+
 /// Puts one change back. Refused (with words) when the thing has changed since in a way that
 /// makes undoing unsafe, for example the task was already finished by the person.
 pub async fn undo(data: &Data, undo: &Undo) -> Result<String, String> {
@@ -318,7 +389,7 @@ pub async fn undo(data: &Data, undo: &Undo) -> Result<String, String> {
             Ok(format!("Removed the task \"{}\".", t.title))
         }
         Undo::TaskEdited { id, before } => {
-            let t = tasks::update(db, clock, id, before.clone())
+            let t = tasks::update(db, clock, id, patch_of(before))
                 .await
                 .map_err(words)?;
             Ok(format!("Put the task \"{}\" back.", t.title))
@@ -336,6 +407,24 @@ pub async fn undo(data: &Data, undo: &Undo) -> Result<String, String> {
         Undo::NoteAdded { id } => {
             let n = notes::delete(db, clock, id).await.map_err(words)?;
             Ok(format!("Moved the note \"{}\" to the Bin.", n.title))
+        }
+        Undo::ReminderBinned { id } => {
+            let r = reminders::restore(db, clock, id).await.map_err(words)?;
+            Ok(format!("Brought the reminder \"{}\" back.", r.title))
+        }
+        Undo::MeetingBinned { id } => {
+            let m = crate::meetings::restore(db, clock, id)
+                .await
+                .map_err(words)?;
+            Ok(format!("Brought the meeting \"{}\" back.", m.title))
+        }
+        Undo::SettingChanged { key, before } => {
+            let settings = data
+                .settings
+                .as_ref()
+                .ok_or("Pluto's settings are not open yet.")?;
+            settings.set(key, before.clone()).await.map_err(words)?;
+            Ok("Put the setting back.".into())
         }
         Undo::NoteAppended { id, body } => {
             let n = notes::update(

@@ -146,6 +146,29 @@ export function onPetAction(cb: (id: string) => void): () => void {
  * The pet's right-click menu asking the pet window itself to do something (`nap`: sleep or wake).
  * Outside the app a `pluto-pet-menu` window event stands in.
  */
+/** A question for the person on the pet (an assistant's setting change, or `ask_person`). */
+export interface PetAsk { id: number; title: string; detail: string; options: string[] }
+
+export function onPetAsk(cb: (ask: PetAsk) => void, done: (id: number) => void): () => void {
+  if (!isTauri()) {
+    const on = (e: Event) => cb((e as CustomEvent<PetAsk>).detail);
+    const off = (e: Event) => done((e as CustomEvent<number>).detail);
+    window.addEventListener("pluto-pet-ask", on);
+    window.addEventListener("pluto-pet-ask-done", off);
+    return () => { window.removeEventListener("pluto-pet-ask", on); window.removeEventListener("pluto-pet-ask-done", off); };
+  }
+  const a = listen<PetAsk>("pet://ask", (e) => cb(e.payload));
+  const b = listen<number>("pet://ask-done", (e) => done(e.payload));
+  return () => { void a.then((off) => off()); void b.then((off) => off()); };
+}
+
+/** The shell put the pet back in its own square (start, shown again, size or screens changed). */
+export function onPetPlaced(cb: () => void): () => void {
+  if (!isTauri()) return () => undefined;
+  const pending = listen("pet://placed", () => cb());
+  return () => void pending.then((off) => off());
+}
+
 export function onPetMenu(cb: (what: string) => void): () => void {
   if (!isTauri()) {
     const on = (e: Event) => cb((e as CustomEvent<string>).detail);

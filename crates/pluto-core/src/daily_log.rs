@@ -285,7 +285,7 @@ fn build(conn: &Connection, date: NaiveDate, bounds: DayBounds) -> Result<(Snaps
         params![bounds.start, bounds.end],
     )?;
     let meetings = count(
-        "SELECT COUNT(*) FROM meetings WHERE starts_at >= ?1 AND starts_at < ?2",
+        "SELECT COUNT(*) FROM meetings WHERE binned_at IS NULL AND starts_at >= ?1 AND starts_at < ?2",
         params![bounds.start, bounds.end],
     )?;
 

@@ -274,7 +274,7 @@ fn participants_of(conn: &Connection, id: &str) -> Result<Vec<String>> {
 fn load(conn: &Connection, id: &str) -> Result<Meeting> {
     let head = conn
         .query_row(
-            "SELECT id, title, starts_at, notes, follow_up_date, created_at, updated_at FROM meetings WHERE id = ?1",
+            "SELECT id, title, starts_at, notes, follow_up_date, created_at, updated_at FROM meetings WHERE id = ?1 AND binned_at IS NULL",
             [id],
             |r| {
                 Ok((
@@ -471,12 +471,76 @@ pub async fn update(
     .await
 }
 
-/// Delete a meeting with its participants, decisions and action items. Tasks made from its
-/// action items stay.
+/// Moves a meeting to the Bin (owner Q4): restorable for 30 days, then deleted for good with its
+/// participants, decisions and action items. Tasks made from its action items stay.
 pub async fn delete(db: &Database, clock: &dyn Clock, id: &str) -> Result<()> {
     let (id, now) = (id.to_owned(), clock.now_ms());
     db.write(move |tx| {
-        if tx.execute("DELETE FROM meetings WHERE id = ?1", [&id])? == 0 {
+        if tx.execute(
+            "UPDATE meetings SET binned_at = ?2 WHERE id = ?1 AND binned_at IS NULL",
+            params![&id, now],
+        )? == 0
+        {
+            return Err(not_found());
+        }
+        Ok(((), vec![Event::MeetingDeleted { at: now, id }]))
+    })
+    .await
+}
+
+/// A meeting in the Bin, for the Bin page.
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BinMeeting {
+    pub id: String,
+    pub title: String,
+    #[cfg_attr(feature = "ts", ts(type = "number"))]
+    pub starts_at: i64,
+}
+
+/// Meetings in the Bin, most recently deleted first.
+pub async fn list_binned(db: &Database) -> Result<Vec<BinMeeting>> {
+    db.read(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, title, starts_at FROM meetings WHERE binned_at IS NOT NULL ORDER BY binned_at DESC, id",
+        )?;
+        let rows = stmt
+            .query_map([], |r| Ok(BinMeeting { id: r.get(0)?, title: r.get(1)?, starts_at: r.get(2)? }))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    })
+    .await
+}
+
+/// Puts a meeting from the Bin back.
+pub async fn restore(db: &Database, clock: &dyn Clock, id: &str) -> Result<Meeting> {
+    let (id, now) = (id.to_owned(), clock.now_ms());
+    db.write(move |tx| {
+        if tx.execute(
+            "UPDATE meetings SET binned_at = NULL WHERE id = ?1 AND binned_at IS NOT NULL",
+            [&id],
+        )? == 0
+        {
+            return Err(not_found());
+        }
+        let meeting = load(tx, &id)?;
+        Ok((
+            meeting.clone(),
+            vec![Event::MeetingCreated { at: now, meeting }],
+        ))
+    })
+    .await
+}
+
+/// Deletes a meeting in the Bin for good.
+pub async fn purge(db: &Database, clock: &dyn Clock, id: &str) -> Result<()> {
+    let (id, now) = (id.to_owned(), clock.now_ms());
+    db.write(move |tx| {
+        if tx.execute(
+            "DELETE FROM meetings WHERE id = ?1 AND binned_at IS NOT NULL",
+            [&id],
+        )? == 0
+        {
             return Err(not_found());
         }
         Ok(((), vec![Event::MeetingDeleted { at: now, id }]))
@@ -500,7 +564,7 @@ pub async fn list(db: &Database, filters: MeetingFilters) -> Result<Vec<MeetingS
                 (SELECT COUNT(*) FROM meeting_action_items a LEFT JOIN tasks t ON t.id = a.task_id
                    WHERE a.meeting_id = m.id AND (t.id IS NULL OR t.status NOT IN ('COMPLETED','CANCELLED')))
              FROM meetings m
-             WHERE (?1 IS NULL OR m.starts_at >= ?1) AND (?2 IS NULL OR m.starts_at < ?2)
+             WHERE m.binned_at IS NULL AND (?1 IS NULL OR m.starts_at >= ?1) AND (?2 IS NULL OR m.starts_at < ?2)
                AND (?3 IS NULL OR EXISTS (SELECT 1 FROM meeting_participants p
                                           WHERE p.meeting_id = m.id AND lower(p.name) = lower(?3)))
              ORDER BY m.starts_at DESC, m.id",
@@ -982,6 +1046,32 @@ mod tests {
         assert!(a[0].eq_ignore_ascii_case("asha"));
         assert_eq!(suggest_participants(&f.db, "B").await.unwrap().len(), 2);
         assert!(suggest_participants(&f.db, "%").await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_deleted_meeting_waits_in_the_bin_and_comes_back_whole() {
+        let f = setup();
+        let m = create(
+            &f.db,
+            &f.clock,
+            MeetingInput {
+                action_items: vec![action(Some("a"), "Send notes", None)],
+                ..input("Standup")
+            },
+        )
+        .await
+        .unwrap();
+        delete(&f.db, &f.clock, &m.id).await.unwrap();
+        assert!(list(&f.db, MeetingFilters::default())
+            .await
+            .unwrap()
+            .is_empty());
+        assert_eq!(list_binned(&f.db).await.unwrap()[0].title, "Standup");
+        let back = restore(&f.db, &f.clock, &m.id).await.unwrap();
+        assert_eq!(back.action_items.len(), 1, "with its action items");
+        delete(&f.db, &f.clock, &m.id).await.unwrap();
+        purge(&f.db, &f.clock, &m.id).await.unwrap();
+        assert!(list_binned(&f.db).await.unwrap().is_empty());
     }
 
     #[tokio::test]

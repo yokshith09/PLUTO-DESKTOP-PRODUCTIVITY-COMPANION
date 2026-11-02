@@ -207,7 +207,7 @@ export function MeetingEditor({ meetingId, onBack, onCreated }: { meetingId: str
           {!draft.title.trim() ? "Add a title to save" : status === "saving" ? "Saving…" : status === "error" ? "Not saved" : status === "saved" ? "Saved" : ""}
         </span>
         {id && (
-          <ConfirmAction message="Delete this meeting?" onConfirm={() => void remove()}>
+          <ConfirmAction message="Move this meeting to the Bin? You can restore it for 30 days." onConfirm={() => void remove()}>
             <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" aria-label="Delete meeting"><Trash2 /></Button>
           </ConfirmAction>
         )}

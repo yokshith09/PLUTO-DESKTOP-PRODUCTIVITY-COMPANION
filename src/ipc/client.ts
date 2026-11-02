@@ -3,7 +3,7 @@ import { call } from "./transport";
 import type {
   UsageSummary, TimeRange, TrackingStatus, OpenTab, PetPack, BinNote, DailyLog, Reminder, ReminderInput, ReminderPatch, Label, LabelCount, Note, NoteInput, NotePatch, NoteSort, NoteSummary, Task, TaskEdit, TaskEvent, TaskFilters, TaskRow,
   TaskStatus, TaskView, WorkUpdate, LinkInput, TaskPlan, RepeatDay, FocusSession, FocusStart, RetentionRules, RetentionCounts, Meeting, MeetingFilters, MeetingInput, MeetingSummary,
-  Course, CourseLinks, DiaryHit, DiaryStatus, Exam, WeeklyReport, AssistantCall,
+  Course, CourseLinks, DiaryHit, DiaryStatus, Exam, WeeklyReport, AssistantCall, BinMeeting,
 } from "./types";
 import type { Settings, SettingsKey } from "./settings";
 
@@ -127,6 +127,12 @@ export const ipc = {
   retentionPreview: (rules: RetentionRules) => call<RetentionCounts>("retention_preview", { rules }),
   retentionApply: (rules: RetentionRules) => call<RetentionCounts>("retention_apply", { rules }),
   tasksBinned: () => call<Task[]>("tasks_binned"),
+  remindersBinned: () => call<Reminder[]>("reminders_binned"),
+  reminderRestore: (id: string) => call<Reminder>("reminder_restore", { id }),
+  reminderPurge: (id: string) => call<null>("reminder_purge", { id }),
+  meetingsBinned: () => call<BinMeeting[]>("meetings_binned"),
+  meetingRestore: (id: string) => call<null>("meeting_restore", { id }),
+  meetingPurge: (id: string) => call<null>("meeting_purge", { id }),
   taskRestore: (id: string) => call<Task>("task_restore", { id }),
   workUpdatesList: (taskId: string) => call<WorkUpdate[]>("work_updates_list", { taskId }),
   workUpdateAdd: (taskId: string, body: string) => call<WorkUpdate>("work_update_add", { taskId, body }),
@@ -137,11 +143,13 @@ export const ipc = {
   dataImport: () => call<Record<string, number> | null>("data_import"),
   dataDeleteAll: (confirm: string) => call<unknown>("data_delete_all", { confirm }),
   /** `below`: the panel prefers the side under the pet (the focus timer), if it fits there. */
-  petPlan: (cardWidth: number, cardHeight: number, below?: boolean) =>
-    call<{ pet: "left" | "right"; card: "above" | "below" } | null>("pet_plan", { cardWidth, cardHeight, below: below ?? null }),
   /** Show the hover card in its own window beside the pet (`open: false` hides it). Size in logical pixels. */
   petHover: (expanded: boolean, cardWidth: number, cardHeight: number, below?: boolean) =>
     call<{ pet: "left" | "right"; card: "above" | "below" } | null>("pet_hover", { expanded, cardWidth, cardHeight, below: below ?? null }),
+  /** The person pressed a button on a question the pet showed. */
+  petAnswer: (id: number, answer: string) => call<boolean>("pet_answer", { id, answer }),
+  /** The drawn parts of the pet window (left, top, width, height); clicks go through the rest. */
+  petSolid: (rects: number[][], holding: boolean) => call<null>("pet_solid", { rects, holding }),
   petClick: () => call<unknown>("pet_click"),
   /** Hover-card buttons: open the dashboard and start a new note or task (FR-111). */
   petCommand: (what: "new-note" | "new-task" | "focus" | "tasks") => call<unknown>("pet_command", { what }),

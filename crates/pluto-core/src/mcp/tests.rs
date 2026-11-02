@@ -16,6 +16,8 @@ struct FakeHost {
     data: Option<read::Data>,
     changes: Mutex<Vec<write::Change>>,
     focusing: bool,
+    answer: Option<String>,
+    asked: Mutex<Vec<ask::Question>>,
 }
 
 impl Host for FakeHost {
@@ -47,6 +49,11 @@ impl Host for FakeHost {
     }
     fn hold(&self, _message: &PetMessage) -> bool {
         self.focusing
+    }
+    fn ask(&self, question: ask::Question) -> HostFuture<'_, Option<String>> {
+        self.asked.lock().unwrap().push(question);
+        let answer = self.answer.clone();
+        Box::pin(async move { answer })
     }
     fn record(&self, tool: &'static str, assistant: &str, ok: bool, detail: String) {
         self.recorded
@@ -103,20 +110,26 @@ async fn an_assistant_on_the_newest_protocol_sees_the_three_pet_tools_in_a_fixed
     assert_eq!(
         names,
         [
+            "ask_person",
+            "meeting_delete",
+            "meetings_list",
             "note_add",
             "note_append",
             "note_get",
             "notes_search",
             "react",
             "reminder_add",
+            "reminder_delete",
+            "reminders_list",
             "say",
+            "setting_change",
             "status",
             "task_add",
             "task_complete",
             "task_get",
             "task_update",
             "tasks_list",
-            "today"
+            "today",
         ]
     );
     assert!(
@@ -284,7 +297,7 @@ async fn without_a_running_pluto_the_tools_are_listed_and_every_call_says_so() {
         .serve_with_lifecycle(client_end, newest())
         .await
         .unwrap();
-    assert_eq!(client.list_all_tools().await.unwrap().len(), 14);
+    assert_eq!(client.list_all_tools().await.unwrap().len(), 20);
     for (tool, args) in [
         ("status", json!({})),
         ("react", json!({ "reaction": "agent_done" })),
@@ -454,7 +467,7 @@ mod link_tests {
             .serve_with_lifecycle(assistant_end, newest())
             .await
             .unwrap();
-        assert_eq!(client.list_all_tools().await.unwrap().len(), 14);
+        assert_eq!(client.list_all_tools().await.unwrap().len(), 20);
         let r = call(&client, "say", json!({ "text": "hi" })).await;
         assert!(text(&r).contains("Pluto is not running"));
         client.cancel().await.unwrap();
@@ -493,11 +506,17 @@ mod read_tests {
             0,
             0,
         );
+        let (db, clock): (Arc<Database>, Arc<dyn crate::clock::Clock>) =
+            (Arc::new(db), Arc::new(clock));
         World {
             dir,
             data: read::Data {
-                db: Arc::new(db),
-                clock: Arc::new(clock),
+                settings: Some(Arc::new(crate::settings_service::SettingsService::new(
+                    db.clone(),
+                    clock.clone(),
+                ))),
+                db,
+                clock,
             },
         }
     }
@@ -613,6 +632,48 @@ mod read_tests {
 
         let blank = call(&client, "notes_search", json!({ "query": "  " })).await;
         assert_eq!(blank.is_error, Some(true));
+        client.cancel().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn todays_plan_status_and_notes_are_resources_but_never_the_diary() {
+        let w = world();
+        let n = notes::create(
+            &w.data.db,
+            &*w.data.clock,
+            NoteInput {
+                title: "Recipe".into(),
+                body: "Rice".into(),
+                ..NoteInput::default()
+            },
+        )
+        .await
+        .unwrap();
+        let client = client_for(&w).await;
+        let listed: Vec<String> = client
+            .list_all_resources()
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|r| r.uri.clone())
+            .collect();
+        assert_eq!(listed, ["pluto://today", "pluto://status"]);
+        let templates = client.list_all_resource_templates().await.unwrap();
+        assert_eq!(templates.len(), 2);
+        let read = |uri: String| {
+            let client = &client;
+            async move {
+                client
+                    .read_resource(rmcp::model::ReadResourceRequestParams::new(uri))
+                    .await
+            }
+        };
+        let today = serde_json::to_string(&read("pluto://today".into()).await.unwrap()).unwrap();
+        assert!(today.contains("2026-11-02"));
+        let note =
+            serde_json::to_string(&read(format!("pluto://note/{}", n.id)).await.unwrap()).unwrap();
+        assert!(note.contains("Rice"));
+        assert!(read("pluto://diary/2026-11-02".into()).await.is_err());
         client.cancel().await.unwrap();
     }
 
@@ -762,6 +823,153 @@ mod write_tests {
             notes::in_bin(&data.db, &n).await.unwrap(),
             "undone notes go to the Bin"
         );
+        client.cancel().await.unwrap();
+    }
+
+    async fn asking(data: &read::Data, answer: Option<&str>) -> (Client, Arc<FakeHost>) {
+        let host = FakeHost {
+            data: Some(data.clone()),
+            answer: answer.map(str::to_owned),
+            ..FakeHost::default()
+        };
+        connect_to(host, newest()).await
+    }
+
+    #[tokio::test]
+    async fn a_setting_changes_only_after_allow_on_the_pet_and_can_be_undone() {
+        let (_dir, data) = world();
+        let settings = data.settings.clone().unwrap();
+        let theme = || async { settings.get_all().await.unwrap()["general.theme"].clone() };
+
+        let (client, host) = asking(&data, Some("Deny")).await;
+        let no = call(
+            &client,
+            "setting_change",
+            json!({ "key": "general.theme", "value": "dark" }),
+        )
+        .await;
+        assert_eq!(no.is_error, Some(true));
+        assert_eq!(theme().await, json!("system"));
+        let q = host.asked.lock().unwrap()[0].clone();
+        assert_eq!(q.title, "Claude Code wants to change a setting");
+        assert_eq!(q.detail, "Theme: system → dark");
+        assert_eq!(q.options, ["Allow", "Deny"]);
+        client.cancel().await.unwrap();
+
+        let (client, _) = asking(&data, None).await;
+        let silent = call(
+            &client,
+            "setting_change",
+            json!({ "key": "general.theme", "value": "dark" }),
+        )
+        .await;
+        assert!(text(&silent).contains("did not answer"));
+        client.cancel().await.unwrap();
+
+        let (client, host) = asking(&data, Some("Allow")).await;
+        id(&call(
+            &client,
+            "setting_change",
+            json!({ "key": "general.theme", "value": "dark" }),
+        )
+        .await);
+        assert_eq!(theme().await, json!("dark"));
+        undo_last(&host, &data).await;
+        assert_eq!(theme().await, json!("system"));
+
+        let off_limits = call(
+            &client,
+            "setting_change",
+            json!({ "key": "mcp.enabled", "value": false }),
+        )
+        .await;
+        assert!(text(&off_limits).contains("may change only"));
+        let bad = call(
+            &client,
+            "setting_change",
+            json!({ "key": "pet.size", "value": "XXL" }),
+        )
+        .await;
+        assert_eq!(bad.is_error, Some(true));
+        client.cancel().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_question_on_the_pet_returns_the_button_pressed_or_nothing() {
+        let (_dir, data) = world();
+        let (client, host) = asking(&data, Some("Tomorrow")).await;
+        let r = call(
+            &client,
+            "ask_person",
+            json!({ "question": "When should I schedule it?", "options": ["Today", "Tomorrow"] }),
+        )
+        .await;
+        assert_eq!(r.structured_content.unwrap()["answer"], "Tomorrow");
+        assert_eq!(host.asked.lock().unwrap()[0].title, "Claude Code asks");
+        let one = call(
+            &client,
+            "ask_person",
+            json!({ "question": "Ok?", "options": ["Yes"] }),
+        )
+        .await;
+        assert_eq!(one.is_error, Some(true));
+        client.cancel().await.unwrap();
+        let (client, _) = asking(&data, None).await;
+        let r = call(
+            &client,
+            "ask_person",
+            json!({ "question": "Ok?", "options": ["Yes", "No"] }),
+        )
+        .await;
+        assert_eq!(r.structured_content.unwrap()["answer"], json!(null));
+        client.cancel().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn reminders_and_meetings_deleted_by_an_assistant_go_to_the_bin_and_undo_brings_them_back(
+    ) {
+        let (_dir, data) = world();
+        let (client, host) = client_for(&data, false).await;
+        let r = id(&call(
+            &client,
+            "reminder_add",
+            json!({ "title": "Pay rent", "at": "2026-11-03 09:00" }),
+        )
+        .await);
+        let listed = call(&client, "reminders_list", json!({})).await;
+        assert_eq!(
+            listed.structured_content.unwrap()["reminders"][0]["at"],
+            "2026-11-03 09:00"
+        );
+        id(&call(&client, "reminder_delete", json!({ "id": r })).await);
+        assert!(reminders::list(&data.db, true).await.unwrap().is_empty());
+        assert_eq!(reminders::list_binned(&data.db).await.unwrap().len(), 1);
+        undo_last(&host, &data).await;
+        assert_eq!(reminders::list(&data.db, true).await.unwrap().len(), 1);
+
+        let m = crate::meetings::create(
+            &data.db,
+            &*data.clock,
+            crate::meetings::MeetingInput {
+                title: "Retro".into(),
+                starts_at: Some(data.clock.now_ms()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let meetings = call(&client, "meetings_list", json!({})).await;
+        assert_eq!(
+            meetings.structured_content.unwrap()["meetings"][0]["title"],
+            "Retro"
+        );
+        id(&call(&client, "meeting_delete", json!({ "id": m.id })).await);
+        assert_eq!(
+            crate::meetings::list_binned(&data.db).await.unwrap()[0].title,
+            "Retro"
+        );
+        undo_last(&host, &data).await;
+        assert!(crate::meetings::get(&data.db, &m.id).await.is_ok());
         client.cancel().await.unwrap();
     }
 
