@@ -20,3 +20,6 @@ __pycache__/
 packs/*/strips.svg
 packs/*/strips/
 packs/*/build/
+
+# Session notes written by a local helper plugin (not project files)
+.anchor/
