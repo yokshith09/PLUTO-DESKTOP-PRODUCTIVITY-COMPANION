@@ -178,6 +178,17 @@ All four end the same way: Pluto raises a **named reaction** (`agent_done`, `age
 
 ---
 
+## P4.5 — Full screen and Tab Tantrum (owner 2026-11-02: "I want both")
+
+P4's local part is done in code (MCP, hooks, git watcher, Project Spaces). Full list of the owner's 33 features with status, key points and the fix for each blocker: [`docs/features/OWNER_FEATURE_LIST_2026-11-02.md`](docs/features/OWNER_FEATURE_LIST_2026-11-02.md).
+
+| # | Item | What you would see | How | Done when |
+|---|---|---|---|---|
+| FS-1 | **Full-screen compatibility (FR-26)** | Setting "In full screen: Hide · Small in a corner · Stay" (default Small in a corner). The pet, Focus timer pill and Tab Tantrum still work over a full-screen browser, video or editor. | Windows: pet window stays topmost (borderless full screen; exclusive full-screen games cannot be drawn over, said in the setting). macOS: full-screen auxiliary + all Spaces. | Owner checks a full-screen browser and video on Windows and Mac. |
+| TT-1 | **Tab Tantrum (FR-08)** | Past your limit (default 15 tabs in the front browser window), the pet throws a small tantrum; click it to see the tabs and close some. Off by default. | **Blocker fixed:** the count comes from the tab strip, which lists every tab's title on Windows (accurate count); only the domain of background tabs is unknown there. macOS reads every tab. No extension. Uses the existing `tracking.sites` permission. | Unit tests for the threshold and cooldown; owner checks the count against a real browser. |
+
+Order: FS-1 → TT-1, each with a preview first. Both before the UI polish batch only if the owner says so; otherwise right after U-1.
+
 ## After MCP: UI polish batch (owner 2026-10-31; **not before P4 is done**)
 
 MCP is the top priority once the open fixes are out. These four come after it, in this order, and each needs a preview approved by the owner before it is built (CLAUDE.md: ask before design choices).
@@ -188,6 +199,12 @@ MCP is the top priority once the open fixes are out. These four come after it, i
 | U-2 | **Settings in two tabs** | "Main settings" and "Profile" (grouping, not a new page). | Profile = the role, name, birthday, tour and quiz that sit in Settings and the Character page today. Preview first. |
 | U-3 | **Task editor, tidier** | "Optimise the UI". | A calmer layout of the editor that already has one row per property (links, star, repeat, reminder lead and sound, focus length). Preview first, with what is dropped or moved listed before it is touched. |
 | U-4 | **Diary and Study tabs, richer** | "Enhance". | What "enhance" means is not decided: the owner picks from a list of options (for example: Diary mood and streak view, a weekly look back; Study timetable view, a study-time chart per course, flashcard-style review). Not designed yet. |
+
+| U-5 | **Tiles: free resize (FR-22, #7)** | Owner list 2026-11-02 | Optional; today a row shares its width equally. Preview first. |
+| U-6 | **Time tab: calendar grid (FR-20/21, #10)** | Owner list 2026-11-02 | A square per day, darker = more time; commits from the watcher on the same grid. Preview first. |
+| U-7 | **Project templates (FR-113, #31-33)** | Owner list 2026-11-02 | Developer · Student · Research · Freelance · Personal set the first tabs of a Project Space; one page, not five. Preview first. |
+
+**Ready to start (2026-11-02):** U-1 first. Rule: a preview, owner approval, then code; one item at a time, tests with each, docs in the same change.
 
 Other pages are fine for now (owner); they get fixed later, as they come up.
 

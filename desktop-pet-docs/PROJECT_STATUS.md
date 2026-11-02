@@ -316,3 +316,5 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-02: P4.3a git watcher built (folders picked once, all repos inside). Tests incl. real git. Unverified on Windows/macOS.
 
 - 2026-11-02: Project Spaces built (folder, links & files, activity, make from found folder). Tests 550 core, 48 shell, 519 UI. Unverified in the real app.
+
+- 2026-11-02: plan updated from the owner's 33-item list (docs/features/OWNER_FEATURE_LIST_2026-11-02.md). Next: UI polish U-1 (preview first), P4.5 full screen + Tab Tantrum, then 0.5.10 on the owner's word.

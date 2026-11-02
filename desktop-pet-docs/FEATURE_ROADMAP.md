@@ -48,10 +48,10 @@ Legend: **Requested** = in the owner's list; **Technical requirement (TR)** = de
 | FR-02 | User photos / supported artwork as pets | Companion | Planned | FM-8 | L | Open: U-new-1 (art format, content rules) |
 | FR-03 | Character packs: install, project-aware behaviour | Companion | Planned | FM-8 | XL | Open: U-new-2 (pack format, executable content), M13 scope |
 | FR-04 | Referral codes and points (unlock after 3 qualifying referrals) | Companion | Blocked | FM-10 | XL | Blocked: backend (U-new-3) |
-| FR-05 | Focus Sessions with Pomodoro | Productivity | Planned | FM-4 | M | ROADMAP M8; U-none |
-| FR-06 | Project Spaces (notes, tasks, files, resources, links, context, setup) | Productivity | Planned | FM-3 | XL | Open: U-new-4 (type taxonomy) |
+| FR-05 | Focus Sessions with Pomodoro | Productivity | Built, Unverified | FM-4 | M | ROADMAP M8; U-none |
+| FR-06 | Project Spaces (notes, tasks, files, resources, links, context, setup) | Productivity | Built (setup tab = FR-14 still planned), Unverified | FM-3 | XL | Open: U-new-4 (type taxonomy) |
 | FR-07 | Prompt Improvement | Productivity | Blocked | FM-5 | M | Blocked: U12 (AI provider) |
-| FR-08 | Tab Tantrum (pet reacts to tab overload) | Productivity | Blocked | FM-4 | L | Blocked: no-extension decision |
+| FR-08 | Tab Tantrum (pet reacts to tab overload) | Productivity | Planned P4.5 TT-1 (owner 2026-11-02; blocker fixed: count from the tab strip) | FM-4 | L | Blocked: no-extension decision |
 | FR-09 | One-Click Workspace Launcher | Productivity | Planned | FM-3 | M | Open: U-new-5 (what may be launched) |
 | FR-10 | Group Project Tracker and team leaderboards | Productivity | Blocked | FM-10 | XL | Blocked: backend (U-new-3), privacy of ranking |
 | FR-11 | Student Project Organizer | Student & developer | Planned | FM-3 | M | none |
@@ -65,11 +65,11 @@ Legend: **Requested** = in the owner's list; **Technical requirement (TR)** = de
 | FR-19 | Website and app activity tracking | Utilities | Unverified | FM-0 | S (verify) | U16 option d decided |
 | FR-20 | GitHub-style Time-tab visualisations | Utilities | Partial | FM-1 | M | none |
 | FR-21 | GitHub commit tracker | Utilities | Planned | FM-7 | L | Open: U-new-7 (token vs local git) |
-| FR-22 | Resizable, reorderable dashboard tiles with auto layout | Utilities | Partial | FM-1 | L | none |
+| FR-22 | Resizable, reorderable dashboard tiles with auto layout | Utilities | Partial (reorder + 2 sizes + equal rows built; free resize U-5) | FM-1 | L | none |
 | FR-23 | Tile order kept on minimise/restore; no rearranging on window resize | Utilities | Unverified | FM-1 | S | none |
 | FR-24 | Correct separation of website and app activity | Utilities | Unverified | FM-1 | S | none |
 | FR-25 | Time tab layout fix | Utilities | Planned | FM-1 | S | Needs owner screenshot of the defect |
-| FR-26 | Tab Tantrum, Project Spaces and Focus in full-screen scenarios | Utilities | Planned | FM-4 | L | Open: U-new-8 |
+| FR-26 | Tab Tantrum, Project Spaces and Focus in full-screen scenarios | Utilities | Planned P4.5 FS-1 (owner 2026-11-02) | FM-4 | L | Open: U-new-8 |
 | FR-27 | Clean shutdown/restart and state preservation | Utilities | Partial | FM-1 | M | none |
 | FR-28 | Local AI via Ollama | AI | Planned | FM-5 | L | Blocked: U12 |
 | FR-29 | Optional cloud fallback with cost-aware routing | AI | Blocked | FM-11 | L | Blocked: owner + secrets (FR-13) |
@@ -88,6 +88,7 @@ Legend: **Requested** = in the owner's list; **Technical requirement (TR)** = de
 | FR-42 | Actionable links: Open note, Linked tasks on a note, Links in Notes, create note from task | Notes/Tasks | Built, Unverified | FM-V2 | M | Q5 confirmed |
 | FR-43 | Pop-ups above the pet fixed (owner reversed: they stay, emotes too) | Companion | Planned | FM-V2 | S | Q2 answered |
 | FR-44 | Time tiles resizable and filled | Time | Planned (extends FR-22) | FM-V2 | M | — |
+| FR-113 | Project templates: Developer, Student, Research, Freelance, Personal (owner list 2026-11-02, #31-33) | Productivity | Planned (U-7) | P4.5+ | M | Preview first |
 | FR-45 | Purpose-built date/time picker with presets | UI | Planned | FM-V2 | M | — |
 | FR-46 | Retention and auto-delete (preview, Bin first) | Data | Planned | FM-V2 | M | Q3: Time history + completed tasks |
 | FR-47 | Remove Logs rows from Settings (UI only) | Settings | Built, Unverified | FM-V2 | XS | — |

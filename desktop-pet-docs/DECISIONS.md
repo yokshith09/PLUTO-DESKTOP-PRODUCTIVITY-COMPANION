@@ -636,3 +636,7 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 - 2026-11-02 (owner): Project Spaces built as Split Pane (list left, space right, tabs Overview / Links & files / Activity). New git folders: both ways (Make a project from Found in your folders, or Link a folder by hand). Activity shows only Committed / Pushed with the time. Pet line names the project ("Pluto: pushed"). A pet per project (FR-67) stays after 0.6.0.
 
 - 2026-11-02 (owner): Project Spaces follows preview v2 exactly (cards, then a project screen), replacing the list-beside-detail layout built first.
+
+- 2026-11-02 (owner): Full-screen compatibility (FR-26) and Tab Tantrum (FR-08) are wanted: phase P4.5 (FS-1, TT-1), previews first. FR-08's "no-extension" blocker is resolved: on Windows the tab strip lists every tab's title, so the count is accurate (only background domains are unknown); macOS reads all tabs.
+- 2026-11-02: the owner's 33-item list is mapped in docs/features/OWNER_FEATURE_LIST_2026-11-02.md (5 built, 7 partly, 18 planned, 3 new). Research, Freelance and Personal workspaces become FR-113 Project templates (one page, a template picks the first tabs), not three features.
+- 2026-11-02 open decisions for the owner: D-NAME (rename to LOAF?), D-TELEMETRY (opt-in anonymous counts vs the local-first rule), D-AI, D-CRED, D-COMPUTER, certificates.
