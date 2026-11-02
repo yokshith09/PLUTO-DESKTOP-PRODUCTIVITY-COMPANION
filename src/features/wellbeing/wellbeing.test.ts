@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyNudges } from "@/lib/nudges";
-import { dueIn, emptyWellbeing, isDue, markShown, nextCheckMs, parseWellbeing, SAYS, type Wellbeing } from "./wellbeing";
+import { cameBack, dueIn, emptyWellbeing, isDue, markShown, nextCheckMs, parseWellbeing, SAYS, type Wellbeing } from "./wellbeing";
 
 const at = (h: number, m = 0) => new Date(2026, 9, 28, h, m, 0);
 
@@ -37,7 +37,29 @@ describe("break and water nudges", () => {
   it("start again at midnight, when today's screen time goes back to nothing", () => {
     const now = at(9).getTime();
     const w = { on: true, everyMin: 50, lastAt: now - 10 * 60 * 60_000, lastScreenSec: 20_000 };
-    expect(dueIn(w, now, 600)).toBe(50 * 60_000 - 600_000);
+    expect(dueIn(w, now, 600)).toBe(50 * 60_000);
+  });
+
+  it("owner 2026-11-02: used till 1 AM, opened at 9 AM, no stretch nudge on sitting down", () => {
+    const lastNight = new Date(2026, 10, 1, 23, 40).getTime();
+    const nine = new Date(2026, 10, 2, 9, 0).getTime();
+    // Tracking on: today already has an hour (midnight to 1 AM), yesterday's count was larger.
+    const tracked = { on: true, everyMin: 50, lastAt: lastNight, lastScreenSec: 30_000 };
+    const back = cameBack(tracked, nine, 3_600, false);
+    expect(back).toEqual({ ...tracked, lastAt: nine, lastScreenSec: 3_600 });
+    expect(dueIn(back, nine, 3_600)).toBe(50 * 60_000);
+    expect(dueIn(back, nine + 50 * 60_000, 3_600 + 50 * 60)).toBe(0);
+    // Tracking off: the clock alone says eight hours passed; still counts from now.
+    const clock = { on: true, everyMin: 50, lastAt: new Date(2026, 10, 2, 0, 30).getTime(), lastScreenSec: null };
+    expect(dueIn(cameBack(clock, nine, null, false), nine, null)).toBe(50 * 60_000);
+  });
+
+  it("waking the PC from sleep starts the count again; a normal stretch at the desk does not", () => {
+    const now = at(14).getTime();
+    const w = { on: true, everyMin: 50, lastAt: now - 40 * 60_000, lastScreenSec: 3_000 };
+    expect(cameBack(w, now, 5_000, false)).toBe(w);
+    expect(cameBack(w, now, 5_000, true).lastAt).toBe(now);
+    expect(cameBack({ ...w, on: false }, now, 5_000, true)).toEqual({ ...w, on: false });
   });
 
   it("wait for quiet hours to end", () => {

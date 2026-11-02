@@ -597,3 +597,12 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 | **Auto-setup writes the assistant's own file** | Only the `pluto` entry; first change keeps `<file>.pluto-backup`; atomic write; unreadable file → refuse, show manual. Risk: Claude Code rewrites `~/.claude.json` itself, so connect while it is closed (said in the toast: restart it). |
 | **Developer preview off by default** | Saved as a preference (`assistants.devPreview`). |
 | **Read tools** | Read only; diary never; Bin never; caps 50 rows, 20,000 characters. |
+
+## 2026-11-02 — Owner: hover card back as before; stretch reminder; MCP additions
+
+| Decision | Detail |
+|---|---|
+| **Hover card in the pet window again** | The separate card window (2c1f9ba) did not show on the owner's PC; owner wants the card as before. Card window, its command and page removed. Known trade-off: the pet window grows on hover again (the reason it was moved). |
+| **Coming back restarts the break count** | Wake from sleep, a new day, or (tracking off) more than twice the gap away. |
+| **Assistants change things only with the person's OK** | Owner reminded: assistants may change things with permission. That is the write step (P4.1c: add/edit/done tasks, reminders, notes; settings behind Allow; everything listed with Undo). Read tools came first so the change list and Undo exist before anything can change. |
+| **P4.5 additions** | Review (writes a note only when asked), meeting notes → tasks, focus guard (off by default, switch on the Assistants page), ask through the pet, resources, coding progress, what was I doing, study helpers. In `MCP_PLAN.md` §14. |

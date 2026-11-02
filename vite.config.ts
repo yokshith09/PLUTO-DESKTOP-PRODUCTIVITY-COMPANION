@@ -16,11 +16,11 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: "es2022",
     rollupOptions: {
-      // Entry points (TRD §8): the main window, the pet window (F1-22) and the pet's hover card (own window since 0.5.8).
+      // Two entry points (TRD §8): the main window and the pet window (F1-22).
       // `--mode preview` builds one self-contained bundle for design previews.
       input: {
         main: resolve(import.meta.dirname, "main.html"),
-        ...(mode === "preview" ? {} : { pet: resolve(import.meta.dirname, "pet.html"), card: resolve(import.meta.dirname, "card.html") }),
+        ...(mode === "preview" ? {} : { pet: resolve(import.meta.dirname, "pet.html") }),
       } as Record<string, string>,
       ...(mode === "preview" ? { output: { inlineDynamicImports: true } } : {}),
     },

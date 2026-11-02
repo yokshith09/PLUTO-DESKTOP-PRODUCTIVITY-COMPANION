@@ -88,13 +88,13 @@ pub fn start(
 }
 
 #[cfg(any(windows, target_os = "macos"))]
-/// The pet and its card float over the app being used and come forward when touched (a click,
+/// The pet (and the hover card, drawn in its window) float over the app being used and come forward when touched (a click,
 /// Sleep, a task ticked) while the person carries on reading or scrolling in that app. They do
 /// not stop its time (owner 2026-11-01: the gaps in the trace were all `pluto.exe` in front for
 /// minutes while the input never stopped). The dashboard and note windows are real use of
 /// Pluto and count as "Pluto" (owner 2026-11-01).
 pub(crate) fn is_see_through(label: &str) -> bool {
-    label == crate::pet::LABEL || label == crate::pet::CARD_LABEL
+    label == crate::pet::LABEL
 }
 
 #[cfg(windows)]
@@ -365,7 +365,7 @@ pub(crate) mod win {
     /// What the trace says when Pluto's pet or card is in front and the app before it keeps counting.
     const KEPT: &str = "kept (Pluto's pet or card)";
 
-    /// Pluto's own windows, by handle, with their window label (`pet`, `pet-card`, `main`).
+    /// Pluto's own windows, by handle, with their window label (`pet`, `main`).
     static OWN: Mutex<Vec<(usize, &'static str)>> = Mutex::new(Vec::new());
 
     /// Remembered once at start-up, so the trace can say which Pluto window was in front and the
@@ -591,9 +591,9 @@ pub(crate) mod win {
         }
 
         #[test]
-        fn the_pet_and_its_card_are_seen_through_but_the_dashboard_is_not() {
+        fn the_pet_is_seen_through_but_the_dashboard_is_not() {
             assert!(super::is_see_through("pet"));
-            assert!(super::is_see_through("pet-card"));
+            assert!(!super::is_see_through("pet-card"));
             assert!(!super::is_see_through("main"));
             assert!(!super::is_see_through("note-abc"));
         }
@@ -601,14 +601,15 @@ pub(crate) mod win {
         #[test]
         fn pluto_windows_are_known_by_handle_and_others_are_not() {
             let pet = 0x1010 as super::HWND;
-            let card = 0x2020 as super::HWND;
-            super::set_own_windows(&[(pet, "pet"), (card, "pet-card")]);
+            let main = 0x2020 as super::HWND;
+            super::set_own_windows(&[(pet, "pet"), (main, "main")]);
             assert_eq!(super::own_label(pet), Some("pet"));
-            assert_eq!(super::own_label(card), Some("pet-card"));
+            assert_eq!(super::own_label(main), Some("main"));
             assert_eq!(super::own_label(std::ptr::null_mut()), None);
-            assert!(super::is_overlay(card));
+            assert!(super::is_overlay(pet));
+            assert!(!super::is_overlay(main));
             super::set_own_windows(&[]);
-            assert!(!super::is_overlay(card));
+            assert!(!super::is_overlay(pet));
         }
 
         #[test]

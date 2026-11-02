@@ -4,7 +4,7 @@ import { ipc, onWake, petSay } from "@/ipc";
 import { rangeBounds } from "@/features/time/range";
 import { parseNudges } from "@/lib/nudges";
 import {
-  KINDS, SAYS, isDue, markShown, nextCheckMs, parseWellbeing, type Wellbeing, type WellbeingKind,
+  KINDS, SAYS, cameBack, isDue, markShown, nextCheckMs, parseWellbeing, type Wellbeing, type WellbeingKind,
 } from "./wellbeing";
 
 export const WELLBEING_KEY = ["prefs", "ui.wellbeing"] as const;
@@ -45,7 +45,7 @@ export function useWellbeingNudges() {
     let timer: number | undefined;
     let stopped = false;
 
-    const check = async () => {
+    const check = async (woke = false) => {
       if (stopped) return;
       // Read what is saved, not what this render saw: several checks can be in flight.
       const saved = parseWellbeing(await ipc.prefsGet("ui.wellbeing"));
@@ -53,6 +53,11 @@ export function useWellbeingNudges() {
       const [nudges, screen] = [parseNudges(await ipc.prefsGet("ui.nudges")), await screenTime()];
       const now = new Date();
       let next = saved;
+      // Back at the computer (woke, new day, long away): count from now, never nudge at once.
+      for (const kind of KINDS) {
+        const fresh = cameBack(next[kind], now.getTime(), screen, woke);
+        if (fresh !== next[kind]) next = { ...next, [kind]: fresh };
+      }
       for (const kind of KINDS) {
         if (!isDue(next[kind], nudges, now, screen)) continue;
         next = markShown(next, kind as WellbeingKind, now.getTime(), screen);
@@ -71,7 +76,7 @@ export function useWellbeingNudges() {
     void check();
     const onShow = () => document.visibilityState === "visible" && void check();
     document.addEventListener("visibilitychange", onShow);
-    const offWake = onWake(() => void check());
+    const offWake = onWake(() => { window.clearTimeout(timer); void check(true); });
     return () => {
       stopped = true;
       window.clearTimeout(timer);

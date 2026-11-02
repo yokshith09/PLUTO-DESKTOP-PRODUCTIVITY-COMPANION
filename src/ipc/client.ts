@@ -134,7 +134,6 @@ export const ipc = {
   petPlan: (cardWidth: number, cardHeight: number, below?: boolean) =>
     call<{ pet: "left" | "right"; card: "above" | "below" } | null>("pet_plan", { cardWidth, cardHeight, below: below ?? null }),
   /** Show the hover card in its own window beside the pet (`open: false` hides it). Size in logical pixels. */
-  petCard: (open: boolean, cardWidth: number, cardHeight: number) => call<null>("pet_card", { open, cardWidth, cardHeight }),
   petHover: (expanded: boolean, cardWidth: number, cardHeight: number, below?: boolean) =>
     call<{ pet: "left" | "right"; card: "above" | "below" } | null>("pet_hover", { expanded, cardWidth, cardHeight, below: below ?? null }),
   petClick: () => call<unknown>("pet_click"),

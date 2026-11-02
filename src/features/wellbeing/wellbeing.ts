@@ -63,11 +63,30 @@ export function dueIn(state: WellbeingKindState, now: number, screenSec: number 
   const everyMs = state.everyMin * 60_000;
   if (state.lastAt === null) return everyMs; // start counting from now, never nudge on opening
   if (screenSec !== null && state.lastScreenSec !== null) {
-    // Screen time can only grow within a day; a smaller number means a new day started.
-    const used = screenSec >= state.lastScreenSec ? screenSec - state.lastScreenSec : screenSec;
-    return Math.max(0, everyMs - used * 1000);
+    // Screen time can only grow within a day; a smaller number means a new day started, and a
+    // new day starts the count again (see `cameBack`), never with last night's minutes.
+    if (screenSec < state.lastScreenSec) return everyMs;
+    return Math.max(0, everyMs - (screenSec - state.lastScreenSec) * 1000);
   }
   return Math.max(0, state.lastAt + everyMs - now);
+}
+
+const dayOf = (ms: number) => new Date(ms).toDateString();
+
+/**
+ * Coming back to the computer starts the count again (owner 2026-11-02: at 9 AM, after using the
+ * PC until 1 AM, the pet asked for a stretch the moment it was opened). It counts as coming back
+ * when the PC wakes from sleep, when it is a new day since the last count, or, without app
+ * tracking, when far more than the gap has passed (the person was not there). Returns the state
+ * with the count restarted from now, or the same object when nothing changed.
+ */
+export function cameBack(state: WellbeingKindState, now: number, screenSec: number | null, woke: boolean): WellbeingKindState {
+  if (!state.on || state.lastAt === null) return state;
+  const newDay = dayOf(state.lastAt) !== dayOf(now)
+    || (screenSec !== null && state.lastScreenSec !== null && screenSec < state.lastScreenSec);
+  const longGone = screenSec === null && now - state.lastAt > state.everyMin * 60_000 * 2;
+  if (!woke && !newDay && !longGone) return state;
+  return { ...state, lastAt: now, lastScreenSec: screenSec };
 }
 
 /** Show it now? Due, switched on, and not in quiet hours. */

@@ -7,6 +7,9 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 (MCP, 0.6.0, is built on top of 0.5.8.)
 
+- Fixed (owner 2026-11-02, Unverified): the stretch reminder no longer fires the moment you sit down. Used till 1 AM, opened at 9 AM: the count restarted from midnight with the hour after midnight already "used", and with tracking off from 12:30 AM. Now waking the PC, a new day, or (without tracking) more than twice the gap away starts the count from now. Tests reproduce the owner's night.
+- Changed back (owner 2026-11-02): the hover card is drawn inside the pet's window again, as before 0.5.8; its own window is removed (on the owner's PC it did not show, only a close button flashed). The trade-off is the reason it was moved: the pet window grows on hover, so a brief flicker of the pet can come back. Unverified on a real PC.
+
 - Added (MCP P4.1b): read tools `today`, `tasks_list`, `task_get`, `notes_search`, `note_get` (read only, 50 rows at most, note text cut at 20,000 characters). Never the diary (encrypted, its key is never given to MCP) and never notes in the Bin; tests prove both.
 - Changed (Assistants page, owner 2026-11-02): one tile per assistant with a single Connect. **Claude** is one setup for both Claude Code (`~/.claude.json`) and the Claude app (`claude_desktop_config.json`); also VS Code (`Code/User/mcp.json`, its own `servers` shape) and Cursor (`~/.cursor/mcp.json`); plus "Another assistant". Connect adds only a `pluto` entry, keeps a `.pluto-backup` of the file the first time, writes through a temp file, never overwrites a file it cannot read, and switches assistants on. The gear on a tile opens that assistant's settings: where it is set up, Disconnect, the manual setup (hidden until asked) and its recent requests. Capabilities in plain words. Developer preview is off by default, with a line saying what it is. **Unverified on a real PC.**
 
