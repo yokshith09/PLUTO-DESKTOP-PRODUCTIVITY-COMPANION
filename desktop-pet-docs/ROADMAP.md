@@ -435,3 +435,5 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-02: Today overview (auto-fitting tiles, Now / Next up, ordering) and Daily routine fix built for the next build; owner to test.
 
 - 2026-11-02: P4.3a done in code (git watcher, one-time folders). Next: Project Spaces (preview first), then UI polish (preview first), then 0.5.10.
+
+- 2026-11-02: P4.4 Project Spaces done in code. P4 local part complete; left in P4: CI reactions (need the network layer). Next: UI polish U-1..U-4 (preview first), then 0.5.10 on the owner's word.

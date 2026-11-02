@@ -129,8 +129,8 @@ pub const REACTIONS: &[(&str, &str)] = &[
     ("agent_done", "{} is done"),
     ("agent_needs_you", "{} needs you"),
     ("agent_error", "{} hit an error"),
-    ("git_commit", "Committed"),
-    ("git_push", "Pushed"),
+    ("git_commit", "{}: committed"),
+    ("git_push", "{}: pushed"),
     ("build_ok", "Build passed"),
     ("build_failed", "Build failed"),
 ];

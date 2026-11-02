@@ -1008,3 +1008,15 @@ mod write_tests {
         client.cancel().await.unwrap();
     }
 }
+
+#[test]
+fn git_reactions_name_the_project() {
+    assert_eq!(
+        super::reaction_line("git_push", "Pluto").map(|(_, l)| l),
+        Some("Pluto: pushed".to_owned())
+    );
+    assert_eq!(
+        super::reaction_line("git_commit", "StaySync").map(|(_, l)| l),
+        Some("StaySync: committed".to_owned())
+    );
+}

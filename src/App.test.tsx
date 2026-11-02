@@ -1027,6 +1027,50 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     expect(await screen.findByRole("region", { name: "Project Thesis" })).toBeTruthy();
   });
 
+  it("Project Spaces: make a project from a found git folder, see its pushes, add a link; it stays after a rename", async () => {
+    const { ipc } = await import("@/ipc");
+    const open = vi.spyOn(ipc, "projectPathOpen");
+    const user = userEvent.setup();
+    render(<App />);
+    await goTo(user, /^Projects/);
+    const found = await screen.findByRole("region", { name: "Found in your folders" });
+    await user.click(within(found).getByRole("button", { name: "Make staysync a project" }));
+    const project = await screen.findByRole("region", { name: "Project staysync" });
+    expect(within(project).getByText("E:/Projects/staysync")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Found in your folders" })).toBeNull();
+    await user.click(within(project).getByRole("button", { name: "Open folder" }));
+    expect(open).toHaveBeenCalledWith("E:/Projects/staysync");
+
+    await user.click(within(project).getByRole("tab", { name: /Links & files/ }));
+    await user.type(within(project).getByRole("textbox", { name: "Web link to add" }), "github.com/me/staysync{Enter}");
+    const links = within(project).getByRole("region", { name: "Links and files" });
+    expect(await within(links).findByRole("button", { name: "Open github.com" })).toBeTruthy();
+
+    await user.click(within(project).getByRole("button", { name: "Rename staysync" }));
+    const box = screen.getByRole("textbox", { name: "Project name" });
+    await user.clear(box);
+    await user.type(box, "StaySync{Enter}");
+    const renamed = await screen.findByRole("region", { name: "Project StaySync" });
+    expect(within(renamed).getByText("E:/Projects/staysync")).toBeTruthy();
+    await waitFor(async () => {
+      const saved = (await ipc.prefsGet("projects.spaces")) as { projects: { name: string; links: unknown[] }[] };
+      expect(saved.projects).toEqual([{ name: "StaySync", folder: "E:/Projects/staysync", links: [{ label: "github.com", target: "https://github.com/me/staysync" }] }]);
+    });
+  });
+
+  it("Project Spaces: Activity shows Pushed and Committed for the project's folder, not commit messages", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await goTo(user, /^Projects/);
+    const project = await screen.findByRole("region", { name: "Project Pluto v1" });
+    await user.click(within(project).getByRole("button", { name: "Link a folder" }));
+    expect(await within(project).findByText("E:/Projects/pluto")).toBeTruthy();
+    await user.click(within(project).getByRole("tab", { name: "Activity" }));
+    const feed = await within(project).findByRole("region", { name: "Activity" });
+    expect(await within(feed).findByText("Pushed")).toBeTruthy();
+    expect(within(feed).getByText("Committed")).toBeTruthy();
+  });
+
   it("a project can be renamed, and its tasks and notes follow", async () => {
     const { ipc } = await import("@/ipc");
     const user = userEvent.setup();

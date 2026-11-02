@@ -189,6 +189,40 @@ pub fn clean_roots(stored: Option<&serde_json::Value>) -> Vec<PathBuf> {
     out
 }
 
+/// One commit or push seen, kept for a project's Activity ("Committed" / "Pushed" and the time;
+/// owner 2026-11-02: no commit messages).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitEvent {
+    pub repo: String,
+    /// `git_commit` or `git_push`.
+    pub kind: String,
+    pub at_ms: i64,
+}
+
+/// How many git events are kept (newest first), across all projects.
+pub const EVENTS_KEPT: usize = 500;
+pub const EVENTS_PREF: &str = "dev.git_events";
+
+/// The kept events from the stored preference (malformed entries dropped).
+pub fn events_from(stored: Option<&serde_json::Value>) -> Vec<GitEvent> {
+    stored
+        .and_then(serde_json::Value::as_array)
+        .map(|l| {
+            l.iter()
+                .filter_map(|v| serde_json::from_value(v.clone()).ok())
+                .take(EVENTS_KEPT)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Adds the newest event in front and keeps at most [`EVENTS_KEPT`].
+pub fn remember(events: &mut Vec<GitEvent>, event: GitEvent) {
+    events.insert(0, event);
+    events.truncate(EVENTS_KEPT);
+}
+
 /// The preference that holds the chosen folders.
 pub const ROOTS_PREF: &str = "dev.git_roots";
 
@@ -323,6 +357,35 @@ mod tests {
             w.poll(&[r, other]).is_empty(),
             "history of a newly found repository is quiet"
         );
+    }
+
+    #[test]
+    fn events_keep_the_newest_first_and_drop_junk() {
+        let mut list = events_from(Some(&serde_json::json!([
+            { "repo": "a", "kind": "git_push", "atMs": 2 },
+            { "nope": 1 }
+        ])));
+        assert_eq!(list.len(), 1);
+        remember(
+            &mut list,
+            GitEvent {
+                repo: "b".into(),
+                kind: "git_commit".into(),
+                at_ms: 3,
+            },
+        );
+        assert_eq!(list[0].repo, "b");
+        for i in 0..600 {
+            remember(
+                &mut list,
+                GitEvent {
+                    repo: "c".into(),
+                    kind: "git_commit".into(),
+                    at_ms: i,
+                },
+            );
+        }
+        assert_eq!(list.len(), EVENTS_KEPT);
     }
 
     #[test]

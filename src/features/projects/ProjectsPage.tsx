@@ -14,6 +14,10 @@ import { useFocus, useFocusLength } from "@/hooks/useFocus";
 import { ymd } from "@/lib/dates";
 import { STATUS_LABEL } from "@/lib/taskStatus";
 import { planRename, summarize } from "./summary";
+import { ensure, nameFor, renameSpace, setFolder, spaceOf, unlinkedRepos } from "./spaces";
+import { ActivityPanel, FolderBar, FoundFolders, LinksPanel } from "./SpaceParts";
+import { useSpaces } from "./useSpaces";
+import { useQuery } from "@tanstack/react-query";
 import { errorMessage, ipc, type NoteSummary, type TaskRow } from "@/ipc";
 import { notify } from "@/lib/notify";
 import { timeAgo } from "@/lib/time";
@@ -55,8 +59,12 @@ export function ProjectsPage() {
   const { data: tasks = [] } = useAllTasks();
   const { data: notes = [] } = useNotes(false, null, "last_edited");
   const { quickAdd, update } = useTaskActions();
-  const [started, setStarted] = useState<string[]>([]);
-  const projects = useMemo(() => projectsFrom(tasks, notes, started), [tasks, notes, started]);
+  const { spaces, save } = useSpaces();
+  const { data: watch } = useQuery({ queryKey: ["dev", "git"], queryFn: ipc.devGitWatch });
+  const [tab, setTab] = useState<"overview" | "links" | "activity">("overview");
+  const names = useMemo(() => spaces.projects.map((p) => p.name), [spaces]);
+  const projects = useMemo(() => projectsFrom(tasks, notes, names), [tasks, notes, names]);
+  const found = unlinkedRepos(spaces, watch?.repos ?? []);
   const [chosen, setChosen] = useState<string | null>(null);
   const current = projects.find((p) => p.name === chosen) ?? projects[0] ?? null;
   const focus = useFocus();
@@ -88,7 +96,7 @@ export function ProjectsPage() {
       }
       for (const id of plan.noteIds) await ipc.noteUpdate(id, { project: name });
       await qc.invalidateQueries({ queryKey: ["notes"] });
-      setStarted((s) => s.map((x) => (x === current.name ? name : x)));
+      await save(renameSpace(spaces, current.name, name));
       setChosen(name);
       notify.success(`Renamed to “${name}”`);
     } catch (e) {
@@ -99,10 +107,19 @@ export function ProjectsPage() {
   const start = () => {
     const name = newName.trim().slice(0, 100);
     if (!name) return;
-    setStarted((s) => (s.includes(name) ? s : [...s, name]));
+    void save(ensure(spaces, name));
     setChosen(name);
+    setTab("overview");
     setNewName("");
   };
+  /** "Make a project" from a git folder the watcher found (or one picked by hand). */
+  const makeFrom = (folder: string) => {
+    const name = nameFor(folder, projects.map((p) => p.name));
+    void save(setFolder(ensure(spaces, name), name, folder)).then(() => notify.success(`Made the project “${name}”`, { description: "Rename it any time with the pencil." }));
+    setChosen(name);
+    setTab("overview");
+  };
+  const choose = (name: string) => { setChosen(name); setTab("overview"); };
   const addTask = async () => {
     const title = taskDraft.trim();
     if (!title || !current) return;
@@ -127,13 +144,13 @@ export function ProjectsPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Projects" description="A project’s tasks and notes in one place." />
+      <PageHeader title="Projects" description="A project’s tasks, notes, folder and links in one place." />
       <div className="grid gap-5 lg:grid-cols-[16rem_minmax(0,1fr)]">
         <nav aria-label="Projects" className="space-y-3">
           <ul className="space-y-0.5">
             {projects.map((p) => (
               <li key={p.name}>
-                <button type="button" onClick={() => setChosen(p.name)} aria-current={current?.name === p.name ? "page" : undefined}
+                <button type="button" onClick={() => choose(p.name)} aria-current={current?.name === p.name ? "page" : undefined}
                   className={cn("w-full rounded-lg border px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     current?.name === p.name ? "border-primary/40 bg-accent text-foreground" : "border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground")}>
                   <span className="flex items-center gap-2.5 text-[13.5px]">
@@ -150,6 +167,7 @@ export function ProjectsPage() {
             <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="New project" aria-label="New project name" maxLength={100} />
             <Button type="submit" size="icon" variant="secondary" aria-label="Start project" disabled={!newName.trim()}><Plus /></Button>
           </form>
+          <FoundFolders repos={found} onMake={makeFrom} />
         </nav>
 
         {current ? (
@@ -168,6 +186,7 @@ export function ProjectsPage() {
               <p className="mt-0.5 text-[13px] text-muted-foreground">
                 {current.tasks.length - current.open} of {current.tasks.length} tasks done · {current.notes.length} {current.notes.length === 1 ? "note" : "notes"}
               </p>
+              <FolderBar space={spaceOf(spaces, current.name)} spaces={spaces} save={save} />
               {stats && (
                 <ul aria-label="Project summary" className="mt-2 flex flex-wrap gap-2 text-xs">
                   <li className="rounded-md bg-muted px-2 py-1 tabular-nums">{stats.open} open</li>
@@ -177,6 +196,17 @@ export function ProjectsPage() {
                 </ul>
               )}
             </div>
+            <div role="tablist" aria-label="Project views" className="flex gap-1 border-b">
+              {([["overview", "Overview"], ["links", `Links & files${spaceOf(spaces, current.name).links.length ? ` ${spaceOf(spaces, current.name).links.length}` : ""}`], ["activity", "Activity"]] as const).map(([id, label]) => (
+                <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+                  className={cn("-mb-px border-b-2 px-3 py-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring", tab === id ? "border-primary font-semibold text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {tab === "links" && <LinksPanel space={spaceOf(spaces, current.name)} spaces={spaces} save={save} />}
+            {tab === "activity" && <ActivityPanel space={spaceOf(spaces, current.name)} tasks={current.tasks} notes={current.notes} />}
+            {tab === "overview" && <>
             {stats && stats.total > 0 && (
               <div role="progressbar" aria-label="Project progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={stats.percent} className="h-2 overflow-hidden rounded-full bg-muted">
                 <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${stats.percent}%` }} />
@@ -241,13 +271,15 @@ export function ProjectsPage() {
                 )}
               </Tile>
             </div>
+            </>}
           </section>
         ) : (
           <div className="grid place-items-center rounded-xl border bg-card px-6 py-16 text-center">
             <div>
               <span className="mx-auto mb-3 grid size-10 place-items-center rounded-lg bg-muted text-muted-foreground"><NotebookPen className="size-5" /></span>
               <p className="text-sm font-medium">No projects yet</p>
-              <p className="mt-1 text-[13px] text-muted-foreground">Name one on the left, or set a project on a task or note.</p>
+              <p className="mt-1 max-w-sm text-[13px] text-muted-foreground">A project keeps its tasks, notes, folder and links together. Name one on the left, or make one from a folder.</p>
+              <Button className="mt-4" onClick={() => void ipc.projectPathPick("folder").then((f) => f && makeFrom(f)).catch((e: unknown) => notify.error(errorMessage(e)))}><FolderKanban />Make a project from a folder</Button>
             </div>
           </div>
         )}

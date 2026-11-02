@@ -15,6 +15,8 @@ export type AssistantInfo = { id: string; name: string; installed: boolean; conn
 export type DeveloperLines = { gitCommit: string; gitPush: string; build: string };
 /** Folders watched for commits and pushes, and the repositories found in them. */
 export type GitWatchInfo = { roots: string[]; repos: string[] };
+/** A commit or push the folder watcher saw. */
+export type GitEvent = { repo: string; kind: "git_commit" | "git_push"; atMs: number };
 
 export const ipc = {
   settingsGetAll: () => call<Settings>("settings_get_all"),
@@ -35,6 +37,11 @@ export const ipc = {
   mcpDeveloper: () => call<DeveloperLines>("mcp_developer"),
   devGitWatch: () => call<GitWatchInfo>("dev_git_watch"),
   devGitAddFolder: () => call<GitWatchInfo | null>("dev_git_add_folder"),
+  devGitEvents: () => call<GitEvent[]>("dev_git_events"),
+  /** Folder or file picker for a project; `null` if cancelled. */
+  projectPathPick: (kind: "folder" | "file") => call<string | null>("project_path_pick", { kind }),
+  /** Opens a project's folder or file link (only saved ones; programs are shown, not run). */
+  projectPathOpen: (path: string) => call<null>("project_path_open", { path }),
   devGitRemoveFolder: (path: string) => call<GitWatchInfo>("dev_git_remove_folder", { path }),
   /** The last calls assistants made, newest first (in memory only). */
   mcpActivity: () => call<AssistantCall[]>("mcp_activity"),
