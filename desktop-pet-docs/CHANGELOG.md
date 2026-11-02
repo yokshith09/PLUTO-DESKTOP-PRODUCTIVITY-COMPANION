@@ -6,6 +6,7 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 ## [Unreleased]
 
 ### Docs
+- Owner decisions recorded (stays Pluto; usage counts may be sent; credentials as the user's own file; AI later; computer use last; signing on hold) and FR-114 Routine tracker planned (U-8).
 - Plan updated from the owner's 33-item feature list: status, key points and a fix for each blocker; P4.5 full screen + Tab Tantrum; FR-113 project templates; U-5 to U-7.
 
 ### Added

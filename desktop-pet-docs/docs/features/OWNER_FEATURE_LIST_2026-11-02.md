@@ -75,13 +75,21 @@ Owner decisions on 2026-11-02: **#11 Full-screen compatibility and Tab Tantrum: 
 
 **FR-113 Project templates (new, 2026-11-02).** One Project Spaces page, with a template chosen when a project is made: Developer · Student · Research · Freelance · Personal. A template only sets which tabs and fields show first; any project can use any tab. This avoids five copies of the same page. Needs a preview before code.
 
+## Added 2026-11-02 (owner)
+
+**FR-114 Routine tracker (new).** Day-to-day progress of the daily routine: how many routines you follow, how many you did each day, and how you are doing over time.
+- What exists: the Daily routine tile keeps 60 days of which habits were ticked (`ui.routine.history`) and shows "x/7" per habit.
+- Missing data (fix): the history does not record how many habits you had on each day, so a day's % cannot be computed honestly. Add `history[day] = { done: ids, of: count }` from the next rollover; older days show done count only, marked as such.
+- Screen (preview first): a Routine page or a tab on the tile's expand: a calendar grid (square per day, darker = more done), this week vs last week, each habit's 30-day rate, best and current run (shown as "5 of the last 7 days", not a guilt streak, FR-90), and the days you missed with no red alarms. Keep 365 days instead of 60.
+- Plan: U-8 in the UI polish batch, after U-6 (same calendar grid component).
+
 ## Open decisions (owner)
 
 | ID | Decision | Unblocks | Recommendation |
 |---|---|---|---|
-| D-NAME | Rename Pluto to LOAF? | Branding, installer, website | Decide before any outside release |
-| D-TELEMETRY | Allow opt-in anonymous usage counts | #1 | Yes, opt-in, off by default, counts only |
-| D-AI | AI provider | #14, #21, #23, #27, #28 | Ollama/local first, bring-your-own-key second |
-| D-CRED | Credential storage policy | #15, part of #16, #30, #32 | References + OS keychain only |
-| D-COMPUTER | Computer-use in scope | #29 | Yes, last, approval per action |
-| Certificates | Code-signing | Warning-free #3 | Buy before the outside release |
+| D-NAME | **Decided: stays Pluto** | — | — |
+| D-TELEMETRY | **Decided: build usage counts; data may be sent** (owner overrides the local-first rule) | #1 | Kept advice: say so in the installer and Settings, send counts and feature names only (never titles, notes, sites or paths), and give an off switch. Indian DPDP Act and EU GDPR users need a notice; without one, antivirus and reviewers flag "phones home". |
+| D-AI | **Decided: later**, when P8 starts | #14, #21, #23, #27, #28 | — |
+| D-CRED | **Decided: users keep their own keys in a file on their PC.** Pluto publishes the file format; the user saves the file locally and links its path in the project. | #15, #16, #30, #32 | Format: `.env`-style `NAME=value` lines plus `# rotate: 2027-01-01` comments. Pluto reads names and dates, shows values masked, reveals one only on click and confirm, never copies values into its database or logs. Warns if the file is inside a git folder without a `.gitignore` entry, or in a synced folder (OneDrive, iCloud, Dropbox). |
+| D-COMPUTER | **Decided: last** (end of P8) | #29 | — |
+| Certificates | **Decided: on hold** | Warning-free #3 | Updater can still use Tauri's own free signing key |

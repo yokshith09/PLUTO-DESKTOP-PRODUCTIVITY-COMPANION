@@ -56,7 +56,7 @@ Legend: **Requested** = in the owner's list; **Technical requirement (TR)** = de
 | FR-10 | Group Project Tracker and team leaderboards | Productivity | Blocked | FM-10 | XL | Blocked: backend (U-new-3), privacy of ranking |
 | FR-11 | Student Project Organizer | Student & developer | Planned | FM-3 | M | none |
 | FR-12 | Study Companion | Student & developer | Planned | FM-5 | L | Depends on U12 |
-| FR-13 | Secure Credential Access (references only) | Student & developer | Planned | FM-6 | XL | Open: U-new-6 (storage policy) |
+| FR-13 | Secure Credential Access: user's own keys file, path linked per project (owner 2026-11-02) | Student & developer | Planned, decision made | FM-6 | XL | Open: U-new-6 (storage policy) |
 | FR-14 | Project Setup Assistant | Student & developer | Planned | FM-3 | M | none |
 | FR-15 | Presentation Practice Companion | Student & developer | Planned | FM-5 | L | Voice stack open (M9) |
 | FR-16 | Coding Error Translator | Student & developer | Planned | FM-5 | M | Depends on U12 |
@@ -75,7 +75,7 @@ Legend: **Requested** = in the owner's list; **Technical requirement (TR)** = de
 | FR-29 | Optional cloud fallback with cost-aware routing | AI | Blocked | FM-11 | L | Blocked: owner + secrets (FR-13) |
 | FR-30 | Computer-Use Assistant (permissions, approved actions, verification) | AI | Blocked | FM-12 | XL | Blocked: safety design + owner approval |
 | FR-31 | Character sharing | Community | Blocked | FM-10 | L | Blocked: backend; content moderation |
-| FR-32 | Transparent telemetry (consent, opt-out, retention) | Community | Blocked | FM-9 | L | Blocked: backend; legal |
+| FR-32 | Transparent telemetry (consent, opt-out, retention) | Community | Planned (owner 2026-11-02 allows sending; needs the P9 backend) | FM-9 | L | Blocked: backend; legal |
 | FR-33 | Abuse and duplicate prevention | Community | Blocked | FM-10 | L | Blocked: backend |
 | FR-34 | Product website and downloads | Distribution | Planned | FM-9 | M | Blocked: product name (undecided) |
 | FR-35 | In-app announcements and release notes | Distribution | Planned | FM-2 | M | none |
@@ -88,6 +88,7 @@ Legend: **Requested** = in the owner's list; **Technical requirement (TR)** = de
 | FR-42 | Actionable links: Open note, Linked tasks on a note, Links in Notes, create note from task | Notes/Tasks | Built, Unverified | FM-V2 | M | Q5 confirmed |
 | FR-43 | Pop-ups above the pet fixed (owner reversed: they stay, emotes too) | Companion | Planned | FM-V2 | S | Q2 answered |
 | FR-44 | Time tiles resizable and filled | Time | Planned (extends FR-22) | FM-V2 | M | — |
+| FR-114 | Routine tracker: day-to-day progress, routines followed, performance (owner 2026-11-02) | Productivity | Planned (U-8) | UI polish | M | Preview first |
 | FR-113 | Project templates: Developer, Student, Research, Freelance, Personal (owner list 2026-11-02, #31-33) | Productivity | Planned (U-7) | P4.5+ | M | Preview first |
 | FR-45 | Purpose-built date/time picker with presets | UI | Planned | FM-V2 | M | — |
 | FR-46 | Retention and auto-delete (preview, Bin first) | Data | Planned | FM-V2 | M | Q3: Time history + completed tasks |

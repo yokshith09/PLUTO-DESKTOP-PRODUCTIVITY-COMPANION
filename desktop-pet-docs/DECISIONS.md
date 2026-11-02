@@ -640,3 +640,9 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 - 2026-11-02 (owner): Full-screen compatibility (FR-26) and Tab Tantrum (FR-08) are wanted: phase P4.5 (FS-1, TT-1), previews first. FR-08's "no-extension" blocker is resolved: on Windows the tab strip lists every tab's title, so the count is accurate (only background domains are unknown); macOS reads all tabs.
 - 2026-11-02: the owner's 33-item list is mapped in docs/features/OWNER_FEATURE_LIST_2026-11-02.md (5 built, 7 partly, 18 planned, 3 new). Research, Freelance and Personal workspaces become FR-113 Project templates (one page, a template picks the first tabs), not three features.
 - 2026-11-02 open decisions for the owner: D-NAME (rename to LOAF?), D-TELEMETRY (opt-in anonymous counts vs the local-first rule), D-AI, D-CRED, D-COMPUTER, certificates.
+
+- 2026-11-02 (owner): the app stays **Pluto** (no LOAF rename).
+- 2026-11-02 (owner, **overrides the local-first rule** for usage counts): Pluto may send usage data for install/active/feature counts. Advice recorded: notice in installer and Settings, counts and feature names only, an off switch (DPDP/GDPR).
+- 2026-11-02 (owner): AI provider decided when P8 starts. Computer use is the last item. Code signing on hold.
+- 2026-11-02 (owner): credentials stay in the user's own file on their PC; Pluto provides the file format (`NAME=value`, `# rotate:` dates) and links the file's path per project; values masked, revealed only on confirm, never stored by Pluto.
+- 2026-11-02 (owner): new FR-114 Routine tracker (day-to-day progress, number of routines, performance), U-8 in the UI polish batch; routine history starts recording each day's habit count and keeps 365 days.
