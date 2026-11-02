@@ -13,7 +13,7 @@ Every claim is tagged with how it was checked. **Fact** = seen in code, tests, G
 
 | Area | State | Evidence |
 |---|---|---|
-| **Versions** | 0.5.6 published. **0.5.7 is a draft, not published**; the owner installed its exe from the draft to test. The draft's files were rebuilt by mistake from 2c1f9ba (see CHANGELOG 0.5.7 note), so a 0.5.7 exe downloaded **after 16:53 UTC on 2026-11-01** already has the card window and the see-through fix; one downloaded earlier does not. | Release run 41328018249 |
+| **Versions** | 0.5.6 published. **0.5.8 draft building 2026-11-02 for the owner's test (all fixes; 0.5.7 set aside).** Earlier: 0.5.7 draft; the owner installed its exe from the draft to test. The draft's files were rebuilt by mistake from 2c1f9ba (see CHANGELOG 0.5.7 note), so a 0.5.7 exe downloaded **after 16:53 UTC on 2026-11-01** already has the card window and the see-through fix; one downloaded earlier does not. | Release run 41328018249 |
 | **Release rule** | Releases only on the owner's word; the Release workflow now builds only when the version number changes (eb4d520; its run built nothing). | Release run 41330372909 (9 s, plan only) |
 | **Time tracking (Windows)** | Foreground re-check (0.5.6), per-second re-check and trace (0.5.7), 10-minute away limit, pet and card seen through (after 0.5.7). The trace found the last known gap (Pluto's own window in front). **Unverified on a real PC**; the owner's next one-hour report decides it. | 0.5.7 trace, owner's clock 53/62 min |
 | **Hover card** | Own window, same size and place. **Unverified on a real PC.** | 486 UI tests; placement test |

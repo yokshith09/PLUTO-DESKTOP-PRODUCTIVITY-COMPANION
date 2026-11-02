@@ -11,6 +11,9 @@ Pluto ships **Windows and macOS** installers (release workflow matrix: `windows-
 | Open at login (autostart) | ✅ registry Run key | ✅ login item | ⬜ |
 | Global shortcuts | ✅ | ✅ (may need Accessibility for some keys) | ⬜ |
 | **App time tracking** (`tracking.rs`) | ✅ event hook, no polling | ✅ checks once a second (exception to ADR-009) | ⬜ "unavailable" |
+| **Pet and card seen through; dashboard counts as Pluto** (0.5.8) | ✅ by window handle | ✅ by which Pluto window has focus (compiled and tested in CI only) | ⬜ |
+| **Hover card in its own window** (0.5.8) | ✅ shown without activating | ✅ shown with `focus: false` (CI only) | ⬜ |
+| **Away after 10 minutes** (0.5.8) | ✅ | ✅ | ⬜ |
 | **Website time** (`sites.rs`) | ✅ Chrome, Edge, Brave, Firefox… via UI Automation; private windows skipped (English UI only) | ✅ Chrome, Edge, Brave, Vivaldi, **Arc** (AppleScript), **Firefox** (session file, ~15 s behind); **Safari** only with the opt-in switch (private windows can't be told apart) | ⬜ |
 | **Open tabs list / close tab** (`tabs.rs`) | ⚠️ the browser window **in front only**; domain only for the visible tab | ✅ Chrome-family + **Arc** + **Safari** (opt-in) list and close; **Firefox** listed, can't be closed | ⬜ |
 | **Typing along** (`typing.rs`) | ✅ keyboard hook counter | ✅ system key counter; needs Input Monitoring (+ Accessibility for the text-box part) | ⬜ |

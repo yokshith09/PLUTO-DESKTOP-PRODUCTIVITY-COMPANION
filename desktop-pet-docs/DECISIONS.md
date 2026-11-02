@@ -556,3 +556,10 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 | **No console (owner: yes)** | Pluto stays a windowed program with no console window. The MCP bridge uses the stdin/stdout pipes the assistant gives it; proven by the P4.1a spike before anything else is built on it. |
 | **One Pluto at a time (owner: record)** | The single-instance rule stays for the app. `--mcp-bridge`, `--react` and `--run` are read in `main` before that rule runs, so a bridge or hook launch never hands itself to the running Pluto or opens a window. |
 | **Release (owner)** | No 0.5.8 on its own: the tracking fixes (pet and card see-through, dashboard counted, 10-minute limit), the card window and the release-workflow fix ship together with MCP, when the owner says. The owner's 2026-11-02 trace (old 0.5.7: 24 of 36 min, the 12 lost minutes were `pluto.exe` in front during input) confirms the cause the fix addresses. |
+
+## 2026-11-02 — Owner: 0.5.8 now, MCP as 0.6.0
+
+| Decision | Detail |
+|---|---|
+| **0.5.8 (owner)** | Every fix since 0.5.7, both OSs, built now for the owner to test time tracking and the hover flicker on a real PC and make it production-ready before MCP. 0.5.7 is set aside. Supersedes "ship the fixes with MCP" (same day). |
+| **0.6.0 (owner)** | MCP is built on top of 0.5.8. Meanwhile the owner decides the name and runs the Mac test and real-world PC runs. |

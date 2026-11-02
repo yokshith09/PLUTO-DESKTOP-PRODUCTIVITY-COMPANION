@@ -2888,7 +2888,7 @@ dependencies = [
 
 [[package]]
 name = "pluto"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -2917,7 +2917,7 @@ dependencies = [
 
 [[package]]
 name = "pluto-core"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "argon2",
  "chacha20poly1305",

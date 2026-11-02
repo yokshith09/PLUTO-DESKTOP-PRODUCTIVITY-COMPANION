@@ -5,6 +5,12 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+(MCP, 0.6.0, is built on top of 0.5.8.)
+
+## [0.5.8] — 2026-11-02 (draft for owner testing; Unverified)
+
+All fixes since 0.5.7, for the owner's real-PC test of the time and flicker problems before MCP. The 0.5.7 draft is set aside (owner). The MCP server core is in the code but cannot be reached (no bridge, pipe or switch yet).
+
 - Added (P4.1a, first part; not yet reachable from an assistant): **Pluto's MCP server core** in `pluto-core` on the official `rmcp` 3.8.0 (server side only, no network): tools `status`, `react`, `say` with output schemas and hints, plain-text bubbles of at most 140 characters, 10 calls per minute per tool, 2026-07-28 and 2025-11-25 clients. 9 tests drive it with the official MCP client. `cargo audit`: no new advisories.
 - Changed (owner 2026-11-01, **Unverified on a real PC**): **time in Pluto's dashboard and note windows now counts**, as "Pluto" (in Notes). The pet and its card still do not stop the app you are using: Windows tells them apart by window, macOS by which Pluto window has the keyboard (macOS part compiled in CI only).
 - Docs (2026-11-01, night): MCP plan revised with the owner's answers: the official `rmcp` library, the full stdio feature set (resources, subscriptions, prompts, completions, elicitation, progress), settings changes only with Allow in Pluto, `open_pluto`, a Bin for reminders and meetings.
