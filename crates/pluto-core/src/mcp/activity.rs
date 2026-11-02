@@ -6,6 +6,8 @@ use std::sync::{Mutex, PoisonError};
 
 use serde::Serialize;
 
+use super::write::Undo;
+
 /// How many calls the page can show.
 pub const KEEP: usize = 50;
 
@@ -28,27 +30,79 @@ pub struct Call {
     pub ok: bool,
     /// What happened, in a few words.
     pub detail: String,
-    /// True when the call changed something in Pluto (none yet: P4.1a only shows things).
+    /// True when the call changed something in Pluto.
     pub changed: bool,
+    /// The id to pass to undo, when the change can be undone and has not been yet.
+    #[cfg_attr(feature = "ts", ts(type = "number | null"))]
+    pub undo_id: Option<u64>,
+    /// True once the change was undone.
+    pub undone: bool,
 }
 
 /// The recent calls, newest last inside, newest first out.
 #[derive(Debug, Default)]
-pub struct Activity(Mutex<VecDeque<Call>>);
+struct Inner {
+    calls: VecDeque<(Call, Option<Undo>)>,
+    next_id: u64,
+}
+
+#[derive(Debug, Default)]
+pub struct Activity(Mutex<Inner>);
 
 impl Activity {
     pub fn record(&self, call: Call) {
-        let mut calls = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        if calls.len() == KEEP {
-            calls.pop_front();
+        self.push(call, None);
+    }
+
+    /// Notes a change with its way back; the call gets an undo id when there is one.
+    pub fn record_change(&self, mut call: Call, undo: Option<Undo>) {
+        call.changed = true;
+        self.push(call, undo);
+    }
+
+    fn push(&self, mut call: Call, undo: Option<Undo>) {
+        let mut inner = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        if undo.is_some() {
+            inner.next_id += 1;
+            call.undo_id = Some(inner.next_id);
         }
-        calls.push_back(call);
+        if inner.calls.len() == KEEP {
+            inner.calls.pop_front();
+        }
+        inner.calls.push_back((call, undo));
     }
 
     /// Newest first.
     pub fn recent(&self) -> Vec<Call> {
-        let calls = self.0.lock().unwrap_or_else(PoisonError::into_inner);
-        calls.iter().rev().cloned().collect()
+        let inner = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        inner.calls.iter().rev().map(|(c, _)| c.clone()).collect()
+    }
+
+    /// The way back for this change, if it has not been undone.
+    pub fn undo_for(&self, id: u64) -> Option<Undo> {
+        let inner = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        inner
+            .calls
+            .iter()
+            .find(|(c, _)| c.undo_id == Some(id) && !c.undone)
+            .and_then(|(_, u)| u.clone())
+    }
+
+    /// Marks the change undone; false when it already was (so it is never undone twice).
+    pub fn mark_undone(&self, id: u64) -> bool {
+        let mut inner = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        match inner
+            .calls
+            .iter_mut()
+            .find(|(c, _)| c.undo_id == Some(id) && !c.undone)
+        {
+            Some((call, undo)) => {
+                call.undone = true;
+                *undo = None;
+                true
+            }
+            None => false,
+        }
     }
 }
 
@@ -64,7 +118,23 @@ mod tests {
             ok: true,
             detail: String::new(),
             changed: false,
+            undo_id: None,
+            undone: false,
         }
+    }
+
+    #[test]
+    fn a_change_can_be_undone_once() {
+        let a = Activity::default();
+        a.record(call(1));
+        a.record_change(call(2), Some(Undo::ReminderAdded { id: "r".into() }));
+        let id = a.recent()[0].undo_id.unwrap();
+        assert!(a.recent()[0].changed);
+        assert_eq!(a.undo_for(id), Some(Undo::ReminderAdded { id: "r".into() }));
+        assert!(a.mark_undone(id));
+        assert!(a.recent()[0].undone);
+        assert_eq!(a.undo_for(id), None);
+        assert!(!a.mark_undone(id), "not twice");
     }
 
     #[test]

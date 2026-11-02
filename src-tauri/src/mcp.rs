@@ -11,9 +11,12 @@ use std::sync::{Arc, Mutex, PoisonError};
 use pluto_core::bus::{EventBus, Recv};
 use pluto_core::clock::Clock;
 use pluto_core::events::Event;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use pluto_core::mcp::activity::{Activity, Call};
 use pluto_core::mcp::link;
 use pluto_core::mcp::setup::{self, Format};
+use pluto_core::mcp::write::{self, Change};
 use pluto_core::mcp::{Host, HostFuture, PetMessage, RateLimit, Status};
 use pluto_core::settings_service::SettingsService;
 use serde::Serialize;
@@ -64,31 +67,72 @@ pub fn assistant_from(args: &[String]) -> String {
         .unwrap_or_else(|| "assistant".into())
 }
 
-/// Run as the bridge if `args` ask for it; returns the exit code, or `None` to start the app.
-/// Called first thing in `main`.
-pub fn bridge_main(args: &[String]) -> Option<i32> {
-    if !args.iter().any(|a| a == BRIDGE_FLAG) {
-        return None;
+/// `Pluto --react <reaction>`: play one reaction and exit (Claude Code hooks, git hooks).
+pub const REACT_FLAG: &str = "--react";
+// Builds use `<build> && Pluto --react build_ok || Pluto --react build_failed`: Pluto is a
+// windowed program (owner: no console), so it cannot run a build and show its output itself.
+
+fn token_now() -> String {
+    data_dir()
+        .and_then(|d| std::fs::read_to_string(d.join(TOKEN_FILE)).ok())
+        .map(|t| t.trim().to_owned())
+        .unwrap_or_default()
+}
+
+/// Sends one reaction to the running Pluto. Never fails the caller: a hook or a build must not
+/// break because Pluto is closed or assistants are off.
+async fn react_now(assistant: &str, reaction: &str) {
+    let token = token_now();
+    if token.is_empty() {
+        return;
     }
+    if let Some(pipe) = connect().await {
+        let _ = link::send_reaction(pipe, &token, assistant, reaction).await;
+    }
+}
+
+/// What the command line asks for, read before Tauri starts.
+#[derive(Debug, PartialEq, Eq)]
+enum Cli {
+    Bridge,
+    React(String),
+}
+
+fn cli(args: &[String]) -> Option<Cli> {
+    if args.iter().any(|a| a == BRIDGE_FLAG) {
+        return Some(Cli::Bridge);
+    }
+    let i = args.iter().position(|a| a == REACT_FLAG)?;
+    Some(Cli::React(args.get(i + 1).cloned().unwrap_or_default()))
+}
+
+/// Run as the bridge or play a reaction if `args` ask for it; returns the exit code,
+/// or `None` to start the app. Called first thing in `main`.
+pub fn bridge_main(args: &[String]) -> Option<i32> {
+    let what = cli(args)?;
     let assistant = assistant_from(args);
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .ok()?;
-    let ok = runtime.block_on(async move {
-        let token = data_dir()
-            .and_then(|d| std::fs::read_to_string(d.join(TOKEN_FILE)).ok())
-            .map(|t| t.trim().to_owned())
-            .unwrap_or_default();
-        let stdio = tokio::io::join(tokio::io::stdin(), tokio::io::stdout());
-        let pipe = if token.is_empty() {
-            None
-        } else {
-            connect().await
-        };
-        link::bridge(pipe, &token, &assistant, stdio).await.is_ok()
-    });
-    Some(if ok { 0 } else { 1 })
+    Some(runtime.block_on(async move {
+        match what {
+            Cli::Bridge => {
+                let token = token_now();
+                let stdio = tokio::io::join(tokio::io::stdin(), tokio::io::stdout());
+                let pipe = if token.is_empty() {
+                    None
+                } else {
+                    connect().await
+                };
+                i32::from(link::bridge(pipe, &token, &assistant, stdio).await.is_err())
+            }
+            Cli::React(reaction) => {
+                react_now(&assistant, &reaction).await;
+                0
+            }
+        }
+    }))
 }
 
 #[cfg(windows)]
@@ -114,6 +158,54 @@ async fn connect() -> Option<tokio::io::DuplexStream> {
 struct ShellHost<R: Runtime> {
     app: AppHandle<R>,
     activity: Arc<Activity>,
+    guard: Arc<Guard>,
+}
+
+/// The focus guard (owner 2026-11-02, off by default): while it is on and a focus session runs,
+/// assistants' pet messages wait here and show when the session ends.
+#[derive(Default)]
+pub struct Guard {
+    on: AtomicBool,
+    focusing: AtomicBool,
+    held: Mutex<Vec<PetMessage>>,
+}
+
+impl Guard {
+    /// Keeps the message back if the guard applies now.
+    fn hold(&self, message: &PetMessage) -> bool {
+        if !(self.on.load(Ordering::Relaxed) && self.focusing.load(Ordering::Relaxed)) {
+            return false;
+        }
+        self.held
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(message.clone());
+        true
+    }
+
+    /// What waited, in order; empty afterwards.
+    fn release(&self) -> Vec<PetMessage> {
+        std::mem::take(&mut *self.held.lock().unwrap_or_else(PoisonError::into_inner))
+    }
+}
+
+/// The pet's bubble for a message: reactions read as they are, a `say` with the assistant's name.
+fn bubble(message: PetMessage) -> String {
+    if message.reaction.is_some() {
+        message.text
+    } else {
+        format!("{}: {}", message.assistant, message.text)
+    }
+}
+
+fn show_on_pet<R: Runtime>(app: &AppHandle<R>, message: PetMessage) {
+    let _ = app.emit("pet://say", serde_json::json!({ "text": bubble(message) }));
+}
+
+fn now_ms<R: Runtime>(app: &AppHandle<R>) -> i64 {
+    app.try_state::<crate::Core>()
+        .map(|core| core.clock.now_ms())
+        .unwrap_or_default()
 }
 
 impl<R: Runtime> Host for ShellHost<R> {
@@ -128,14 +220,28 @@ impl<R: Runtime> Host for ShellHost<R> {
     }
 
     fn show(&self, message: PetMessage) {
-        let text = if message.reaction.is_some() {
-            message.text
-        } else {
-            format!("{}: {}", message.assistant, message.text)
-        };
-        let _ = self
-            .app
-            .emit("pet://say", serde_json::json!({ "text": text }));
+        show_on_pet(&self.app, message);
+    }
+
+    fn hold(&self, message: &PetMessage) -> bool {
+        self.guard.hold(message)
+    }
+
+    fn changed(&self, tool: &'static str, assistant: &str, change: Change) {
+        self.activity.record_change(
+            Call {
+                at_ms: now_ms(&self.app),
+                assistant: assistant.to_owned(),
+                tool: tool.to_owned(),
+                ok: true,
+                detail: change.summary,
+                changed: true,
+                undo_id: None,
+                undone: false,
+            },
+            change.undo,
+        );
+        let _ = self.app.emit("mcp://activity", ());
     }
 
     fn data(&self) -> Option<pluto_core::mcp::read::Data> {
@@ -147,18 +253,15 @@ impl<R: Runtime> Host for ShellHost<R> {
     }
 
     fn record(&self, tool: &'static str, assistant: &str, ok: bool, detail: String) {
-        let at_ms = self
-            .app
-            .try_state::<crate::Core>()
-            .map(|core| core.clock.now_ms())
-            .unwrap_or_default();
         self.activity.record(Call {
-            at_ms,
+            at_ms: now_ms(&self.app),
             assistant: assistant.to_owned(),
             tool: tool.to_owned(),
             ok,
             detail,
             changed: false,
+            undo_id: None,
+            undone: false,
         });
         let _ = self.app.emit("mcp://activity", ());
     }
@@ -202,6 +305,7 @@ pub fn forget(dir: &Path) {
 #[derive(Default)]
 pub struct Mcp {
     activity: Arc<Activity>,
+    guard: Arc<Guard>,
     listener: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
 }
 
@@ -238,6 +342,7 @@ fn listen_now<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp, data_dir: &Path) {
     let host: Arc<dyn Host> = Arc::new(ShellHost {
         app: app.clone(),
         activity: mcp.activity.clone(),
+        guard: mcp.guard.clone(),
     });
     let limits = Arc::new(Limits::default());
     let dir = data_dir.to_owned();
@@ -249,8 +354,8 @@ fn listen_now<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp, data_dir: &Path) {
     *mcp.listener.lock().unwrap_or_else(PoisonError::into_inner) = Some(task);
 }
 
-fn enabled(all: &std::collections::BTreeMap<String, serde_json::Value>) -> bool {
-    all.get("mcp.enabled").and_then(serde_json::Value::as_bool) == Some(true)
+fn flag(all: &std::collections::BTreeMap<String, serde_json::Value>, key: &str) -> bool {
+    all.get(key).and_then(serde_json::Value::as_bool) == Some(true)
 }
 
 /// Follows `mcp.enabled`: listens while it is on, stops and removes the token when it goes off.
@@ -261,8 +366,20 @@ pub fn start(app: AppHandle, settings: Arc<SettingsService>, bus: &EventBus, dat
         let mcp = app.state::<Mcp>();
         forget(&data_dir);
         let mut on = false;
+        if let Some(core) = app.try_state::<crate::Core>() {
+            let running = pluto_core::focus::current(&core.db, &*core.clock)
+                .await
+                .ok()
+                .flatten()
+                .is_some();
+            mcp.guard.focusing.store(running, Ordering::Relaxed);
+        }
         loop {
-            let want = enabled(&settings.get_all().await.unwrap_or_default());
+            let all = settings.get_all().await.unwrap_or_default();
+            mcp.guard
+                .on
+                .store(flag(&all, "mcp.focus_guard"), Ordering::Relaxed);
+            let want = flag(&all, "mcp.enabled");
             if want != on {
                 on = want;
                 if on {
@@ -273,7 +390,27 @@ pub fn start(app: AppHandle, settings: Arc<SettingsService>, bus: &EventBus, dat
                 let _ = app.emit("mcp://activity", ());
             }
             match events.recv().await {
-                Recv::Event(Event::SettingChanged { key, .. }) if key == "mcp.enabled" => {}
+                Recv::Event(Event::SettingChanged { key, .. }) if key.starts_with("mcp.") => {}
+                Recv::Event(Event::FocusChanged { .. }) => {
+                    mcp.guard.focusing.store(true, Ordering::Relaxed);
+                    continue;
+                }
+                Recv::Event(Event::FocusEnded { .. }) => {
+                    mcp.guard.focusing.store(false, Ordering::Relaxed);
+                    // What waited shows now; more than one reads as one bubble.
+                    let waited = mcp.guard.release();
+                    let count = waited.len();
+                    if let Some(last) = waited.into_iter().last() {
+                        show_on_pet(&app, last);
+                        if count > 1 {
+                            let _ = app.emit(
+                                "pet://say",
+                                serde_json::json!({ "text": format!("{} more from your assistants while you focused", count - 1) }),
+                            );
+                        }
+                    }
+                    continue;
+                }
                 Recv::Event(Event::AllDataDeleted { .. }) | Recv::Resync { .. } => {}
                 Recv::Event(_) => continue,
                 Recv::Closed => break,
@@ -418,6 +555,31 @@ fn connect_places(places: &[Place], command: &str) -> Result<Vec<&'static str>, 
     Ok(done)
 }
 
+/// Claude Code's settings file for hooks, when Claude Code is installed (its folder exists).
+fn claude_hooks_file(home: &Path) -> Option<PathBuf> {
+    let dir = home.join(".claude");
+    dir.is_dir().then(|| dir.join("settings.json"))
+}
+
+/// Adds the pet's Claude Code hooks (done, needs you).
+fn add_claude_hooks(file: &Path, program: &str) -> Result<(), String> {
+    let text = setup::add_hooks(read_text(file).as_deref(), program)
+        .map_err(|why| format!("Claude Code hooks: {why}"))?;
+    write_safely(file, &text)
+        .map_err(|e| format!("Claude Code hooks: Pluto could not save them ({e})."))
+}
+
+fn remove_claude_hooks(file: &Path) -> Result<(), String> {
+    let Some(text) = read_text(file) else {
+        return Ok(());
+    };
+    match setup::remove_hooks(Some(&text)).map_err(|why| format!("Claude Code hooks: {why}"))? {
+        Some(text) => write_safely(file, &text)
+            .map_err(|e| format!("Claude Code hooks: Pluto could not save them ({e}).")),
+        None => Ok(()),
+    }
+}
+
 /// Takes Pluto out of every place it is in.
 fn disconnect_places(places: &[Place]) -> Result<(), String> {
     for place in places {
@@ -506,7 +668,14 @@ pub async fn mcp_connect(
     if !places.iter().any(Place::installed) {
         return Err("Pluto could not find this assistant on this computer. Open its settings here for the manual setup.".into());
     }
-    let done = connect_places(&places, &this_program())?;
+    let program = this_program();
+    let mut done = connect_places(&places, &program)?;
+    if id == "claude" {
+        if let Some(file) = os_folders().and_then(|(home, _)| claude_hooks_file(&home)) {
+            add_claude_hooks(&file, &program)?;
+            done.push("Claude Code hooks");
+        }
+    }
     settings
         .set("mcp.enabled", serde_json::Value::Bool(true))
         .await
@@ -517,13 +686,64 @@ pub async fn mcp_connect(
 /// Takes Pluto out of the assistant's settings.
 #[tauri::command]
 pub fn mcp_disconnect(id: String) -> Result<(), String> {
-    disconnect_places(&places(&id))
+    disconnect_places(&places(&id))?;
+    if id == "claude" {
+        if let Some(file) = os_folders().and_then(|(home, _)| claude_hooks_file(&home)) {
+            remove_claude_hooks(&file)?;
+        }
+    }
+    Ok(())
+}
+
+/// The lines to copy for developer reactions outside an assistant: a git hook and a build.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeveloperLines {
+    /// Put in `.git/hooks/post-commit` of a project.
+    pub git_commit: String,
+    /// Put in `.git/hooks/pre-push`.
+    pub git_push: String,
+    /// Run a build this way.
+    pub build: String,
+}
+
+pub fn developer_lines(program: &str) -> DeveloperLines {
+    let p = program.replace('\\', "/");
+    DeveloperLines {
+        git_commit: format!("#!/bin/sh\n\"{p}\" --react git_commit --assistant git\n"),
+        git_push: format!("#!/bin/sh\n\"{p}\" --react git_push --assistant git\n"),
+        build: format!("<your build> && \"{p}\" --react build_ok --assistant build || \"{p}\" --react build_failed --assistant build"),
+    }
+}
+
+#[tauri::command]
+pub fn mcp_developer() -> DeveloperLines {
+    developer_lines(&this_program())
 }
 
 /// True while Pluto is listening for assistants.
 #[tauri::command]
 pub fn mcp_listening(mcp: State<'_, Mcp>) -> bool {
     mcp.listening()
+}
+
+/// Puts one assistant change back (the Undo next to it on the Assistants page).
+#[tauri::command]
+pub async fn mcp_undo(app: AppHandle, mcp: State<'_, Mcp>, id: u64) -> Result<String, String> {
+    let Some(undo) = mcp.activity.undo_for(id) else {
+        return Err("That change was already undone.".into());
+    };
+    let core = app
+        .try_state::<crate::Core>()
+        .ok_or("Pluto is still starting.")?;
+    let data = pluto_core::mcp::read::Data {
+        db: core.db.clone(),
+        clock: core.clock.clone(),
+    };
+    let said = write::undo(&data, &undo).await?;
+    mcp.activity.mark_undone(id);
+    let _ = app.emit("mcp://activity", ());
+    Ok(said)
 }
 
 #[tauri::command]
@@ -600,6 +820,11 @@ mod tests {
     fn only_the_bridge_flag_runs_the_bridge_and_a_normal_start_opens_the_app() {
         assert_eq!(bridge_main(&args(&["pluto.exe"])), None);
         assert_eq!(bridge_main(&args(&["pluto.exe", "--hidden"])), None);
+        assert_eq!(cli(&args(&["p", "--mcp-bridge"])), Some(Cli::Bridge));
+        assert_eq!(
+            cli(&args(&["p", "--react", "git_commit", "--assistant", "git"])),
+            Some(Cli::React("git_commit".into()))
+        );
     }
 
     #[test]
@@ -651,6 +876,27 @@ mod tests {
         assert!(!code.contains("pluto\""), "Pluto is gone");
         assert!(code.contains("github"), "everything else stays");
         assert!(!describe("claude", "Claude", &places, "x").connected);
+    }
+
+    #[test]
+    fn claude_code_hooks_go_in_with_connect_and_out_with_disconnect() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            claude_hooks_file(dir.path()),
+            None,
+            "no Claude Code, no hooks"
+        );
+        std::fs::create_dir_all(dir.path().join(".claude")).unwrap();
+        let file = claude_hooks_file(dir.path()).unwrap();
+        add_claude_hooks(&file, "/opt/pluto").unwrap();
+        assert!(setup::has_hooks(read_text(&file).as_deref()));
+        remove_claude_hooks(&file).unwrap();
+        assert!(!setup::has_hooks(read_text(&file).as_deref()));
+        let lines = developer_lines("C:\\Pluto\\pluto.exe");
+        assert!(lines
+            .git_commit
+            .contains("\"C:/Pluto/pluto.exe\" --react git_commit"));
+        assert!(lines.build.contains("build_failed"));
     }
 
     #[test]

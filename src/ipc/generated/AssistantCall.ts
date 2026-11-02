@@ -21,6 +21,14 @@ ok: boolean,
  */
 detail: string, 
 /**
- * True when the call changed something in Pluto (none yet: P4.1a only shows things).
+ * True when the call changed something in Pluto.
  */
-changed: boolean, };
+changed: boolean, 
+/**
+ * The id to pass to undo, when the change can be undone and has not been yet.
+ */
+undoId: number | null, 
+/**
+ * True once the change was undone.
+ */
+undone: boolean, };

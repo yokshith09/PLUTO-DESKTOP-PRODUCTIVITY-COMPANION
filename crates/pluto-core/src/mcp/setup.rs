@@ -109,6 +109,83 @@ pub fn is_set(existing: Option<&str>, format: Format, command: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Claude Code's hooks for the pet (developer reactions): when it stops, the pet cheers; when it
+/// needs you, the pet waves. (event, reaction).
+pub const CLAUDE_HOOKS: &[(&str, &str)] =
+    &[("Stop", "agent_done"), ("Notification", "agent_needs_you")];
+
+/// The hook command for one reaction.
+pub fn hook_command(program: &str, reaction: &str) -> String {
+    format!("\"{program}\" --react {reaction} --assistant claude-code")
+}
+
+fn is_ours(hook: &Value) -> bool {
+    hook.get("command")
+        .and_then(Value::as_str)
+        .is_some_and(|c| c.contains("--react ") && c.contains("--assistant claude-code"))
+}
+
+/// Claude Code's `settings.json` with Pluto's hooks added (old Pluto hooks replaced), all else kept.
+pub fn add_hooks(existing: Option<&str>, program: &str) -> Result<String, String> {
+    let without = remove_hooks(existing)?.unwrap_or_else(|| existing.unwrap_or("").to_owned());
+    let mut root = parse(Some(&without))?;
+    let hooks = root
+        .entry("hooks")
+        .or_insert_with(|| Value::Object(Map::new()));
+    let Value::Object(hooks) = hooks else {
+        return Err(UNREADABLE.into());
+    };
+    for (event, reaction) in CLAUDE_HOOKS {
+        let list = hooks
+            .entry(*event)
+            .or_insert_with(|| Value::Array(Vec::new()));
+        let Value::Array(list) = list else {
+            return Err(UNREADABLE.into());
+        };
+        list.push(serde_json::json!({
+            "hooks": [{ "type": "command", "command": hook_command(program, reaction) }]
+        }));
+    }
+    Ok(print(root))
+}
+
+/// The file without Pluto's hooks, or `None` when it had none.
+pub fn remove_hooks(existing: Option<&str>) -> Result<Option<String>, String> {
+    let mut root = parse(existing)?;
+    let Some(Value::Object(hooks)) = root.get_mut("hooks") else {
+        return Ok(None);
+    };
+    let mut found = false;
+    for list in hooks.values_mut() {
+        let Value::Array(groups) = list else { continue };
+        for group in groups.iter_mut() {
+            if let Some(Value::Array(inner)) = group.get_mut("hooks") {
+                let before = inner.len();
+                inner.retain(|h| !is_ours(h));
+                found |= inner.len() != before;
+            }
+        }
+        groups.retain(|g| {
+            g.get("hooks")
+                .and_then(Value::as_array)
+                .is_none_or(|a| !a.is_empty())
+        });
+    }
+    hooks.retain(|_, list| list.as_array().is_none_or(|a| !a.is_empty()));
+    if !found {
+        return Ok(None);
+    }
+    if hooks.is_empty() {
+        root.remove("hooks");
+    }
+    Ok(Some(print(root)))
+}
+
+/// True when Pluto's hooks are in the file.
+pub fn has_hooks(existing: Option<&str>) -> bool {
+    matches!(remove_hooks(existing), Ok(Some(_)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -174,6 +251,33 @@ mod tests {
         assert_eq!(v["mcpServers"]["github"]["command"], "gh");
         assert_eq!(remove(Some(&after), Format::McpServers).unwrap(), None);
         assert_eq!(remove(None, Format::VsCode).unwrap(), None);
+    }
+
+    #[test]
+    fn claude_code_hooks_are_added_once_and_removed_without_touching_the_persons_hooks() {
+        let mine = r#"{"model":"opus","hooks":{"Stop":[{"hooks":[{"type":"command","command":"say done"}]}]}}"#;
+        let once = add_hooks(Some(mine), "C:/Pluto/pluto.exe").unwrap();
+        let twice = add_hooks(Some(&once), "C:/Pluto/pluto.exe").unwrap();
+        assert_eq!(once, twice, "connecting again does not add a second copy");
+        let v: Value = serde_json::from_str(&twice).unwrap();
+        assert_eq!(v["model"], "opus");
+        assert_eq!(v["hooks"]["Stop"].as_array().unwrap().len(), 2);
+        assert!(v["hooks"]["Notification"][0]["hooks"][0]["command"]
+            .as_str()
+            .unwrap()
+            .contains("--react agent_needs_you"));
+        assert!(has_hooks(Some(&twice)));
+
+        let back = remove_hooks(Some(&twice)).unwrap().unwrap();
+        let v: Value = serde_json::from_str(&back).unwrap();
+        assert_eq!(v["hooks"]["Stop"][0]["hooks"][0]["command"], "say done");
+        assert!(v["hooks"].get("Notification").is_none());
+        assert!(!has_hooks(Some(&back)));
+        assert_eq!(remove_hooks(Some("{}")).unwrap(), None);
+        let alone = remove_hooks(Some(&add_hooks(None, "p").unwrap()))
+            .unwrap()
+            .unwrap();
+        assert_eq!(alone.trim(), "{}");
     }
 
     #[test]

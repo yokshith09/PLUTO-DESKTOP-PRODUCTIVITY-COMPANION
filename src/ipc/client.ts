@@ -12,6 +12,8 @@ export type AssistantPlace = { label: string; path: string; installed: boolean; 
 /** An assistant tile: found on this computer, and whether Pluto is in its settings. */
 export type AssistantInfo = { id: string; name: string; installed: boolean; connected: boolean; places: AssistantPlace[] };
 
+export type DeveloperLines = { gitCommit: string; gitPush: string; build: string };
+
 export const ipc = {
   settingsGetAll: () => call<Settings>("settings_get_all"),
   settingSet: <K extends SettingsKey>(key: K, value: Settings[K]) =>
@@ -25,6 +27,10 @@ export const ipc = {
   mcpConnect: (id: string) => call<string[]>("mcp_connect", { id }),
   mcpDisconnect: (id: string) => call<null>("mcp_disconnect", { id }),
   mcpListening: () => call<boolean>("mcp_listening"),
+  /** Puts one assistant change back; what was done, in words. */
+  mcpUndo: (id: number) => call<string>("mcp_undo", { id }),
+  /** Lines to copy for git and build reactions. */
+  mcpDeveloper: () => call<DeveloperLines>("mcp_developer"),
   /** The last calls assistants made, newest first (in memory only). */
   mcpActivity: () => call<AssistantCall[]>("mcp_activity"),
 

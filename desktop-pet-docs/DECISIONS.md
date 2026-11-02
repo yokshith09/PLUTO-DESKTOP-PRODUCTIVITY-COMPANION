@@ -606,3 +606,13 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 | **Coming back restarts the break count** | Wake from sleep, a new day, or (tracking off) more than twice the gap away. |
 | **Assistants change things only with the person's OK** | Owner reminded: assistants may change things with permission. That is the write step (P4.1c: add/edit/done tasks, reminders, notes; settings behind Allow; everything listed with Undo). Read tools came first so the change list and Undo exist before anything can change. |
 | **P4.5 additions** | Review (writes a note only when asked), meeting notes → tasks, focus guard (off by default, switch on the Assistants page), ask through the pet, resources, coding progress, what was I doing, study helpers. In `MCP_PLAN.md` §14. |
+
+## 2026-11-02 — Completing MCP (owner: "complete the MCP part")
+
+| Decision | Detail |
+|---|---|
+| **Changes with Undo, no deletes** | Assistants add and change; undo puts it back. Deleting stays with the person. Settings wait for the Allow card. |
+| **Undo list is per session** | Kept in memory with the request log (50 entries); a restart clears it. A saved change list (migration 012) is left for later. |
+| **Focus guard off by default** | Setting `mcp.focus_guard`, switch on the Assistants page. Held messages show when the session ends (the last one, plus a count). |
+| **Developer reactions without a console** | `--react` only; builds chain it with `&&`/`||`. Claude Code hooks come with Connect on the Claude tile. |
+| **Tracking trace kept for now** | Owner's check (16:44 → 4 h, 17:29 → 4 h 45 min) matches; the clean-up rule is a full day matching. The trace stays in 0.5.9 to diagnose any drift, then goes. |

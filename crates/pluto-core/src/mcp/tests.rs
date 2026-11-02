@@ -14,6 +14,8 @@ struct FakeHost {
     shown: Mutex<Vec<PetMessage>>,
     recorded: Mutex<Vec<(&'static str, String, bool, String)>>,
     data: Option<read::Data>,
+    changes: Mutex<Vec<write::Change>>,
+    focusing: bool,
 }
 
 impl Host for FakeHost {
@@ -39,6 +41,12 @@ impl Host for FakeHost {
     }
     fn data(&self) -> Option<read::Data> {
         self.data.clone()
+    }
+    fn changed(&self, _tool: &'static str, _assistant: &str, change: write::Change) {
+        self.changes.lock().unwrap().push(change);
+    }
+    fn hold(&self, _message: &PetMessage) -> bool {
+        self.focusing
     }
     fn record(&self, tool: &'static str, assistant: &str, ok: bool, detail: String) {
         self.recorded
@@ -95,12 +103,18 @@ async fn an_assistant_on_the_newest_protocol_sees_the_three_pet_tools_in_a_fixed
     assert_eq!(
         names,
         [
+            "note_add",
+            "note_append",
             "note_get",
             "notes_search",
             "react",
+            "reminder_add",
             "say",
             "status",
+            "task_add",
+            "task_complete",
             "task_get",
+            "task_update",
             "tasks_list",
             "today"
         ]
@@ -270,7 +284,7 @@ async fn without_a_running_pluto_the_tools_are_listed_and_every_call_says_so() {
         .serve_with_lifecycle(client_end, newest())
         .await
         .unwrap();
-    assert_eq!(client.list_all_tools().await.unwrap().len(), 8);
+    assert_eq!(client.list_all_tools().await.unwrap().len(), 14);
     for (tool, args) in [
         ("status", json!({})),
         ("react", json!({ "reaction": "agent_done" })),
@@ -389,6 +403,34 @@ mod link_tests {
         assert!(host.shown.lock().unwrap().is_empty());
     }
 
+    #[tokio::test]
+    async fn a_hook_plays_one_reaction_with_the_token_and_nothing_without_it() {
+        let host = Arc::new(FakeHost::default());
+        let (pluto_end, hook_end) = tokio::io::duplex(4096);
+        let h = host.clone() as Arc<dyn Host>;
+        let pluto = tokio::spawn(async move {
+            link::accept(pluto_end, "tok", h, |_| Arc::new(RateLimit::default())).await
+        });
+        let said = link::send_reaction(hook_end, "tok", "claude-code", "agent_done").await;
+        assert_eq!(said.as_deref(), Some("The pet showed agent_done."));
+        assert_eq!(pluto.await.unwrap(), Ok("claude-code".into()));
+        assert_eq!(host.shown.lock().unwrap()[0].text, "Claude Code is done");
+        assert_eq!(host.recorded.lock().unwrap()[0].0, "react");
+
+        assert_eq!(
+            link::check_react(&link::react_line("bad", "git", "git_push"), "tok"),
+            Err(Refused::WrongToken)
+        );
+        assert_eq!(
+            link::check_react(&link::react_line("tok", "git", "explode"), "tok"),
+            Err(Refused::BadHello)
+        );
+        assert_eq!(
+            link::check_react(&link::react_line("tok", "git", "git_push"), "tok"),
+            Ok(("git".into(), "git_push"))
+        );
+    }
+
     #[tokio::test(start_paused = true)]
     async fn a_connection_that_never_says_hello_is_closed() {
         let (pluto_end, _silent) = tokio::io::duplex(1024);
@@ -412,11 +454,16 @@ mod link_tests {
             .serve_with_lifecycle(assistant_end, newest())
             .await
             .unwrap();
-        assert_eq!(client.list_all_tools().await.unwrap().len(), 8);
+        assert_eq!(client.list_all_tools().await.unwrap().len(), 14);
         let r = call(&client, "say", json!({ "text": "hi" })).await;
         assert!(text(&r).contains("Pluto is not running"));
         client.cancel().await.unwrap();
     }
+}
+
+fn read_tests_world() -> (tempfile::TempDir, read::Data) {
+    let w = read_tests::world();
+    (w.dir, w.data)
 }
 
 mod read_tests {
@@ -431,12 +478,12 @@ mod read_tests {
     use crate::notes::{self, NoteInput};
     use crate::tasks::{self, TaskInput};
 
-    struct World {
-        _dir: tempfile::TempDir,
-        data: read::Data,
+    pub(super) struct World {
+        pub(super) dir: tempfile::TempDir,
+        pub(super) data: read::Data,
     }
 
-    fn world() -> World {
+    pub(super) fn world() -> World {
         let dir = tempfile::tempdir().unwrap();
         let db = Database::open(&dir.path().join("pluto.db"), EventBus::default()).unwrap();
         let clock = FakeClock::at_local(
@@ -447,7 +494,7 @@ mod read_tests {
             0,
         );
         World {
-            _dir: dir,
+            dir,
             data: read::Data {
                 db: Arc::new(db),
                 clock: Arc::new(clock),
@@ -575,6 +622,181 @@ mod read_tests {
         let r = call(&client, "today", json!({})).await;
         assert_eq!(r.is_error, Some(true));
         assert!(text(&r).contains("still starting"));
+        client.cancel().await.unwrap();
+    }
+}
+
+mod write_tests {
+    use super::read_tests_world as world;
+    use super::*;
+    use crate::notes;
+    use crate::reminders;
+    use crate::tasks::{self, TaskStatus};
+
+    async fn client_for(data: &read::Data, focusing: bool) -> (Client, Arc<FakeHost>) {
+        let host = FakeHost {
+            data: Some(data.clone()),
+            focusing,
+            ..FakeHost::default()
+        };
+        connect_to(host, newest()).await
+    }
+
+    fn id(r: &CallToolResult) -> String {
+        assert_ne!(r.is_error, Some(true), "{}", text(r));
+        r.structured_content.clone().unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned()
+    }
+
+    async fn undo_last(host: &FakeHost, data: &read::Data) -> String {
+        let change = host.changes.lock().unwrap().last().cloned().unwrap();
+        write::undo(data, change.undo.as_ref().unwrap())
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn a_task_can_be_added_changed_and_finished_and_each_step_undone() {
+        let (_dir, data) = world();
+        let (client, host) = client_for(&data, false).await;
+
+        let t = id(&call(
+            &client,
+            "task_add",
+            json!({ "title": "Call the bank", "priority": "high", "due": "2026-11-05" }),
+        )
+        .await);
+        let task = tasks::get(&data.db, &t).await.unwrap();
+        assert_eq!(task.due_date.unwrap().to_string(), "2026-11-05");
+
+        id(&call(
+            &client,
+            "task_update",
+            json!({ "id": t, "title": "Call the bank at 10", "due": "" }),
+        )
+        .await);
+        assert_eq!(tasks::get(&data.db, &t).await.unwrap().due_date, None);
+        undo_last(&host, &data).await;
+        let back = tasks::get(&data.db, &t).await.unwrap();
+        assert_eq!(
+            (back.title.as_str(), back.due_date.unwrap().to_string()),
+            ("Call the bank", "2026-11-05".into())
+        );
+
+        id(&call(&client, "task_complete", json!({ "id": t })).await);
+        assert_eq!(
+            tasks::get(&data.db, &t).await.unwrap().status,
+            TaskStatus::Completed
+        );
+        undo_last(&host, &data).await;
+        assert_eq!(
+            tasks::get(&data.db, &t).await.unwrap().status,
+            TaskStatus::Planned
+        );
+
+        // Undo the very first change: the task is gone again.
+        let first = host.changes.lock().unwrap()[0].clone();
+        write::undo(&data, first.undo.as_ref().unwrap())
+            .await
+            .unwrap();
+        assert!(tasks::get(&data.db, &t).await.is_err());
+
+        let bad = call(
+            &client,
+            "task_add",
+            json!({ "title": "x", "due": "next friday" }),
+        )
+        .await;
+        assert_eq!(bad.is_error, Some(true));
+        assert!(text(&bad).contains("2026-11-02"));
+        client.cancel().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn reminders_and_notes_are_added_and_undone_and_nothing_is_deleted_for_good() {
+        let (_dir, data) = world();
+        let (client, host) = client_for(&data, false).await;
+
+        let past = call(
+            &client,
+            "reminder_add",
+            json!({ "title": "Stand up", "at": "2026-11-02 09:00" }),
+        )
+        .await;
+        assert_eq!(past.is_error, Some(true), "10:00 now, 09:00 has passed");
+        let r = id(&call(
+            &client,
+            "reminder_add",
+            json!({ "title": "Stand up", "at": "2026-11-02 17:30" }),
+        )
+        .await);
+        assert_eq!(reminders::list(&data.db, false).await.unwrap()[0].id, r);
+        undo_last(&host, &data).await;
+        assert!(reminders::list(&data.db, false).await.unwrap().is_empty());
+
+        let n = id(&call(
+            &client,
+            "note_add",
+            json!({ "title": "Review", "body": "Good week" }),
+        )
+        .await);
+        id(&call(
+            &client,
+            "note_append",
+            json!({ "id": n, "text": "Next: sleep earlier" }),
+        )
+        .await);
+        assert_eq!(
+            notes::get(&data.db, &n).await.unwrap().body,
+            "Good week\nNext: sleep earlier"
+        );
+        undo_last(&host, &data).await;
+        assert_eq!(notes::get(&data.db, &n).await.unwrap().body, "Good week");
+        let made = host.changes.lock().unwrap()[1].clone();
+        write::undo(&data, made.undo.as_ref().unwrap())
+            .await
+            .unwrap();
+        assert!(
+            notes::in_bin(&data.db, &n).await.unwrap(),
+            "undone notes go to the Bin"
+        );
+        client.cancel().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn during_focus_the_guard_keeps_pet_messages_back_and_says_so() {
+        let (_dir, data) = world();
+        let (client, host) = client_for(&data, true).await;
+        let r = call(&client, "react", json!({ "reaction": "agent_done" })).await;
+        assert!(text(&r).contains("focus session"));
+        assert!(host.shown.lock().unwrap().is_empty());
+        client.cancel().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn the_ready_made_prompts_are_listed_and_the_review_writes_no_note_unless_asked() {
+        let (_dir, data) = world();
+        let (client, _) = client_for(&data, false).await;
+        let prompts = client.list_all_prompts().await.unwrap();
+        let names: Vec<_> = prompts.iter().map(|p| p.name.to_string()).collect();
+        for want in [
+            "plan_my_day",
+            "daily_review",
+            "weekly_review",
+            "meeting_to_tasks",
+            "what_was_i_doing",
+            "study_quiz",
+        ] {
+            assert!(names.contains(&want.to_string()), "{want}");
+        }
+        let review = client
+            .get_prompt(rmcp::model::GetPromptRequestParams::new("weekly_review"))
+            .await
+            .unwrap();
+        let said = serde_json::to_string(&review.messages).unwrap();
+        assert!(said.contains("only save it as a note in Pluto if I ask"));
         client.cancel().await.unwrap();
     }
 }

@@ -308,10 +308,10 @@ Each appears in the Character page's Reactions list like every existing reaction
 |---|---|---|
 | **P4.1a** Spike + pet tools *(in progress. Built and tested: core server, rate limit, both protocol versions (2026-11-01); bridge before the one-at-a-time rule, offline answers, token handshake, named pipe / Unix socket, the shell host for `react`/`say`, the stdio spike on Linux with the real binary (2026-11-02). Left: `status` data, the windowed Windows build talking over stdio on a real PC, the MCP page with the switch)* | Prove stdio works from the windowed `Pluto.exe` (§3.1); pipe + token; bridge; protocol (both versions); `status`, `react`, `say`; master switch; minimal MCP page (switch, add assistant, config, connected now, log) | Inspector and Claude Code list three tools and the pet reacts; wrong token refused; switch off closes the pipe |
 | **P4.1b** Read tools + resources *(read tools built 2026-11-02: today, tasks_list, task_get, notes_search, note_get; diary and Bin refused, tested. Left: resources)* | §5.2 with paging, resources and subscriptions; diary refusal tests | Claude Code answers "what's due today" from Pluto |
-| **P4.1c** Write tools + safeguards | §5.3, levels, Bin for reminders and meetings, settings with Allow, change list with Undo, migration 012 | "Add a task", "mark it done", "delete it" work and all three show in the list and can be undone |
-| **P4.1d** Prompts, completions, elicitation | §4: the six prompts, completions for names, elicitation for missing details | Claude Code shows "plan my day" and it works end to end |
-| **P4.2** Hooks | `--react`, generated hook block, cooldown and "you are looking at it" rule, reactions in the Character page | The pet cheers when Claude Code finishes while you are in another app |
-| **P4.3a / P4.3b** Git and builds | Git watcher, `--run` | Reactions fire on a test repository and a failing build |
+| **P4.1c** Write tools + safeguards *(built 2026-11-02 without settings and the Allow card; change list with Undo is in memory for the session, not migration 012)* | §5.3, levels, Bin for reminders and meetings, settings with Allow, change list with Undo, migration 012 | "Add a task", "mark it done", "delete it" work and all three show in the list and can be undone |
+| **P4.1d** Prompts, completions, elicitation *(six prompts built 2026-11-02; completions and elicitation left)* | §4: the six prompts, completions for names, elicitation for missing details | Claude Code shows "plan my day" and it works end to end |
+| **P4.2** Hooks *(built 2026-11-02: `--react`, Claude Code hooks with Connect; to test in 0.5.9)* | `--react`, generated hook block, cooldown and "you are looking at it" rule, reactions in the Character page | The pet cheers when Claude Code finishes while you are in another app |
+| **P4.3a / P4.3b** Git and builds *(lines to copy built 2026-11-02; no watcher, no `--run`: windowed exe)* | Git watcher, `--run` | Reactions fire on a test repository and a failing build |
 | **P4.4** Project Spaces | Mostly built already (Projects tab, 2026-10-25); what is left is MCP access to projects (in 5.2/5.3) and the per-project pet (FR-67) | Re-scoped with the owner when P4.3 is done |
 | *Network layer* | One opt-in HTTP client, Connections page | Then CI reactions, calendar feed, connectors (`RESEARCH_INTEGRATIONS.md` F) |
 
@@ -360,8 +360,6 @@ The owner asked that once the fixes are confirmed, all testing code is removed a
 | The tracking trace (`trace` module, `trace::line`, `trace::idle`, `set_folder`, the 2 MB file) | `src-tauri/src/tracking.rs`, `src-tauri/src/lib.rs` | Finding the missing time (0.5.7) |
 | The trace's file in the data folder | `tracking-trace.txt` (deleted by the first build without the trace) | same |
 | The trace section of the report script, and the script itself unless the owner wants to keep it as a tool (it is not shipped in the installer) | `scripts/tracking-report.py` | same |
-| The card drawn inside the pet window (only used by the browser preview and tests now) | `src/pet/PetApp.tsx` (`cardWindow=false` path), its tests | Kept while the card window is Unverified, as a fallback |
-| The opacity hide while the pet window grows, if the card window removes the need (still used for the bubble and the timer; check first) | `src/pet/PetApp.tsx` | 0.5.5 blink fix |
 | Old-name (Loaf) migration code | `src-tauri/src/earlier_app.rs`, `crates/pluto-core/src/legacy_data.rs` | Keep until every tester is past 0.5.x; then remove |
 | Comments that tell the history of a fix instead of what the code does | throughout | Shortened in the same pass |
 

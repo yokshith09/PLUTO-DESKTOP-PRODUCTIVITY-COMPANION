@@ -162,7 +162,7 @@ export function createMock() {
 
   const defaultSettings = (): Record<string, unknown> => ({
     "general.autostart": false, "general.theme": "dark", "general.font_size": "M",
-    "pet.visible": true, "pet.size": "M", "pet.opacity": 100, "pet.always_on_top": true, "pet.typing": false, "pet.hover_card": true, "pet.hide_fullscreen": true, "pet.media": false, "pet.pack": null, "mcp.enabled": false,
+    "pet.visible": true, "pet.size": "M", "pet.opacity": 100, "pet.always_on_top": true, "pet.typing": false, "pet.hover_card": true, "pet.hide_fullscreen": true, "pet.media": false, "pet.pack": null, "mcp.enabled": false, "mcp.focus_guard": false,
     "shortcuts.global_open": null, "shortcuts.global_new_note": null, "shortcuts.global_new_task": null, "shortcuts.global_pet": null,
     "tracking.apps": true, "tracking.exclude_apps": [], "tracking.sites": false, "tracking.safari": false,
     "advanced.log_level": "info",
@@ -306,6 +306,10 @@ export function createMock() {
 
   const exe = "C:\\Program Files\\Pluto\\pluto.exe";
   const manual = (key: string, id: string, vs = false) => JSON.stringify({ [key]: { pluto: { ...(vs ? { type: "stdio" } : {}), command: exe, args: ["--mcp-bridge", "--assistant", id] } } }, null, 2);
+  const mcpCalls = [
+    { atMs: now() - 120_000, assistant: "Claude Code", tool: "task_add", ok: true, detail: "Added the task \"Call the bank\".", changed: true, undoId: 1 as number | null, undone: false },
+    { atMs: now() - 60_000, assistant: "Claude Code", tool: "react", ok: true, detail: "The pet showed agent_done.", changed: false, undoId: null as number | null, undone: false },
+  ];
   const mockAssistants = [
     { id: "claude", name: "Claude", installed: true, connected: false, places: [
       { label: "Claude Code", path: "C:\\Users\\you\\.claude.json", installed: true, connected: false, manual: manual("mcpServers", "claude-code") },
@@ -337,9 +341,9 @@ export function createMock() {
       return null;
     },
     mcp_listening: () => settings["mcp.enabled"] === true,
-    mcp_activity: () => settings["mcp.enabled"] === true
-      ? [{ atMs: now() - 60_000, assistant: "Claude Code", tool: "react", ok: true, detail: "The pet showed agent_done.", changed: false }]
-      : [],
+    mcp_undo: (a) => { const c = mcpCalls.find((x) => x.undoId === a.id); if (c) { c.undone = true; c.undoId = null; } return "Removed the task \"Call the bank\"."; },
+    mcp_developer: () => ({ gitCommit: `#!/bin/sh\n"${exe}" --react git_commit --assistant git\n`, gitPush: `#!/bin/sh\n"${exe}" --react git_push --assistant git\n`, build: `<your build> && "${exe}" --react build_ok --assistant build || "${exe}" --react build_failed --assistant build` }),
+    mcp_activity: () => (settings["mcp.enabled"] === true ? mcpCalls.map((c) => ({ ...c })) : []),
     setting_set: (a) => { settings[String(a.key)] = a.value; emit("SettingChanged"); return null; },
     prefs_get: (a) => prefs.get(String(a.key)) ?? null,
     prefs_set: (a) => { prefs.set(String(a.key), a.value); return null; },

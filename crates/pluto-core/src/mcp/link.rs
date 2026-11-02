@@ -34,6 +34,39 @@ pub fn hello_line(token: &str, assistant: &str) -> String {
     format!("{HELLO} {token} {assistant}\n")
 }
 
+/// The one line a hook, a git hook or a build sends to play one reaction and close (developer
+/// reactions, P4.2/P4.3): `PLUTO1R <token> <id> <reaction>`.
+pub const REACT_HELLO: &str = "PLUTO1R";
+
+pub fn react_line(token: &str, assistant: &str, reaction: &str) -> String {
+    format!("{REACT_HELLO} {token} {assistant} {reaction}\n")
+}
+
+/// Checks a reaction line: the token, the id, and a reaction Pluto knows.
+pub fn check_react(line: &str, token: &str) -> Result<(String, &'static str), Refused> {
+    let mut parts = line.trim_end_matches(['\r', '\n']).split(' ');
+    let (Some(REACT_HELLO), Some(given), Some(id), Some(name), None) = (
+        parts.next(),
+        parts.next(),
+        parts.next(),
+        parts.next(),
+        parts.next(),
+    ) else {
+        return Err(Refused::BadHello);
+    };
+    if !same(given.as_bytes(), token.as_bytes()) {
+        return Err(Refused::WrongToken);
+    }
+    let known = super::REACTIONS
+        .iter()
+        .find(|(n, _)| *n == name)
+        .map(|(n, _)| *n);
+    match known {
+        Some(reaction) if id_is_valid(id) => Ok((id.to_owned(), reaction)),
+        _ => Err(Refused::BadHello),
+    }
+}
+
 /// Whether `id` is a valid assistant id: lowercase letters, digits and `-`, 1 to 40 long.
 pub fn id_is_valid(id: &str) -> bool {
     !id.is_empty()
@@ -126,11 +159,41 @@ where
     let line = tokio::time::timeout(HELLO_TIMEOUT, read_hello(&mut stream))
         .await
         .map_err(|_| Refused::NoHello)??;
+    if line.starts_with(REACT_HELLO) {
+        let (id, reaction) = check_react(&line, token)?;
+        let server = PlutoMcp::new(host, &display_name(&id), limit_for(&id));
+        let said = server.react_once(reaction);
+        let _ = stream.write_all(format!("{said}\n").as_bytes()).await;
+        let _ = stream.shutdown().await;
+        return Ok(id);
+    }
     let id = check_hello(&line, token)?;
     let server = PlutoMcp::new(host, &display_name(&id), limit_for(&id));
     // A protocol error or a closed pipe ends this connection only.
     let _ = server.serve(stream).await;
     Ok(id)
+}
+
+/// Plays one reaction on a running Pluto (`Pluto --react`): sends the line and waits briefly
+/// for the answer. Returns what Pluto said, or `None` when it did not answer.
+pub async fn send_reaction<P>(
+    mut pipe: P,
+    token: &str,
+    assistant: &str,
+    reaction: &str,
+) -> Option<String>
+where
+    P: AsyncRead + AsyncWrite + Unpin,
+{
+    pipe.write_all(react_line(token, assistant, reaction).as_bytes())
+        .await
+        .ok()?;
+    let mut answer = String::new();
+    tokio::time::timeout(HELLO_TIMEOUT, pipe.read_to_string(&mut answer))
+        .await
+        .ok()?
+        .ok()?;
+    Some(answer.trim().to_owned())
 }
 
 /// The bridge side: introduces itself on `pipe` and then copies bytes both ways between the

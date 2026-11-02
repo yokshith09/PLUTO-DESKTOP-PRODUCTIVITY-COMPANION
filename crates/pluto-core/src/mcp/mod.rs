@@ -13,6 +13,7 @@ pub mod setup;
 pub mod status;
 #[cfg(test)]
 mod tests;
+pub mod write;
 
 use std::future::Future;
 use std::pin::Pin;
@@ -20,7 +21,10 @@ use std::sync::Arc;
 
 use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::model::{CallToolResult, ContentBlock, Implementation, ServerCapabilities, ServerConfig};
-use rmcp::{schemars, tool, tool_handler, tool_router, ServerHandler};
+use rmcp::model::{PromptMessage, Role};
+use rmcp::{
+    prompt, prompt_handler, prompt_router, schemars, tool, tool_handler, tool_router, ServerHandler,
+};
 use serde::{Deserialize, Serialize};
 
 pub use limit::{RateLimit, CALLS_PER_MINUTE};
@@ -31,8 +35,10 @@ pub const INSTRUCTIONS: &str =
 reminders, meetings, focus sessions, time per app). Everything stays on this computer. Use `react` \
 to show a named moment on the pet (for example agent_done when you finish), `say` for a short \
 bubble, `status` to see what the person is doing, `today` for today's plan, `tasks_list` and \
-`task_get` for tasks, `notes_search` and `note_get` for notes. These tools only read; nothing is \
-changed. The diary is private and never available. Calls are limited to 10 per minute per tool.";
+`task_get` for tasks, `notes_search` and `note_get` for notes. To change things use `task_add`, \
+`task_update`, `task_complete`, `reminder_add`, `note_add` and `note_append`; only do so when the \
+person asked, and tell them what you changed. Every change shows in Pluto with an Undo. Nothing is \
+deleted. The diary is private and never available. Calls are limited to 10 per minute per tool.";
 
 /// What every tool answers while Pluto itself is not running.
 pub const NOT_RUNNING: &str = "Pluto is not running. Open Pluto and try again.";
@@ -53,6 +59,12 @@ pub trait Host: Send + Sync {
     /// Pluto's tasks and notes for the read tools; `None` while the data is not open yet.
     fn data(&self) -> Option<read::Data> {
         None
+    }
+    /// Note a change for the Assistants page, with its way back.
+    fn changed(&self, _tool: &'static str, _assistant: &str, _change: write::Change) {}
+    /// Keep a pet message back for now (focus guard); true when it was kept.
+    fn hold(&self, _message: &PetMessage) -> bool {
+        false
     }
     /// Note a call for the Assistants page (the host adds the time).
     fn record(&self, _tool: &'static str, _assistant: &str, _ok: bool, _detail: String) {}
@@ -252,6 +264,74 @@ impl PlutoMcp {
         }
     }
 
+    /// Runs one change tool: limit, data, the change, noted with its Undo.
+    async fn writing<F, Fut>(
+        &self,
+        tool: &'static str,
+        change: F,
+    ) -> Result<Json<write::Done>, CallToolResult>
+    where
+        F: FnOnce(read::Data) -> Fut,
+        Fut: Future<Output = Result<(write::Done, write::Change), String>>,
+    {
+        if let Some(refused) = self.over_limit(tool) {
+            return Err(self.noted(tool, refused));
+        }
+        let data = self.data()?;
+        match change(data).await {
+            Ok((done, change)) => {
+                if let Some(host) = &self.host {
+                    host.changed(tool, &self.assistant, change);
+                }
+                Ok(Json(done))
+            }
+            Err(why) => Err(self.noted(tool, Self::refused(why))),
+        }
+    }
+
+    /// Shows a message on the pet, unless the focus guard keeps it until the session ends.
+    fn show_or_hold(host: &Arc<dyn Host>, message: PetMessage) -> bool {
+        if host.hold(&message) {
+            return false;
+        }
+        host.show(message);
+        true
+    }
+
+    /// One reaction from a hook, git or a build (no MCP session): the same limit, focus guard and
+    /// log as the `react` tool. Returns what happened, in words.
+    pub fn react_once(&self, reaction: &'static str) -> String {
+        let result = match (self.over_limit("react"), &self.host) {
+            (Some(refused), _) => refused,
+            (None, None) => Self::refused(NOT_RUNNING),
+            (None, Some(host)) => {
+                let text = reaction_line(reaction, &self.assistant)
+                    .map(|(_, t)| t)
+                    .unwrap_or_default();
+                let shown = Self::show_or_hold(
+                    host,
+                    PetMessage {
+                        assistant: self.assistant.to_string(),
+                        text,
+                        reaction: Some(reaction),
+                    },
+                );
+                CallToolResult::success(vec![ContentBlock::text(if shown {
+                    format!("The pet showed {reaction}.")
+                } else {
+                    format!("Held {reaction} until the focus session ends.")
+                })])
+            }
+        };
+        let result = self.noted("react", result);
+        result
+            .content
+            .first()
+            .and_then(|c| c.as_text())
+            .map(|t| t.text.clone())
+            .unwrap_or_default()
+    }
+
     fn refused(message: impl Into<String>) -> CallToolResult {
         CallToolResult::error(vec![ContentBlock::text(message.into())])
     }
@@ -327,16 +407,22 @@ impl PlutoMcp {
                 )),
             );
         };
-        host.show(PetMessage {
-            assistant: self.assistant.to_string(),
-            text,
-            reaction: Some(reaction),
-        });
+        let shown = Self::show_or_hold(
+            host,
+            PetMessage {
+                assistant: self.assistant.to_string(),
+                text,
+                reaction: Some(reaction),
+            },
+        );
+        let said = if shown {
+            format!("The pet showed {reaction}.")
+        } else {
+            format!("The person is in a focus session; {reaction} will show when it ends.")
+        };
         self.noted(
             "react",
-            CallToolResult::success(vec![ContentBlock::text(format!(
-                "The pet showed {reaction}."
-            ))]),
+            CallToolResult::success(vec![ContentBlock::text(said)]),
         )
     }
 
@@ -362,14 +448,22 @@ impl PlutoMcp {
             Ok(text) => text,
             Err(why) => return self.noted("say", Self::refused(why)),
         };
-        host.show(PetMessage {
-            assistant: self.assistant.to_string(),
-            text,
-            reaction: None,
-        });
+        let shown = Self::show_or_hold(
+            host,
+            PetMessage {
+                assistant: self.assistant.to_string(),
+                text,
+                reaction: None,
+            },
+        );
+        let said = if shown {
+            "The pet said it."
+        } else {
+            "The person is in a focus session; the pet will say it when it ends."
+        };
         self.noted(
             "say",
-            CallToolResult::success(vec![ContentBlock::text("The pet said it.")]),
+            CallToolResult::success(vec![ContentBlock::text(said)]),
         )
     }
 
@@ -447,15 +541,204 @@ impl PlutoMcp {
         })
         .await
     }
+
+    #[tool(
+        title = "Add a task",
+        description = "Add a task to the person's list. Only when they asked for it. Optional: description, priority (HIGH, MEDIUM, LOW), planned day and due day (YYYY-MM-DD), project. Shown in Pluto with an Undo.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn task_add(
+        &self,
+        Parameters(a): Parameters<write::TaskAddArgs>,
+    ) -> Result<Json<write::Done>, CallToolResult> {
+        self.writing("task_add", |d| async move { write::task_add(&d, a).await })
+            .await
+    }
+
+    #[tool(
+        title = "Change a task",
+        description = "Change a task's title, description, priority, planned day or due day. Give only what changes; \"\" clears a day or the priority. Shown in Pluto with an Undo.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    async fn task_update(
+        &self,
+        Parameters(a): Parameters<write::TaskUpdateArgs>,
+    ) -> Result<Json<write::Done>, CallToolResult> {
+        self.writing(
+            "task_update",
+            |d| async move { write::task_update(&d, a).await },
+        )
+        .await
+    }
+
+    #[tool(
+        title = "Mark a task done",
+        description = "Mark one of the person's tasks done, when they say they finished it. Shown in Pluto with an Undo.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    async fn task_complete(
+        &self,
+        Parameters(a): Parameters<IdArgs>,
+    ) -> Result<Json<write::Done>, CallToolResult> {
+        self.writing("task_complete", |d| async move {
+            write::task_complete(&d, &a.id).await
+        })
+        .await
+    }
+
+    #[tool(
+        title = "Add a reminder",
+        description = "Add a reminder that pops up on the pet at a time in the person's local time (\"YYYY-MM-DD HH:MM\"). Shown in Pluto with an Undo.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn reminder_add(
+        &self,
+        Parameters(a): Parameters<write::ReminderAddArgs>,
+    ) -> Result<Json<write::Done>, CallToolResult> {
+        self.writing("reminder_add", |d| async move {
+            write::reminder_add(&d, a).await
+        })
+        .await
+    }
+
+    #[tool(
+        title = "Make a note",
+        description = "Make a new note with a title and text, only when the person asked (for example a review they want kept). Shown in Pluto with an Undo.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn note_add(
+        &self,
+        Parameters(a): Parameters<write::NoteAddArgs>,
+    ) -> Result<Json<write::Done>, CallToolResult> {
+        self.writing("note_add", |d| async move { write::note_add(&d, a).await })
+            .await
+    }
+
+    #[tool(
+        title = "Add to a note",
+        description = "Add text at the end of one of the person's notes. Nothing already there is changed. Shown in Pluto with an Undo.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn note_append(
+        &self,
+        Parameters(a): Parameters<write::NoteAppendArgs>,
+    ) -> Result<Json<write::Done>, CallToolResult> {
+        self.writing(
+            "note_append",
+            |d| async move { write::note_append(&d, a).await },
+        )
+        .await
+    }
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct MeetingArgs {
+    /// The meeting notes or transcript.
+    pub notes: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct TopicArgs {
+    /// What to be quizzed on (a course or a note's subject).
+    pub topic: String,
+}
+
+fn ask(text: impl Into<String>) -> Vec<PromptMessage> {
+    vec![PromptMessage::new_text(Role::User, text.into())]
+}
+
+/// Ready-made requests the person can pick in their assistant (owner's additions, 2026-11-02).
+#[prompt_router]
+impl PlutoMcp {
+    #[prompt(
+        name = "plan_my_day",
+        description = "Look at today in Pluto and suggest an order for the day."
+    )]
+    async fn plan_my_day(&self) -> Vec<PromptMessage> {
+        ask("Use Pluto's `today` and `status` tools. Suggest an order for my open tasks today, overdue ones first, in a short list. Don't change anything unless I ask.")
+    }
+
+    #[prompt(
+        name = "daily_review",
+        description = "A short review of today from Pluto, in the chat."
+    )]
+    async fn daily_review(&self) -> Vec<PromptMessage> {
+        ask("Use Pluto's `tasks_list` (completed and today) and `status`. Give me a short review of today: what got done, what is still open, one suggestion for tomorrow. Answer here; only save it as a note in Pluto if I ask.")
+    }
+
+    #[prompt(
+        name = "weekly_review",
+        description = "A short review of the week from Pluto, in the chat."
+    )]
+    async fn weekly_review(&self) -> Vec<PromptMessage> {
+        ask("Use Pluto's `tasks_list` with completed, upcoming and pending. Give me a short review of this week: what got done, what slipped, and what to focus on next week. Answer here; only save it as a note in Pluto if I ask.")
+    }
+
+    #[prompt(
+        name = "meeting_to_tasks",
+        description = "Turn meeting notes into tasks in Pluto."
+    )]
+    async fn meeting_to_tasks(&self, Parameters(a): Parameters<MeetingArgs>) -> Vec<PromptMessage> {
+        ask(format!("Here are my meeting notes:\n\n{}\n\nList the action items for me. After I confirm, add each one to Pluto with `task_add` (with a due day if one was said) and tell me what you added.", a.notes))
+    }
+
+    #[prompt(
+        name = "what_was_i_doing",
+        description = "After a break: what you were working on in Pluto."
+    )]
+    async fn what_was_i_doing(&self) -> Vec<PromptMessage> {
+        ask("Use Pluto's `status` and `today`. In two lines, remind me what I was working on and what is next.")
+    }
+
+    #[prompt(name = "study_quiz", description = "Quiz me from my notes in Pluto.")]
+    async fn study_quiz(&self, Parameters(a): Parameters<TopicArgs>) -> Vec<PromptMessage> {
+        ask(format!("Use Pluto's `notes_search` for \"{}\" and `note_get` to read the notes. Ask me five short questions from them, one at a time, and tell me if I got each right.", a.topic))
+    }
 }
 
 #[tool_handler]
+#[prompt_handler(router = Self::prompt_router())]
 impl ServerHandler for PlutoMcp {
     fn get_info(&self) -> ServerConfig {
         let mut me = Implementation::new("pluto", env!("CARGO_PKG_VERSION"));
         me.title = Some("Pluto".into());
-        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-            .with_server_info(me)
-            .with_instructions(INSTRUCTIONS)
+        ServerConfig::new(
+            ServerCapabilities::builder()
+                .enable_tools()
+                .enable_prompts()
+                .build(),
+        )
+        .with_server_info(me)
+        .with_instructions(INSTRUCTIONS)
     }
 }

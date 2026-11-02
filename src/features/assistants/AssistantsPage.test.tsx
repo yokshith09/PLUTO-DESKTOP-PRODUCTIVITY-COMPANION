@@ -23,7 +23,12 @@ function renderPage({ enabled = false, connected = false, dev = false } = {}) {
   vi.spyOn(ipc, "mcpAssistants").mockResolvedValue([claude(connected), cursor]);
   const connect = vi.spyOn(ipc, "mcpConnect").mockResolvedValue(["Claude Code", "Claude app"]);
   const disconnect = vi.spyOn(ipc, "mcpDisconnect").mockResolvedValue(null);
-  const activity = vi.spyOn(ipc, "mcpActivity").mockResolvedValue([{ atMs: 0, assistant: "Claude Code", tool: "today", ok: true, detail: "Read today's plan.", changed: false }]);
+  const activity = vi.spyOn(ipc, "mcpActivity").mockResolvedValue([
+    { atMs: 0, assistant: "Claude Code", tool: "today", ok: true, detail: "Read today's plan.", changed: false, undoId: null, undone: false },
+    { atMs: 1, assistant: "Claude Code", tool: "task_add", ok: true, detail: "Added the task \"Call the bank\".", changed: true, undoId: 7, undone: false },
+  ]);
+  vi.spyOn(ipc, "mcpUndo").mockResolvedValue("Removed the task \"Call the bank\".");
+  vi.spyOn(ipc, "mcpDeveloper").mockResolvedValue({ gitCommit: "#!/bin/sh\npluto --react git_commit", gitPush: "x", build: "y" });
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><AssistantsPage /></QueryClientProvider>);
   return { connect, disconnect, prefsSet, activity };
 }
@@ -75,6 +80,23 @@ describe("Assistants page", () => {
     await waitFor(() => expect(prefsSet).toHaveBeenCalledWith("assistants.devPreview", true));
     const requests = await screen.findByRole("region", { name: "Requests" });
     await waitFor(() => expect(requests.textContent).toContain("Read today's plan."));
-    expect(screen.getByRole("region", { name: "What it changed" }).textContent).toContain("Nothing changed");
+    const changed = screen.getByRole("region", { name: "What it changed" });
+    expect(changed.textContent).toContain("Added the task");
+    fireEvent.click(within(changed).getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(ipc.mcpUndo).toHaveBeenCalledWith(7));
+  });
+
+  it("the focus guard is off by default and switches on from this page", async () => {
+    renderPage();
+    const guard = await screen.findByRole("switch", { name: "Quiet while you focus" });
+    expect(guard.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(guard);
+    await waitFor(() => expect(ipc.settingSet).toHaveBeenCalledWith("mcp.focus_guard", true));
+  });
+
+  it("developer reactions show the git and build lines to copy when opened", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Git and builds" }));
+    expect((await screen.findByLabelText("After a commit (.git/hooks/post-commit)")).textContent).toContain("--react git_commit");
   });
 });

@@ -3,7 +3,7 @@
 // requests) lives in its settings. A developer preview, off by default, lists requests and changes.
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Check, CircleSlash, Copy, Eye, ListChecks, Lock, MessageCircle, PartyPopper, PenLine, Plus, Settings2 } from "lucide-react";
+import { BellOff, BookOpen, Check, CircleSlash, Code2, Copy, Eye, ListChecks, Lock, MessageCircle, PartyPopper, PenLine, Plus, Settings2, ShieldCheck, Undo2 } from "lucide-react";
 import { errorMessage, ipc, type AssistantCall, type AssistantInfo } from "@/ipc";
 import { useSetting } from "@/hooks/useTheme";
 import { notify } from "@/lib/notify";
@@ -17,11 +17,12 @@ import { PageHeader, Panel } from "@/features/shell/PageHeader";
 export const CAN = [
   { icon: PartyPopper, text: "Make your pet cheer, wave or look worried when they finish, need you, or get stuck." },
   { icon: MessageCircle, text: "Show you a short message on the pet." },
-  { icon: ListChecks, text: "See today's plan and your tasks, to help you plan or pick what's next." },
+  { icon: ListChecks, text: "See today's plan and your tasks, and plan your day or week with you." },
   { icon: BookOpen, text: "Find and read your notes when you ask about them." },
+  { icon: PenLine, text: "Add tasks, reminders and notes, change a task or mark it done, when you ask. Every change can be undone." },
   { icon: Eye, text: "See if you are in a focus session, so they don't disturb you." },
 ] as const;
-export const COMING = { icon: PenLine, text: "Add tasks and reminders for you. Anything that changes a setting will ask you first." } as const;
+export const COMING = { icon: ShieldCheck, text: "Change a setting for you, only after you press Allow on the pet." } as const;
 export const NEVER = { icon: Lock, text: "Your diary. Assistants can never see it." } as const;
 
 const DEV_PREF = "assistants.devPreview";
@@ -62,6 +63,8 @@ export function AssistantsPage() {
       </Panel>
 
       <Capabilities />
+      <FocusGuard />
+      <DeveloperReactions />
       <DeveloperPreview on={on} />
 
       <AssistantEditor id={editing} a={current} onClose={() => setEditing(null)} />
@@ -167,6 +170,56 @@ function Note({ icon: Icon, label, text }: { icon: typeof Lock; label: string; t
   );
 }
 
+function FocusGuard() {
+  const [guard, setGuard] = useSetting("mcp.focus_guard");
+  return (
+    <Panel className="flex items-start gap-4 p-5">
+      <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-muted/60"><BellOff className="size-4 text-muted-foreground" aria-hidden /></span>
+      <div className="min-w-0 flex-1">
+        <h2 className="text-[15px] font-semibold">Quiet while you focus</h2>
+        <p className="mt-0.5 text-[13px] text-muted-foreground">During a focus session, messages from assistants wait and show on the pet when it ends.</p>
+      </div>
+      <Switch checked={guard === true} onCheckedChange={(v) => void setGuard(v)} aria-label="Quiet while you focus" />
+    </Panel>
+  );
+}
+
+function DeveloperReactions() {
+  const [open, setOpen] = useState(false);
+  const { data } = useQuery({ queryKey: ["mcp", "developer"], queryFn: ipc.mcpDeveloper, enabled: open });
+  const copy = async (text: string) => {
+    try { await navigator.clipboard.writeText(text); notify.success("Copied"); } catch { notify.error("Could not copy"); }
+  };
+  const lines = data ? [
+    { label: "After a commit (.git/hooks/post-commit)", text: data.gitCommit },
+    { label: "Before a push (.git/hooks/pre-push)", text: data.gitPush },
+    { label: "A build", text: data.build },
+  ] : [];
+  return (
+    <Panel className="p-5">
+      <div className="flex items-start gap-4">
+        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-muted/60"><Code2 className="size-4 text-muted-foreground" aria-hidden /></span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[15px] font-semibold">Developer reactions</h2>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">The pet cheers when Claude Code finishes and waves when it needs you; Connect on the Claude tile sets that up. It can also react to your commits, pushes and builds.</p>
+        </div>
+        <Button size="sm" variant="ghost" onClick={() => setOpen((o) => !o)} aria-expanded={open}>{open ? "Hide" : "Git and builds"}</Button>
+      </div>
+      {open && (
+        <div className="mt-4 space-y-3 border-t pt-4">
+          {lines.map((l) => (
+            <div key={l.label}>
+              <p className="text-[12px] font-medium">{l.label}</p>
+              <pre aria-label={l.label} className="mt-1 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed">{l.text}</pre>
+              <Button size="sm" variant="outline" className="mt-2" onClick={() => void copy(l.text)}><Copy className="size-3.5" />Copy</Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 function useActivity(on: boolean, show: boolean) {
@@ -183,21 +236,35 @@ function DeveloperPreview({ on }: { on: boolean }) {
       <div className="flex items-start gap-4">
         <div className="min-w-0 flex-1">
           <h2 className="text-[15px] font-semibold">Developer preview</h2>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">See every request an assistant makes and anything it changed, as it happens. Useful for testing an assistant. Kept only until Pluto closes.</p>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">See every request an assistant makes and everything it changed, as it happens, with Undo. Useful for testing an assistant. Kept only until Pluto closes.</p>
         </div>
         <Switch checked={show} onCheckedChange={(v) => void dev.set(v)} aria-label="Developer preview" />
       </div>
       {show && (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Calls title="Requests" calls={calls} empty={on ? "No requests yet. Ask a connected assistant something about your day." : "Assistants are off. Switch them on to see requests."} />
-          <Calls title="What it changed" calls={changes} empty="Nothing changed. Assistants can only read and show things on the pet for now." />
+          <Calls title="What it changed" calls={changes} empty="Nothing changed yet. Anything an assistant adds or changes shows here with an Undo." undo />
         </div>
       )}
     </Panel>
   );
 }
 
-function Calls({ title, calls, empty }: { title: string; calls: AssistantCall[]; empty: string }) {
+function UndoButton({ id }: { id: number }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const undo = async () => {
+    setBusy(true);
+    try { notify.success(await ipc.mcpUndo(id)); } catch (e) { notify.error(errorMessage(e)); } finally {
+      setBusy(false);
+      await qc.invalidateQueries({ queryKey: ["mcp", "activity"] });
+      await qc.invalidateQueries();
+    }
+  };
+  return <Button size="sm" variant="outline" disabled={busy} onClick={() => void undo()}><Undo2 className="size-3.5" />Undo</Button>;
+}
+
+function Calls({ title, calls, empty, undo = false }: { title: string; calls: AssistantCall[]; empty: string; undo?: boolean }) {
   return (
     <section aria-label={title} className="flex min-h-32 flex-col rounded-lg border">
       <header className="flex h-10 items-center gap-2 border-b px-3">
@@ -215,7 +282,11 @@ function Calls({ title, calls, empty }: { title: string; calls: AssistantCall[];
                   <p><span className="font-medium">{c.assistant}</span> <span className="font-mono text-muted-foreground">{c.tool}</span></p>
                   <p className="truncate text-muted-foreground" title={c.detail}>{c.detail}</p>
                 </div>
-                <time className="shrink-0 tabular-nums text-muted-foreground">{time(c.atMs)}</time>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <time className="tabular-nums text-muted-foreground">{time(c.atMs)}</time>
+                  {undo && c.undoId !== null && <UndoButton id={c.undoId} />}
+                  {undo && c.undone && <span className="text-muted-foreground">Undone</span>}
+                </div>
               </li>
             ))}
           </ul>

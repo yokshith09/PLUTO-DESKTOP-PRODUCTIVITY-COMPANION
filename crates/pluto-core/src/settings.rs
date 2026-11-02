@@ -56,6 +56,10 @@ pub enum SettingsKey {
     /// closes the private pipe and deletes its token.
     #[serde(rename = "mcp.enabled")]
     McpEnabled,
+    /// During a focus session, assistants' pet messages wait until it ends (owner 2026-11-02).
+    /// Off by default.
+    #[serde(rename = "mcp.focus_guard")]
+    McpFocusGuard,
 
     // shortcuts (F1-24 registers these)
     #[serde(rename = "shortcuts.global_open")]
@@ -132,6 +136,7 @@ impl SettingsKey {
             Self::PetHoverCard => "pet.hover_card",
             Self::PetHideFullscreen => "pet.hide_fullscreen",
             Self::McpEnabled => "mcp.enabled",
+            Self::McpFocusGuard => "mcp.focus_guard",
             Self::PetMedia => "pet.media",
             Self::PetPack => "pet.pack",
             Self::ShortcutsGlobalOpen => "shortcuts.global_open",
@@ -160,6 +165,7 @@ impl SettingsKey {
             "pet.hover_card" => Some(Self::PetHoverCard),
             "pet.hide_fullscreen" => Some(Self::PetHideFullscreen),
             "mcp.enabled" => Some(Self::McpEnabled),
+            "mcp.focus_guard" => Some(Self::McpFocusGuard),
             "pet.media" => Some(Self::PetMedia),
             "pet.pack" => Some(Self::PetPack),
             "shortcuts.global_open" => Some(Self::ShortcutsGlobalOpen),
@@ -189,6 +195,7 @@ impl SettingsKey {
             Self::PetHoverCard => json!(true),
             Self::PetHideFullscreen => json!(true),
             Self::McpEnabled => json!(false),
+            Self::McpFocusGuard => json!(false),
             Self::PetMedia => json!(false),
             Self::PetPack => json!(null),
             Self::ShortcutsGlobalOpen => json!(null),
@@ -213,6 +220,7 @@ impl SettingsKey {
             | Self::PetHoverCard
             | Self::PetHideFullscreen
             | Self::McpEnabled
+            | Self::McpFocusGuard
             | Self::PetMedia
             | Self::TrackingApps
             | Self::TrackingSites
@@ -353,6 +361,7 @@ pub fn all_defaults() -> BTreeMap<String, Value> {
         SettingsKey::PetMedia,
         SettingsKey::PetPack,
         SettingsKey::McpEnabled,
+        SettingsKey::McpFocusGuard,
         SettingsKey::ShortcutsGlobalOpen,
         SettingsKey::ShortcutsGlobalNewNote,
         SettingsKey::ShortcutsGlobalNewTask,
@@ -409,7 +418,8 @@ mod tests {
     #[test]
     fn all_defaults_exist() {
         let defaults = all_defaults();
-        assert_eq!(defaults.len(), 22);
+        assert_eq!(defaults.len(), 23);
+        assert_eq!(defaults["mcp.focus_guard"], json!(false));
         assert_eq!(
             defaults["mcp.enabled"],
             json!(false),

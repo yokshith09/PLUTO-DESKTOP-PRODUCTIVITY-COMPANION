@@ -165,6 +165,8 @@ pub fn run() {
             mcp::mcp_connect,
             mcp::mcp_disconnect,
             mcp::mcp_listening,
+            mcp::mcp_undo,
+            mcp::mcp_developer,
             mcp::mcp_activity,
             ipc::setting_set,
             ipc::prefs_get,
