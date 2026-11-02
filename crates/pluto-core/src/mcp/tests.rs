@@ -12,6 +12,7 @@ use super::*;
 #[derive(Default)]
 struct FakeHost {
     shown: Mutex<Vec<PetMessage>>,
+    recorded: Mutex<Vec<(&'static str, String, bool, String)>>,
 }
 
 impl Host for FakeHost {
@@ -34,6 +35,12 @@ impl Host for FakeHost {
     }
     fn show(&self, message: PetMessage) {
         self.shown.lock().unwrap().push(message);
+    }
+    fn record(&self, tool: &'static str, assistant: &str, ok: bool, detail: String) {
+        self.recorded
+            .lock()
+            .unwrap()
+            .push((tool, assistant.to_owned(), ok, detail));
     }
 }
 
@@ -90,6 +97,23 @@ async fn an_assistant_on_the_newest_protocol_sees_the_three_pet_tools_in_a_fixed
         react.annotations.clone().unwrap().destructive_hint,
         Some(false)
     );
+    client.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn every_call_is_noted_for_the_assistants_page_with_what_happened() {
+    let (client, host) = connect(newest()).await;
+    call(&client, "status", json!({})).await;
+    call(&client, "react", json!({ "reaction": "agent_done" })).await;
+    call(&client, "say", json!({ "text": "" })).await;
+    let recorded = host.recorded.lock().unwrap().clone();
+    assert_eq!(recorded.len(), 3);
+    assert_eq!(recorded[0].0, "status");
+    assert!(recorded[0].2);
+    assert_eq!(recorded[1].1, "Claude Code");
+    assert_eq!(recorded[1].3, "The pet showed agent_done.");
+    assert_eq!(recorded[2].0, "say");
+    assert!(!recorded[2].2, "a refused call is noted as refused");
     client.cancel().await.unwrap();
 }
 

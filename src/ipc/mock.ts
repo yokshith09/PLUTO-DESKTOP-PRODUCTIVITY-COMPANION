@@ -306,6 +306,14 @@ export function createMock() {
 
   const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
     settings_get_all: () => settings,
+    mcp_setup: (a) => ({
+      listening: settings["mcp.enabled"] === true,
+      command: "C:\\Program Files\\Pluto\\pluto.exe",
+      config: JSON.stringify({ mcpServers: { pluto: { command: "C:\\Program Files\\Pluto\\pluto.exe", args: ["--mcp-bridge", "--assistant", String(a.assistant ?? "assistant")] } } }, null, 2),
+    }),
+    mcp_activity: () => settings["mcp.enabled"] === true
+      ? [{ atMs: now() - 60_000, assistant: "Claude Code", tool: "react", ok: true, detail: "The pet showed agent_done.", changed: false }]
+      : [],
     setting_set: (a) => { settings[String(a.key)] = a.value; emit("SettingChanged"); return null; },
     prefs_get: (a) => prefs.get(String(a.key)) ?? null,
     prefs_set: (a) => { prefs.set(String(a.key), a.value); return null; },

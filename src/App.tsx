@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Plug } from "lucide-react";
 import { useRoutineReminder } from "@/features/routine/useRoutine";
 import { useDailyGreeting } from "@/features/companion/useCompanion";
 import { useWellbeingNudges } from "@/features/wellbeing/useWellbeing";
@@ -13,13 +12,13 @@ import { useBin, useBusSync, useLabels, useNoteActions, useNotes, useSettings } 
 import { useAgenda } from "@/features/overview/TodayAgenda";
 import { useTheme } from "@/hooks/useTheme";
 import { ipc, onCommand, type NoteSort } from "@/ipc";
+import { AssistantsPage } from "@/features/assistants/AssistantsPage";
 import { BinPage } from "@/features/bin/BinPage";
 import { CharacterPage } from "@/features/character/CharacterPage";
 import { NoteEditor } from "@/features/notes/NoteEditor";
 import { NotesPage } from "@/features/notes/NotesPage";
 import type { NotesLayout } from "@/features/notes/NotesBoard";
 import { SettingsPage } from "@/features/settings/SettingsPage";
-import { ComingSoon } from "@/features/shell/ComingSoon";
 import { Sidebar, type Page } from "@/features/shell/Sidebar";
 import { TasksPage } from "@/features/tasks/TasksPage";
 import { TimePage } from "@/features/time/TimePage";
@@ -183,7 +182,7 @@ function Screen() {
             {page === "study" && <StudyPage />}
             {page === "diary" && <DiaryPage />}
             {page === "time" && <TimePage />}
-            {page === "mcp" && <ComingSoon icon={<Plug />} title="MCP" description="Connect external tools and services to Pluto through the Model Context Protocol. This arrives in a later release." />}
+            {page === "mcp" && <AssistantsPage />}
           </div>
         </main>
       </div>

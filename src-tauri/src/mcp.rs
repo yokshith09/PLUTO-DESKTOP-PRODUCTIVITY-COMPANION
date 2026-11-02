@@ -2,15 +2,21 @@
 //! per-run token file, the [`Host`] that makes the real pet speak, and `--mcp-bridge`, which an
 //! assistant starts and which runs before any window, tray or single-instance rule.
 //!
-//! Step P4.1a. Listening only while `mcp.enabled` is on at start-up (off by default); the MCP page
-//! with the switch and the assistant list comes next.
+//! Step P4.1a. Listening only while `mcp.enabled` is on (off by default), following the switch on
+//! the Assistants page live; the page reads the setup to copy and the recent calls from here.
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use pluto_core::bus::{EventBus, Recv};
+use pluto_core::clock::Clock;
+use pluto_core::events::Event;
+use pluto_core::mcp::activity::{Activity, Call};
 use pluto_core::mcp::link;
 use pluto_core::mcp::{Host, HostFuture, PetMessage, RateLimit, Status};
-use tauri::{AppHandle, Emitter, Manager, Runtime};
+use pluto_core::settings_service::SettingsService;
+use serde::Serialize;
+use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 
 /// The flag an assistant's config uses: `Pluto --mcp-bridge --assistant <id>`.
 pub const BRIDGE_FLAG: &str = "--mcp-bridge";
@@ -106,6 +112,7 @@ async fn connect() -> Option<tokio::io::DuplexStream> {
 /// The running Pluto, as the MCP server sees it.
 struct ShellHost<R: Runtime> {
     app: AppHandle<R>,
+    activity: Arc<Activity>,
 }
 
 impl<R: Runtime> Host for ShellHost<R> {
@@ -128,6 +135,23 @@ impl<R: Runtime> Host for ShellHost<R> {
         let _ = self
             .app
             .emit("pet://say", serde_json::json!({ "text": text }));
+    }
+
+    fn record(&self, tool: &'static str, assistant: &str, ok: bool, detail: String) {
+        let at_ms = self
+            .app
+            .try_state::<crate::Core>()
+            .map(|core| core.clock.now_ms())
+            .unwrap_or_default();
+        self.activity.record(Call {
+            at_ms,
+            assistant: assistant.to_owned(),
+            tool: tool.to_owned(),
+            ok,
+            detail,
+            changed: false,
+        });
+        let _ = self.app.emit("mcp://activity", ());
     }
 }
 
@@ -165,24 +189,133 @@ pub fn forget(dir: &Path) {
     let _ = std::fs::remove_file(dir.join(SOCKET_FILE));
 }
 
-/// Starts listening for bridges if `mcp.enabled` is on; otherwise removes any old token.
-pub fn start<R: Runtime>(app: AppHandle<R>, data_dir: PathBuf, enabled: bool) {
-    forget(&data_dir);
-    if !enabled {
-        return;
+/// The MCP side of the running app: the recent calls and the listener while switched on.
+#[derive(Default)]
+pub struct Mcp {
+    activity: Arc<Activity>,
+    listener: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
+}
+
+impl Mcp {
+    fn listening(&self) -> bool {
+        self.listener
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .is_some()
     }
+
+    /// Stops listening (if it was) and removes the token, so no bridge can get in.
+    fn stop(&self, dir: &Path) {
+        if let Some(task) = self
+            .listener
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+        {
+            task.abort();
+        }
+        forget(dir);
+    }
+}
+
+/// Starts listening for bridges with a fresh token.
+fn listen_now<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp, data_dir: &Path) {
+    mcp.stop(data_dir);
     let token = link::new_token();
-    if let Err(e) = write_token(&data_dir, &token) {
+    if let Err(e) = write_token(data_dir, &token) {
         tracing::warn!(error = %e, "MCP: could not write the token; assistants cannot connect");
         return;
     }
-    let host: Arc<dyn Host> = Arc::new(ShellHost { app });
+    let host: Arc<dyn Host> = Arc::new(ShellHost {
+        app: app.clone(),
+        activity: mcp.activity.clone(),
+    });
     let limits = Arc::new(Limits::default());
-    tauri::async_runtime::spawn(async move {
-        if let Err(e) = listen(&data_dir, token, host, limits).await {
+    let dir = data_dir.to_owned();
+    let task = tauri::async_runtime::spawn(async move {
+        if let Err(e) = listen(&dir, token, host, limits).await {
             tracing::warn!(error = %e, "MCP: the private pipe stopped");
         }
     });
+    *mcp.listener.lock().unwrap_or_else(PoisonError::into_inner) = Some(task);
+}
+
+fn enabled(all: &std::collections::BTreeMap<String, serde_json::Value>) -> bool {
+    all.get("mcp.enabled").and_then(serde_json::Value::as_bool) == Some(true)
+}
+
+/// Follows `mcp.enabled`: listens while it is on, stops and removes the token when it goes off.
+/// Expects [`Mcp`] in the app's state.
+pub fn start(app: AppHandle, settings: Arc<SettingsService>, bus: &EventBus, data_dir: PathBuf) {
+    let mut events = bus.subscribe();
+    tauri::async_runtime::spawn(async move {
+        let mcp = app.state::<Mcp>();
+        forget(&data_dir);
+        let mut on = false;
+        loop {
+            let want = enabled(&settings.get_all().await.unwrap_or_default());
+            if want != on {
+                on = want;
+                if on {
+                    listen_now(&app, &mcp, &data_dir);
+                } else {
+                    mcp.stop(&data_dir);
+                }
+                let _ = app.emit("mcp://activity", ());
+            }
+            match events.recv().await {
+                Recv::Event(Event::SettingChanged { key, .. }) if key == "mcp.enabled" => {}
+                Recv::Event(Event::AllDataDeleted { .. }) | Recv::Resync { .. } => {}
+                Recv::Event(_) => continue,
+                Recv::Closed => break,
+            }
+        }
+    });
+}
+
+/// What the Assistants page shows about the connection.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Setup {
+    /// True while Pluto is listening for assistants.
+    pub listening: bool,
+    /// The program an assistant starts (this Pluto).
+    pub command: String,
+    /// The JSON to paste into an assistant's MCP settings.
+    pub config: String,
+}
+
+/// The JSON block most assistants accept (`mcpServers`), for the assistant id given.
+pub fn config_json(command: &str, assistant: &str) -> String {
+    let value = serde_json::json!({
+        "mcpServers": {
+            "pluto": {
+                "command": command,
+                "args": [BRIDGE_FLAG, "--assistant", assistant],
+            }
+        }
+    });
+    serde_json::to_string_pretty(&value).unwrap_or_default()
+}
+
+#[tauri::command]
+pub fn mcp_setup(mcp: State<'_, Mcp>, assistant: Option<String>) -> Setup {
+    let assistant = assistant
+        .filter(|id| link::id_is_valid(id))
+        .unwrap_or_else(|| "assistant".into());
+    let command = std::env::current_exe()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| "Pluto".into());
+    Setup {
+        listening: mcp.listening(),
+        config: config_json(&command, &assistant),
+        command,
+    }
+}
+
+#[tauri::command]
+pub fn mcp_activity(mcp: State<'_, Mcp>) -> Vec<Call> {
+    mcp.activity.recent()
 }
 
 #[cfg(windows)]
@@ -267,6 +400,28 @@ mod tests {
             assistant_from(&args(&["p", "--assistant", "Bad Id"])),
             "assistant"
         );
+    }
+
+    #[test]
+    fn the_setup_to_copy_starts_this_pluto_as_the_bridge_for_the_chosen_assistant() {
+        let json: serde_json::Value =
+            serde_json::from_str(&config_json(r"C:\Pluto\pluto.exe", "claude-code")).unwrap();
+        let pluto = &json["mcpServers"]["pluto"];
+        assert_eq!(pluto["command"], r"C:\Pluto\pluto.exe");
+        assert_eq!(
+            pluto["args"],
+            serde_json::json!(["--mcp-bridge", "--assistant", "claude-code"])
+        );
+    }
+
+    #[test]
+    fn stopping_removes_the_token_so_no_bridge_can_get_in() {
+        let dir = tempfile::tempdir().unwrap();
+        write_token(dir.path(), "abc").unwrap();
+        let mcp = Mcp::default();
+        assert!(!mcp.listening());
+        mcp.stop(dir.path());
+        assert!(!dir.path().join(TOKEN_FILE).exists());
     }
 
     #[test]

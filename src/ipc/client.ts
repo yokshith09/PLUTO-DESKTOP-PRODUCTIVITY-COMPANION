@@ -3,9 +3,11 @@ import { call } from "./transport";
 import type {
   UsageSummary, TimeRange, TrackingStatus, OpenTab, PetPack, BinNote, DailyLog, Reminder, ReminderInput, ReminderPatch, Label, LabelCount, Note, NoteInput, NotePatch, NoteSort, NoteSummary, Task, TaskEdit, TaskEvent, TaskFilters, TaskRow,
   TaskStatus, TaskView, WorkUpdate, LinkInput, TaskPlan, RepeatDay, FocusSession, FocusStart, RetentionRules, RetentionCounts, Meeting, MeetingFilters, MeetingInput, MeetingSummary,
-  Course, CourseLinks, DiaryHit, DiaryStatus, Exam, WeeklyReport,
+  Course, CourseLinks, DiaryHit, DiaryStatus, Exam, WeeklyReport, AssistantCall,
 } from "./types";
 import type { Settings, SettingsKey } from "./settings";
+
+export type McpSetup = { listening: boolean; command: string; config: string };
 
 export const ipc = {
   settingsGetAll: () => call<Settings>("settings_get_all"),
@@ -13,6 +15,11 @@ export const ipc = {
     call<unknown>("setting_set", { key, value }),
   prefsGet: <T = unknown>(key: string) => call<T | null>("prefs_get", { key }),
   prefsSet: <T>(key: string, value: T) => call<unknown>("prefs_set", { key, value }),
+
+  /** Assistants (MCP): whether Pluto is listening, and the setup to paste into an assistant. */
+  mcpSetup: (assistant: string) => call<McpSetup>("mcp_setup", { assistant }),
+  /** The last calls assistants made, newest first (in memory only). */
+  mcpActivity: () => call<AssistantCall[]>("mcp_activity"),
 
   notesList: (archived: boolean, labelId: string | null, sort: NoteSort = "last_edited") =>
     call<NoteSummary[]>("notes_list", { archived, labelId, sort }),

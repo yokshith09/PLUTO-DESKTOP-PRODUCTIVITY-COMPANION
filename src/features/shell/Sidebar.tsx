@@ -74,7 +74,7 @@ export function Sidebar({ page, counts, onPage, isDark, onToggleTheme }: Props) 
         <Item active={page === "diary"} onClick={go("diary")} icon={<BookHeart />}>Diary</Item>
         <Item active={page === "meetings"} onClick={go("meetings")} icon={<Users />}>Meetings</Item>
         <Item active={page === "character"} onClick={go("character")} tour="nav-character" icon={<PawPrint />}>Character</Item>
-        <Item active={page === "mcp"} onClick={go("mcp")} icon={<Plug />}>MCP</Item>
+        <Item active={page === "mcp"} onClick={go("mcp")} icon={<Plug />}>Assistants</Item>
       </Group>
 
       <Group title="Library">

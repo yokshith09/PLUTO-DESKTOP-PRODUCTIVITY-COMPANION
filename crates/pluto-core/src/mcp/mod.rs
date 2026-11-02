@@ -5,6 +5,7 @@
 //!
 //! Step P4.1a: the pet tools `status`, `react` and `say`, the rate limit and the input rules.
 
+pub mod activity;
 mod limit;
 pub mod link;
 pub mod status;
@@ -46,6 +47,8 @@ pub trait Host: Send + Sync {
     fn status(&self) -> HostFuture<'_, Status>;
     /// Show something on the pet.
     fn show(&self, message: PetMessage);
+    /// Note a call for the Assistants page (the host adds the time).
+    fn record(&self, _tool: &'static str, _assistant: &str, _ok: bool, _detail: String) {}
 }
 
 /// The answer to `status`: no titles, no note text.
@@ -191,6 +194,20 @@ impl PlutoMcp {
         CallToolResult::error(vec![ContentBlock::text(message.into())])
     }
 
+    /// Notes the call on the running Pluto (nothing to note while offline) and returns it.
+    fn noted(&self, tool: &'static str, result: CallToolResult) -> CallToolResult {
+        if let Some(host) = &self.host {
+            let detail = result
+                .content
+                .first()
+                .and_then(|c| c.as_text())
+                .map(|t| t.text.clone())
+                .unwrap_or_default();
+            host.record(tool, &self.assistant, result.is_error != Some(true), detail);
+        }
+        result
+    }
+
     fn over_limit(&self, tool: &'static str) -> Option<CallToolResult> {
         (!self.limit.allow(tool)).then(|| {
             Self::refused(format!(
@@ -209,9 +226,14 @@ impl PlutoMcp {
     )]
     async fn status(&self) -> Result<Json<Status>, CallToolResult> {
         if let Some(refused) = self.over_limit("status") {
-            return Err(refused);
+            return Err(self.noted("status", refused));
         }
-        Ok(Json(self.host()?.status().await))
+        let status = self.host()?.status().await;
+        self.noted(
+            "status",
+            CallToolResult::success(vec![ContentBlock::text("Read what Pluto is doing.")]),
+        );
+        Ok(Json(status))
     }
 
     #[tool(
@@ -226,7 +248,7 @@ impl PlutoMcp {
     )]
     async fn react(&self, Parameters(args): Parameters<ReactArgs>) -> CallToolResult {
         if let Some(refused) = self.over_limit("react") {
-            return refused;
+            return self.noted("react", refused);
         }
         let host = match self.host() {
             Ok(host) => host,
@@ -234,20 +256,26 @@ impl PlutoMcp {
         };
         let Some((reaction, text)) = reaction_line(args.reaction.trim(), &self.assistant) else {
             let names: Vec<&str> = REACTIONS.iter().map(|(n, _)| *n).collect();
-            return Self::refused(format!(
-                "There is no reaction `{}`. Use one of: {}.",
-                args.reaction,
-                names.join(", ")
-            ));
+            return self.noted(
+                "react",
+                Self::refused(format!(
+                    "There is no reaction `{}`. Use one of: {}.",
+                    args.reaction,
+                    names.join(", ")
+                )),
+            );
         };
         host.show(PetMessage {
             assistant: self.assistant.to_string(),
             text,
             reaction: Some(reaction),
         });
-        CallToolResult::success(vec![ContentBlock::text(format!(
-            "The pet showed {reaction}."
-        ))])
+        self.noted(
+            "react",
+            CallToolResult::success(vec![ContentBlock::text(format!(
+                "The pet showed {reaction}."
+            ))]),
+        )
     }
 
     #[tool(
@@ -262,7 +290,7 @@ impl PlutoMcp {
     )]
     async fn say(&self, Parameters(args): Parameters<SayArgs>) -> CallToolResult {
         if let Some(refused) = self.over_limit("say") {
-            return refused;
+            return self.noted("say", refused);
         }
         let host = match self.host() {
             Ok(host) => host,
@@ -270,14 +298,17 @@ impl PlutoMcp {
         };
         let text = match clean_bubble(&args.text) {
             Ok(text) => text,
-            Err(why) => return Self::refused(why),
+            Err(why) => return self.noted("say", Self::refused(why)),
         };
         host.show(PetMessage {
             assistant: self.assistant.to_string(),
             text,
             reaction: None,
         });
-        CallToolResult::success(vec![ContentBlock::text("The pet said it.")])
+        self.noted(
+            "say",
+            CallToolResult::success(vec![ContentBlock::text("The pet said it.")]),
+        )
     }
 }
 

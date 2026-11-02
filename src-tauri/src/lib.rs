@@ -161,6 +161,8 @@ pub fn run() {
         )
         .invoke_handler(tauri::generate_handler![
             ipc::settings_get_all,
+            mcp::mcp_setup,
+            mcp::mcp_activity,
             ipc::setting_set,
             ipc::prefs_get,
             ipc::prefs_set,
@@ -416,19 +418,9 @@ pub fn run() {
             pet::start(app.handle().clone(), settings.clone(), &bus);
             shortcuts::start(app.handle().clone(), settings.clone(), &bus);
             typing::start(app.handle().clone(), settings.clone(), &bus);
-            // MCP: the private pipe for assistants, only when switched on (off by default).
-            {
-                let (handle, settings, dir) = (app.handle().clone(), settings.clone(), data_dir.clone());
-                tauri::async_runtime::spawn(async move {
-                    let on = settings
-                        .get_all()
-                        .await
-                        .ok()
-                        .and_then(|all| all.get("mcp.enabled").and_then(|v| v.as_bool()))
-                        .unwrap_or(false);
-                    mcp::start(handle, dir, on);
-                });
-            }
+            // MCP: the private pipe for assistants, only while switched on (off by default).
+            app.manage(mcp::Mcp::default());
+            mcp::start(app.handle().clone(), settings.clone(), &bus, data_dir.clone());
             if let Some(logs) = logs {
                 logs::follow_setting(logs, settings.clone(), &bus);
             }

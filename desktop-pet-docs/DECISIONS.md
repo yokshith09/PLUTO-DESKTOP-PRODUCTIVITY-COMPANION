@@ -578,3 +578,12 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 | Decision | Detail |
 |---|---|
 | **Preview first (CLAUDE.md: ask before design choices)** | A preview of the MCP page, named **Assistants** in the sidebar, and of the pet's Allow card was shown to the owner. Open in it: the name "Assistants" vs "MCP"; dark only shown (light follows the app theme); where Developer reactions live (this page vs Settings). Nothing is built until the owner approves. |
+
+## 2026-11-02 — Assistants page built (owner approved, simplified)
+
+| Decision | Detail |
+|---|---|
+| **Owner's call** | Name **Assistants**; Developer reactions stay on this page; keep it simple: one connect switch, a capabilities section, and a developer preview with clean tiles for requests and changes. |
+| **Built as** | Switch + 3 guided steps (shown only when on); capabilities as Now / Next / Never; developer preview with *Requests* and *What it changed* tiles. Per-assistant cards, levels and Undo from the preview are left out until write tools exist (P4.2), so the page does not show controls that do nothing. Developer reactions (git, build) are listed under "Make the pet react"; their own hook setup comes with P4.3. |
+| **Request log** | Last 50 calls in memory only, never saved, no task or note text; page polls every 2 s while on. |
+| **Switch is live** | `mcp.enabled` is followed through the event bus like `pet.typing`; off removes the token at once. |

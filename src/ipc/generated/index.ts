@@ -3,6 +3,7 @@ export type { ActionItem } from "./ActionItem";
 export type { ActionItemInput } from "./ActionItemInput";
 export type { AppError } from "./AppError";
 export type { AppUsage } from "./AppUsage";
+export type { AssistantCall } from "./AssistantCall";
 export type { BinNote } from "./BinNote";
 export type { Course } from "./Course";
 export type { CourseLinks } from "./CourseLinks";
