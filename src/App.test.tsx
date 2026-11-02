@@ -1013,16 +1013,19 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     const user = userEvent.setup();
     render(<App />);
     await goTo(user, /^Projects/);
+    await user.click(await screen.findByRole("button", { name: "Open project Pluto v1" }));
     const project = await screen.findByRole("region", { name: "Project Pluto v1" });
-    const tasks = within(project).getByRole("region", { name: "Tasks" });
+    const tasks = within(project).getByRole("region", { name: "Open tasks" });
     expect(within(tasks).getByText("1.")).toBeTruthy();
     expect(within(project).getByRole("button", { name: "Open note Pluto v1 scope" })).toBeTruthy();
-    await user.type(within(tasks).getByRole("textbox", { name: "New project task" }), "Write the release post{Enter}");
+    await user.type(within(project).getByRole("textbox", { name: "New project task" }), "Write the release post{Enter}");
     await waitFor(async () => {
       const all = await ipc.tasksQuery("all");
       expect(all.find((r) => r.task.title === "Write the release post")?.task.project).toBe("Pluto v1");
     });
     // A new project starts empty and fills from here.
+    await user.click(screen.getByRole("button", { name: "All projects" }));
+    await user.click(screen.getByRole("button", { name: "New project" }));
     await user.type(screen.getByRole("textbox", { name: "New project name" }), "Thesis{Enter}");
     expect(await screen.findByRole("region", { name: "Project Thesis" })).toBeTruthy();
   });
@@ -1037,7 +1040,6 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     await user.click(within(found).getByRole("button", { name: "Make staysync a project" }));
     const project = await screen.findByRole("region", { name: "Project staysync" });
     expect(within(project).getByText("E:/Projects/staysync")).toBeTruthy();
-    expect(screen.queryByRole("region", { name: "Found in your folders" })).toBeNull();
     await user.click(within(project).getByRole("button", { name: "Open folder" }));
     expect(open).toHaveBeenCalledWith("E:/Projects/staysync");
 
@@ -1047,7 +1049,7 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     expect(await within(links).findByRole("button", { name: "Open github.com" })).toBeTruthy();
 
     await user.click(within(project).getByRole("button", { name: "Rename staysync" }));
-    const box = screen.getByRole("textbox", { name: "Project name" });
+    const box = await screen.findByRole("textbox", { name: "Project name" });
     await user.clear(box);
     await user.type(box, "StaySync{Enter}");
     const renamed = await screen.findByRole("region", { name: "Project StaySync" });
@@ -1062,13 +1064,27 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     const user = userEvent.setup();
     render(<App />);
     await goTo(user, /^Projects/);
+    await user.click(await screen.findByRole("button", { name: "Open project Pluto v1" }));
     const project = await screen.findByRole("region", { name: "Project Pluto v1" });
     await user.click(within(project).getByRole("button", { name: "Link a folder" }));
+    expect(await within(project).findByText("12 min")).toBeTruthy();
+    expect(within(project).getByText("since last push")).toBeTruthy();
     expect(await within(project).findByText("E:/Projects/pluto")).toBeTruthy();
     await user.click(within(project).getByRole("tab", { name: "Activity" }));
     const feed = await within(project).findByRole("region", { name: "Activity" });
     expect(await within(feed).findByText("Pushed")).toBeTruthy();
     expect(within(feed).getByText("Committed")).toBeTruthy();
+    // Back on the cards, the project shows its folder and last activity.
+    await user.click(screen.getByRole("button", { name: "All projects" }));
+    const card = await screen.findByRole("button", { name: "Open project Pluto v1" });
+    expect(within(card).getByText("E:/Projects/pluto")).toBeTruthy();
+    expect(within(card).getByText(/^Pushed 12 min ago$/)).toBeTruthy();
+    // Found folders: the list goes once a folder is a project.
+    const found = screen.getByRole("region", { name: "Found in your folders" });
+    await user.click(within(found).getByRole("button", { name: "Make staysync a project" }));
+    await screen.findByRole("region", { name: "Project staysync" });
+    await user.click(screen.getByRole("button", { name: "All projects" }));
+    expect(screen.queryByRole("region", { name: "Found in your folders" })).toBeNull();
   });
 
   it("a project can be renamed, and its tasks and notes follow", async () => {
@@ -1076,9 +1092,9 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     const user = userEvent.setup();
     render(<App />);
     await goTo(user, /^Projects/);
-    await screen.findByRole("region", { name: "Project Pluto v1" });
-    await user.click(screen.getByRole("button", { name: "Rename Pluto v1" }));
-    const box = screen.getByRole("textbox", { name: "Project name" });
+    await user.click(await screen.findByRole("button", { name: "Open project Pluto v1" }));
+    await user.click(await screen.findByRole("button", { name: "Rename Pluto v1" }));
+    const box = await screen.findByRole("textbox", { name: "Project name" });
     await user.clear(box);
     await user.type(box, "Pluto v2{Enter}");
     expect(await screen.findByRole("region", { name: "Project Pluto v2" })).toBeTruthy();

@@ -1,49 +1,17 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, ExternalLink, File, Folder, FolderGit2, FolderOpen, GitCommitHorizontal, Globe, Link2, NotebookPen, Plus, Upload, X } from "lucide-react";
+import { CheckCircle2, ExternalLink, File, Folder, GitCommitHorizontal, Globe, NotebookPen, Plus, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { errorMessage, ipc, type NoteSummary, type TaskRow } from "@/ipc";
 import { notify } from "@/lib/notify";
 import { timeAgo } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { activity, addLink, linkKind, removeLink, setFolder, shortName, type Space, type Spaces } from "./spaces";
+import { activity, addLink, linkKind, removeLink, type Space, type Spaces } from "./spaces";
 
 /** Opens a saved folder or file; the shell refuses anything not saved in a project. */
 export async function openPath(path: string) {
   try { await ipc.projectPathOpen(path); } catch (e) { notify.error(errorMessage(e)); }
-}
-
-/** Under the project name: its folder on disk, with Open / Change / Remove, or Link a folder. */
-export function FolderBar({ space, spaces, save }: { space: Space; spaces: Spaces; save: (s: Spaces) => Promise<void> }) {
-  const pick = async () => {
-    try {
-      const path = await ipc.projectPathPick("folder");
-      if (path) {
-        await save(setFolder(spaces, space.name, path));
-        notify.success(`Linked ${shortName(path)}`, { description: "Commits and pushes there now show in Activity." });
-      }
-    } catch (e) { notify.error(errorMessage(e)); }
-  };
-  if (!space.folder) {
-    return (
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
-        <Folder className="size-3.5" aria-hidden />No folder linked
-        <Button size="sm" variant="outline" className="h-7" onClick={() => void pick()}><Link2 className="size-3.5" />Link a folder</Button>
-      </div>
-    );
-  }
-  return (
-    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-      <span className="flex min-w-0 max-w-full items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 font-mono text-[11.5px] text-primary" title={space.folder}>
-        <FolderGit2 className="size-3.5 shrink-0" aria-hidden /><span className="truncate">{space.folder}</span>
-      </span>
-      <Button size="sm" variant="outline" className="h-7" onClick={() => void openPath(space.folder as string)}><FolderOpen className="size-3.5" />Open folder</Button>
-      <Button size="sm" variant="ghost" className="h-7" onClick={() => void pick()}>Change</Button>
-      <Button size="sm" variant="ghost" className="h-7 text-muted-foreground" aria-label={`Unlink the folder from ${space.name}`}
-        onClick={() => void save(setFolder(spaces, space.name, null)).then(() => notify.success("Folder unlinked", { description: "Nothing on disk was changed." }))}>Unlink</Button>
-    </div>
-  );
 }
 
 const KIND_ICON = { web: Globe, file: File, folder: Folder } as const;
@@ -128,31 +96,6 @@ export function ActivityPanel({ space, tasks, notes }: { space: Space; tasks: Ta
             );
           })}
         </ol>
-      )}
-    </section>
-  );
-}
-
-/** Git projects the folder watcher found that are not a project yet: one click makes one. */
-export function FoundFolders({ repos, onMake }: { repos: string[]; onMake: (folder: string) => void }) {
-  const [open, setOpen] = useState(true);
-  if (repos.length === 0) return null;
-  return (
-    <section aria-label="Found in your folders" className="rounded-xl border bg-card/60">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <FolderGit2 className="size-3.5" aria-hidden />Found in your folders<span className="ml-auto tabular-nums">{repos.length}</span>
-      </button>
-      {open && (
-        <ul className="divide-y border-t">
-          {repos.slice(0, 8).map((r) => (
-            <li key={r} className="flex items-center gap-2 px-3 py-2">
-              <span className="min-w-0 flex-1 truncate text-[12.5px]" title={r}>{shortName(r)}</span>
-              <Button size="sm" variant="ghost" className="h-7 px-2 text-[12px]" aria-label={`Make ${shortName(r)} a project`} onClick={() => onMake(r)}>Make a project</Button>
-            </li>
-          ))}
-          {repos.length > 8 && <li className="px-3 py-2 text-[11px] text-muted-foreground">and {repos.length - 8} more</li>}
-        </ul>
       )}
     </section>
   );

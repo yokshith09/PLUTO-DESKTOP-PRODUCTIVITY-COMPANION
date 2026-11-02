@@ -634,3 +634,5 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 - 2026-11-02: the next release is named 0.5.10, not "5.9.1": app versions must be three numbers (x.y.z) for Tauri, Cargo and the Windows installer.
 
 - 2026-11-02 (owner): Project Spaces built as Split Pane (list left, space right, tabs Overview / Links & files / Activity). New git folders: both ways (Make a project from Found in your folders, or Link a folder by hand). Activity shows only Committed / Pushed with the time. Pet line names the project ("Pluto: pushed"). A pet per project (FR-67) stays after 0.6.0.
+
+- 2026-11-02 (owner): Project Spaces follows preview v2 exactly (cards, then a project screen), replacing the list-beside-detail layout built first.
