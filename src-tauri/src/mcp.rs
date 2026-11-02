@@ -13,6 +13,7 @@ use pluto_core::clock::Clock;
 use pluto_core::events::Event;
 use pluto_core::mcp::activity::{Activity, Call};
 use pluto_core::mcp::link;
+use pluto_core::mcp::setup::{self, Format};
 use pluto_core::mcp::{Host, HostFuture, PetMessage, RateLimit, Status};
 use pluto_core::settings_service::SettingsService;
 use serde::Serialize;
@@ -135,6 +136,14 @@ impl<R: Runtime> Host for ShellHost<R> {
         let _ = self
             .app
             .emit("pet://say", serde_json::json!({ "text": text }));
+    }
+
+    fn data(&self) -> Option<pluto_core::mcp::read::Data> {
+        let core = self.app.try_state::<crate::Core>()?;
+        Some(pluto_core::mcp::read::Data {
+            db: core.db.clone(),
+            clock: core.clock.clone(),
+        })
     }
 
     fn record(&self, tool: &'static str, assistant: &str, ok: bool, detail: String) {
@@ -273,44 +282,248 @@ pub fn start(app: AppHandle, settings: Arc<SettingsService>, bus: &EventBus, dat
     });
 }
 
-/// What the Assistants page shows about the connection.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Setup {
-    /// True while Pluto is listening for assistants.
-    pub listening: bool,
-    /// The program an assistant starts (this Pluto).
-    pub command: String,
-    /// The JSON to paste into an assistant's MCP settings.
-    pub config: String,
+/// One settings file an assistant reads its MCP servers from.
+#[derive(Debug, Clone)]
+struct Place {
+    /// "Claude Code", "Claude app"…
+    label: &'static str,
+    path: PathBuf,
+    format: Format,
+    /// The id the bridge is started with, so the pet shows the right name.
+    id: &'static str,
+    /// True when the file itself must exist to count as installed (its folder is the home).
+    needs_file: bool,
 }
 
-/// The JSON block most assistants accept (`mcpServers`), for the assistant id given.
-pub fn config_json(command: &str, assistant: &str) -> String {
-    let value = serde_json::json!({
-        "mcpServers": {
-            "pluto": {
-                "command": command,
-                "args": [BRIDGE_FLAG, "--assistant", assistant],
-            }
+impl Place {
+    fn installed(&self) -> bool {
+        if self.needs_file {
+            self.path.is_file()
+        } else {
+            self.path.parent().is_some_and(Path::is_dir)
         }
-    });
-    serde_json::to_string_pretty(&value).unwrap_or_default()
+    }
+    fn args(&self) -> Vec<String> {
+        vec![BRIDGE_FLAG.into(), "--assistant".into(), self.id.into()]
+    }
+}
+
+/// The assistants Pluto can set up, by id: (name, what it covers).
+const ASSISTANTS: &[(&str, &str)] = &[
+    ("claude", "Claude"),
+    ("vscode", "VS Code"),
+    ("cursor", "Cursor"),
+];
+
+/// Where each assistant keeps its settings under these folders (home, and the OS's config folder:
+/// %APPDATA%, ~/Library/Application Support, or ~/.config).
+fn places_in(id: &str, home: &Path, config: &Path) -> Vec<Place> {
+    match id {
+        // One setup for both: Claude Code and the Claude app.
+        "claude" => vec![
+            Place {
+                label: "Claude Code",
+                path: home.join(".claude.json"),
+                format: Format::McpServers,
+                id: "claude-code",
+                needs_file: true,
+            },
+            Place {
+                label: "Claude app",
+                path: config.join("Claude").join("claude_desktop_config.json"),
+                format: Format::McpServers,
+                id: "claude-desktop",
+                needs_file: false,
+            },
+        ],
+        "vscode" => vec![Place {
+            label: "VS Code",
+            path: config.join("Code").join("User").join("mcp.json"),
+            format: Format::VsCode,
+            id: "vscode",
+            needs_file: false,
+        }],
+        "cursor" => vec![Place {
+            label: "Cursor",
+            path: home.join(".cursor").join("mcp.json"),
+            format: Format::McpServers,
+            id: "cursor",
+            needs_file: false,
+        }],
+        _ => Vec::new(),
+    }
+}
+
+fn os_folders() -> Option<(PathBuf, PathBuf)> {
+    let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
+        .filter(|h| !h.is_empty())
+        .map(PathBuf::from)?;
+    let config = if cfg!(windows) {
+        PathBuf::from(std::env::var_os("APPDATA")?)
+    } else if cfg!(target_os = "macos") {
+        home.join("Library/Application Support")
+    } else {
+        std::env::var_os("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join(".config"))
+    };
+    Some((home, config))
+}
+
+fn places(id: &str) -> Vec<Place> {
+    os_folders()
+        .map(|(home, config)| places_in(id, &home, &config))
+        .unwrap_or_default()
+}
+
+fn read_text(path: &Path) -> Option<String> {
+    std::fs::read_to_string(path).ok()
+}
+
+/// Writes through a temporary file and a rename, so a crash never leaves half a file. The first
+/// time Pluto changes a file, the original is kept next to it as `<name>.pluto-backup`.
+fn write_safely(path: &Path, text: &str) -> std::io::Result<()> {
+    if path.is_file() {
+        let backup = path.with_file_name(format!(
+            "{}.pluto-backup",
+            path.file_name().unwrap_or_default().to_string_lossy()
+        ));
+        if !backup.exists() {
+            std::fs::copy(path, &backup)?;
+        }
+    }
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let tmp = path.with_extension("pluto-tmp");
+    std::fs::write(&tmp, text)?;
+    std::fs::rename(&tmp, path)
+}
+
+/// Adds Pluto to every installed place; the labels it was added to.
+fn connect_places(places: &[Place], command: &str) -> Result<Vec<&'static str>, String> {
+    let mut done = Vec::new();
+    for place in places.iter().filter(|p| p.installed()) {
+        let text = setup::add(
+            read_text(&place.path).as_deref(),
+            place.format,
+            command,
+            &place.args(),
+        )
+        .map_err(|why| format!("{}: {why}", place.label))?;
+        write_safely(&place.path, &text)
+            .map_err(|e| format!("{}: Pluto could not save its settings ({e}).", place.label))?;
+        done.push(place.label);
+    }
+    Ok(done)
+}
+
+/// Takes Pluto out of every place it is in.
+fn disconnect_places(places: &[Place]) -> Result<(), String> {
+    for place in places {
+        let Some(text) = read_text(&place.path) else {
+            continue;
+        };
+        if let Some(text) = setup::remove(Some(&text), place.format)
+            .map_err(|why| format!("{}: {why}", place.label))?
+        {
+            write_safely(&place.path, &text).map_err(|e| {
+                format!("{}: Pluto could not save its settings ({e}).", place.label)
+            })?;
+        }
+    }
+    Ok(())
+}
+
+/// One place, as the assistant's settings show it.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaceInfo {
+    pub label: String,
+    pub path: String,
+    pub installed: bool,
+    pub connected: bool,
+    /// The block to paste by hand.
+    pub manual: String,
+}
+
+/// One assistant tile.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantInfo {
+    pub id: String,
+    pub name: String,
+    /// Found on this computer.
+    pub installed: bool,
+    /// Pluto is in its settings (in every place that is installed).
+    pub connected: bool,
+    pub places: Vec<PlaceInfo>,
+}
+
+fn this_program() -> String {
+    std::env::current_exe()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| "Pluto".into())
+}
+
+fn describe(id: &str, name: &str, places: &[Place], command: &str) -> AssistantInfo {
+    let infos: Vec<PlaceInfo> = places
+        .iter()
+        .map(|p| PlaceInfo {
+            label: p.label.into(),
+            path: p.path.to_string_lossy().into_owned(),
+            installed: p.installed(),
+            connected: setup::is_set(read_text(&p.path).as_deref(), p.format, command),
+            manual: setup::manual(p.format, command, &p.args()),
+        })
+        .collect();
+    let installed: Vec<&PlaceInfo> = infos.iter().filter(|p| p.installed).collect();
+    AssistantInfo {
+        id: id.into(),
+        name: name.into(),
+        installed: !installed.is_empty(),
+        connected: !installed.is_empty() && installed.iter().all(|p| p.connected),
+        places: infos,
+    }
 }
 
 #[tauri::command]
-pub fn mcp_setup(mcp: State<'_, Mcp>, assistant: Option<String>) -> Setup {
-    let assistant = assistant
-        .filter(|id| link::id_is_valid(id))
-        .unwrap_or_else(|| "assistant".into());
-    let command = std::env::current_exe()
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_else(|_| "Pluto".into());
-    Setup {
-        listening: mcp.listening(),
-        config: config_json(&command, &assistant),
-        command,
+pub fn mcp_assistants() -> Vec<AssistantInfo> {
+    let command = this_program();
+    ASSISTANTS
+        .iter()
+        .map(|(id, name)| describe(id, name, &places(id), &command))
+        .collect()
+}
+
+/// Adds Pluto to the assistant's settings and switches assistants on.
+#[tauri::command]
+pub async fn mcp_connect(
+    settings: State<'_, Arc<SettingsService>>,
+    id: String,
+) -> Result<Vec<String>, String> {
+    let places = places(&id);
+    if !places.iter().any(Place::installed) {
+        return Err("Pluto could not find this assistant on this computer. Open its settings here for the manual setup.".into());
     }
+    let done = connect_places(&places, &this_program())?;
+    settings
+        .set("mcp.enabled", serde_json::Value::Bool(true))
+        .await
+        .map_err(|e| e.message)?;
+    Ok(done.into_iter().map(String::from).collect())
+}
+
+/// Takes Pluto out of the assistant's settings.
+#[tauri::command]
+pub fn mcp_disconnect(id: String) -> Result<(), String> {
+    disconnect_places(&places(&id))
+}
+
+/// True while Pluto is listening for assistants.
+#[tauri::command]
+pub fn mcp_listening(mcp: State<'_, Mcp>) -> bool {
+    mcp.listening()
 }
 
 #[tauri::command]
@@ -403,15 +616,52 @@ mod tests {
     }
 
     #[test]
-    fn the_setup_to_copy_starts_this_pluto_as_the_bridge_for_the_chosen_assistant() {
-        let json: serde_json::Value =
-            serde_json::from_str(&config_json(r"C:\Pluto\pluto.exe", "claude-code")).unwrap();
-        let pluto = &json["mcpServers"]["pluto"];
-        assert_eq!(pluto["command"], r"C:\Pluto\pluto.exe");
-        assert_eq!(
-            pluto["args"],
-            serde_json::json!(["--mcp-bridge", "--assistant", "claude-code"])
+    fn one_claude_setup_covers_claude_code_and_the_claude_app_and_keeps_other_servers() {
+        let dir = tempfile::tempdir().unwrap();
+        let (home, config) = (dir.path().join("home"), dir.path().join("config"));
+        std::fs::create_dir_all(config.join("Claude")).unwrap();
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(
+            home.join(".claude.json"),
+            r#"{"numStartups":3,"mcpServers":{"github":{"command":"gh"}}}"#,
+        )
+        .unwrap();
+        let places = places_in("claude", &home, &config);
+        let done = connect_places(&places, "C:\\Pluto\\pluto.exe").unwrap();
+        assert_eq!(done, ["Claude Code", "Claude app"]);
+        let code: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(home.join(".claude.json")).unwrap())
+                .unwrap();
+        assert_eq!(code["numStartups"], 3);
+        assert_eq!(code["mcpServers"]["github"]["command"], "gh");
+        assert_eq!(code["mcpServers"]["pluto"]["args"][2], "claude-code");
+        assert!(
+            home.join(".claude.json.pluto-backup").is_file(),
+            "the original is kept"
         );
+        let app =
+            std::fs::read_to_string(config.join("Claude/claude_desktop_config.json")).unwrap();
+        assert!(app.contains("claude-desktop"));
+
+        let info = describe("claude", "Claude", &places, "C:\\Pluto\\pluto.exe");
+        assert!(info.installed && info.connected);
+
+        disconnect_places(&places).unwrap();
+        let code = std::fs::read_to_string(home.join(".claude.json")).unwrap();
+        assert!(!code.contains("pluto\""), "Pluto is gone");
+        assert!(code.contains("github"), "everything else stays");
+        assert!(!describe("claude", "Claude", &places, "x").connected);
+    }
+
+    #[test]
+    fn an_assistant_that_is_not_installed_is_left_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let places = places_in("cursor", dir.path(), dir.path());
+        assert!(connect_places(&places, "pluto").unwrap().is_empty());
+        assert!(!dir.path().join(".cursor").exists());
+        let info = describe("cursor", "Cursor", &places, "pluto");
+        assert!(!info.installed && !info.connected);
+        assert!(info.places[0].manual.contains("--mcp-bridge"));
     }
 
     #[test]

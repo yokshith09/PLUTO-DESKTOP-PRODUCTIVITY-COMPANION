@@ -7,7 +7,10 @@ import type {
 } from "./types";
 import type { Settings, SettingsKey } from "./settings";
 
-export type McpSetup = { listening: boolean; command: string; config: string };
+/** One settings file an assistant reads (Claude Code and the Claude app are two places of one assistant). */
+export type AssistantPlace = { label: string; path: string; installed: boolean; connected: boolean; manual: string };
+/** An assistant tile: found on this computer, and whether Pluto is in its settings. */
+export type AssistantInfo = { id: string; name: string; installed: boolean; connected: boolean; places: AssistantPlace[] };
 
 export const ipc = {
   settingsGetAll: () => call<Settings>("settings_get_all"),
@@ -16,8 +19,12 @@ export const ipc = {
   prefsGet: <T = unknown>(key: string) => call<T | null>("prefs_get", { key }),
   prefsSet: <T>(key: string, value: T) => call<unknown>("prefs_set", { key, value }),
 
-  /** Assistants (MCP): whether Pluto is listening, and the setup to paste into an assistant. */
-  mcpSetup: (assistant: string) => call<McpSetup>("mcp_setup", { assistant }),
+  /** Assistants (MCP): the ones Pluto can set up, found or not, connected or not. */
+  mcpAssistants: () => call<AssistantInfo[]>("mcp_assistants"),
+  /** Adds Pluto to the assistant's own settings and switches assistants on; the places done. */
+  mcpConnect: (id: string) => call<string[]>("mcp_connect", { id }),
+  mcpDisconnect: (id: string) => call<null>("mcp_disconnect", { id }),
+  mcpListening: () => call<boolean>("mcp_listening"),
   /** The last calls assistants made, newest first (in memory only). */
   mcpActivity: () => call<AssistantCall[]>("mcp_activity"),
 

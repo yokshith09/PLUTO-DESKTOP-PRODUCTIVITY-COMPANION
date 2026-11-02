@@ -161,7 +161,10 @@ pub fn run() {
         )
         .invoke_handler(tauri::generate_handler![
             ipc::settings_get_all,
-            mcp::mcp_setup,
+            mcp::mcp_assistants,
+            mcp::mcp_connect,
+            mcp::mcp_disconnect,
+            mcp::mcp_listening,
             mcp::mcp_activity,
             ipc::setting_set,
             ipc::prefs_get,

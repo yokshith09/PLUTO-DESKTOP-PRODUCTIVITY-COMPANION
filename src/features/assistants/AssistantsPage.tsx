@@ -1,88 +1,139 @@
-// Assistants (MCP, P4.1a): connect AI assistants on this computer to Pluto. One switch, the setup
-// to copy, what assistants can do, and a developer preview of what they asked and changed.
+// Assistants (MCP): connect AI assistants on this computer to Pluto. One tile per assistant with a
+// single Connect; everything else about that assistant (manual setup, where it is set up, its
+// requests) lives in its settings. A developer preview, off by default, lists requests and changes.
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Check, CircleSlash, Copy, Eye, Lock, MessageCircle, PartyPopper, PenLine } from "lucide-react";
-import { ipc, type AssistantCall } from "@/ipc";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { BookOpen, Check, CircleSlash, Copy, Eye, ListChecks, Lock, MessageCircle, PartyPopper, PenLine, Plus, Settings2 } from "lucide-react";
+import { errorMessage, ipc, type AssistantCall, type AssistantInfo } from "@/ipc";
 import { useSetting } from "@/hooks/useTheme";
 import { notify } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { usePref } from "@/features/guide/usePref";
 import { PageHeader, Panel } from "@/features/shell/PageHeader";
 
-/** The assistants the setup can be made for; the id is what the pet shows as the name. */
-export const ASSISTANTS = [
-  { id: "claude-code", name: "Claude Code" },
-  { id: "claude-desktop", name: "Claude" },
-  { id: "vscode", name: "VS Code" },
-  { id: "assistant", name: "Another" },
+/** What assistants can do, in plain words. */
+export const CAN = [
+  { icon: PartyPopper, text: "Make your pet cheer, wave or look worried when they finish, need you, or get stuck." },
+  { icon: MessageCircle, text: "Show you a short message on the pet." },
+  { icon: ListChecks, text: "See today's plan and your tasks, to help you plan or pick what's next." },
+  { icon: BookOpen, text: "Find and read your notes when you ask about them." },
+  { icon: Eye, text: "See if you are in a focus session, so they don't disturb you." },
 ] as const;
+export const COMING = { icon: PenLine, text: "Add tasks and reminders for you. Anything that changes a setting will ask you first." } as const;
+export const NEVER = { icon: Lock, text: "Your diary. Assistants can never see it." } as const;
 
-/** What assistants can do through Pluto, now and next. */
-export const CAPABILITIES = [
-  { icon: PartyPopper, title: "Make the pet react", text: "Done, needs you, hit an error: shown over any app.", now: true },
-  { icon: MessageCircle, title: "Say a short line", text: "A plain bubble of up to 140 characters, with the assistant's name.", now: true },
-  { icon: Eye, title: "See what you're doing", text: "Your focus session and today's task counts. Never titles or note text.", now: true },
-  { icon: PenLine, title: "Add tasks and reminders", text: "Coming next. Changes to settings only after you press Allow.", now: false },
-  { icon: Lock, title: "Your diary", text: "Never. Assistants cannot read or change it.", now: false, never: true },
-] as const;
+const DEV_PREF = "assistants.devPreview";
+const parseDev = (raw: unknown) => raw === true;
+
+/** Who made a request, mapped to the assistant tile it belongs to. */
+const OWNER: Record<string, string> = { "Claude Code": "claude", Claude: "claude", "VS Code": "vscode", Cursor: "cursor" };
 
 export function AssistantsPage() {
   const [enabled, setEnabled] = useSetting("mcp.enabled");
   const on = enabled === true;
+  const { data: assistants = [] } = useQuery({ queryKey: ["mcp", "assistants"], queryFn: ipc.mcpAssistants });
+  const [editing, setEditing] = useState<string | null>(null);
+  const current = assistants.find((a) => a.id === editing) ?? null;
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <PageHeader title="Assistants" description="Let AI assistants on this computer talk to Pluto. Nothing leaves your computer." />
+      <PageHeader
+        title="Assistants"
+        description="Let AI assistants on this computer work with Pluto. Nothing leaves your computer."
+        actions={
+          <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+            {on ? "On" : "Off"}
+            <Switch checked={on} onCheckedChange={(v) => void setEnabled(v)} aria-label="Assistants can reach Pluto" />
+          </label>
+        }
+      />
+
       <Panel className="p-5">
-        <div className="flex items-center gap-4">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-[15px] font-semibold">Connect assistants</h2>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">
-              {on ? "On. Assistants you set up can reach Pluto while it is open." : "Off. No assistant can reach Pluto."}
-            </p>
-          </div>
-          <Switch checked={on} onCheckedChange={(v) => void setEnabled(v)} aria-label="Connect assistants" />
-        </div>
-        {on && <Setup />}
+        <h2 className="text-[15px] font-semibold">Connect an assistant</h2>
+        <p className="mt-0.5 text-[13px] text-muted-foreground">Press Connect, restart the assistant, then ask it: <q className="text-foreground">What's on my plan today in Pluto?</q></p>
+        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+          {assistants.map((a) => <AssistantTile key={a.id} a={a} on={on} onSettings={() => setEditing(a.id)} />)}
+          <OtherTile onSettings={() => setEditing("other")} />
+        </ul>
+        {!on && assistants.some((a) => a.connected) && (
+          <p className="mt-3 text-[12px] text-muted-foreground">Assistants are off, so connected ones can't reach Pluto until you switch them on.</p>
+        )}
       </Panel>
+
       <Capabilities />
       <DeveloperPreview on={on} />
+
+      <AssistantEditor id={editing} a={current} onClose={() => setEditing(null)} />
     </div>
   );
 }
 
-function Setup() {
-  const [assistant, setAssistant] = useState<string>(ASSISTANTS[0].id);
-  const { data } = useQuery({ queryKey: ["mcp", "setup", assistant], queryFn: () => ipc.mcpSetup(assistant) });
-  const copy = async () => {
-    if (!data) return;
-    try { await navigator.clipboard.writeText(data.config); notify.success("Setup copied"); } catch { notify.error("Could not copy"); }
-  };
+function Monogram({ name }: { name: string }) {
   return (
-    <ol className="mt-5 space-y-4 border-t pt-5 text-[13px]">
-      <Step n={1} title="Pick your assistant">
-        <div role="group" aria-label="Assistant" className="mt-2 flex flex-wrap gap-2">
-          {ASSISTANTS.map((a) => (
-            <Button key={a.id} size="sm" variant={a.id === assistant ? "default" : "outline"} aria-pressed={a.id === assistant} onClick={() => setAssistant(a.id)}>{a.name}</Button>
-          ))}
-        </div>
-      </Step>
-      <Step n={2} title="Copy the setup into its MCP settings">
-        <pre aria-label="Setup" className="mt-2 max-h-48 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-[12px] leading-relaxed">{data?.config ?? "…"}</pre>
-        <Button size="sm" variant="outline" className="mt-2" onClick={() => void copy()} disabled={!data}><Copy className="size-3.5" />Copy setup</Button>
-      </Step>
-      <Step n={3} title="Restart the assistant and ask it to make Pluto cheer">
-        <p className="mt-1 text-muted-foreground">You will see its request below.</p>
-      </Step>
-    </ol>
+    <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-xl border bg-muted/60 text-[15px] font-semibold">
+      {name === "Another" ? <Plus className="size-4 text-muted-foreground" /> : name.slice(0, 1)}
+    </span>
   );
 }
 
-function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
+function useConnect() {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const run = async (action: () => Promise<unknown>, done: string) => {
+    setBusy(true);
+    try {
+      await action();
+      notify.success(done);
+    } catch (e) {
+      notify.error(errorMessage(e));
+    } finally {
+      setBusy(false);
+      await qc.invalidateQueries({ queryKey: ["mcp"] });
+      await qc.invalidateQueries({ queryKey: ["settings"] });
+    }
+  };
+  return { busy, run };
+}
+
+function subtitle(a: AssistantInfo) {
+  if (!a.installed) return "Not found on this computer";
+  if (a.places.length > 1) return a.places.map((p) => p.label).join(" and ");
+  return a.connected ? "Ready" : "Found on this computer";
+}
+
+function AssistantTile({ a, on, onSettings }: { a: AssistantInfo; on: boolean; onSettings: () => void }) {
+  const { busy, run } = useConnect();
   return (
-    <li className="flex gap-3">
-      <span aria-hidden className="grid size-6 shrink-0 place-items-center rounded-full bg-muted text-[12px] font-semibold tabular-nums">{n}</span>
-      <div className="min-w-0 flex-1"><p className="font-medium">{title}</p>{children}</div>
+    <li aria-label={a.name} className="flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors hover:border-foreground/20">
+      <div className="flex items-start gap-3">
+        <Monogram name={a.name} />
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold">{a.name}</p>
+          <p className="truncate text-[12px] text-muted-foreground">{subtitle(a)}</p>
+        </div>
+        <Button size="icon-sm" variant="ghost" aria-label={`${a.name} settings`} onClick={onSettings}><Settings2 className="size-4" /></Button>
+      </div>
+      {a.connected
+        ? <p className="flex h-8 items-center gap-1.5 text-[13px] font-medium text-primary"><Check className="size-4" />{on ? "Connected" : "Connected (assistants are off)"}</p>
+        : !a.installed
+        ? <Button variant="outline" className="w-full" onClick={onSettings}>Set up by hand</Button>
+        : <Button className="w-full" disabled={busy} onClick={() => void run(() => ipc.mcpConnect(a.id), `${a.name} connected. Restart it to start.`)}>{busy ? "Connecting…" : "Connect"}</Button>}
+    </li>
+  );
+}
+
+function OtherTile({ onSettings }: { onSettings: () => void }) {
+  return (
+    <li aria-label="Another assistant" className="flex flex-col gap-3 rounded-xl border border-dashed p-4">
+      <div className="flex items-start gap-3">
+        <Monogram name="Another" />
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold">Another assistant</p>
+          <p className="text-[12px] text-muted-foreground">Any app that supports MCP</p>
+        </div>
+      </div>
+      <Button variant="outline" className="w-full" onClick={onSettings}>Set up by hand</Button>
     </li>
   );
 }
@@ -90,42 +141,58 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 function Capabilities() {
   return (
     <Panel className="p-5">
-      <h2 className="text-[15px] font-semibold">What assistants can do</h2>
-      <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-        {CAPABILITIES.map((c) => (
-          <li key={c.title} className="flex gap-3 rounded-lg border p-3">
-            <c.icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-            <div className="min-w-0">
-              <p className="flex items-center gap-2 text-[13px] font-medium">
-                {c.title}
-                <span className={`rounded-md px-1.5 text-[11px] leading-5 ${c.now ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
-                  {c.now ? "Now" : "never" in c ? "Never" : "Next"}
-                </span>
-              </p>
-              <p className="mt-0.5 text-[12px] text-muted-foreground">{c.text}</p>
-            </div>
+      <h2 className="text-[15px] font-semibold">What a connected assistant can do</h2>
+      <ul className="mt-3 space-y-2.5">
+        {CAN.map((c) => (
+          <li key={c.text} className="flex items-start gap-3 text-[13px]">
+            <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-primary/12 text-primary"><c.icon className="size-3.5" aria-hidden /></span>
+            <span className="pt-1">{c.text}</span>
           </li>
         ))}
       </ul>
+      <div className="mt-4 grid gap-2 border-t pt-4 sm:grid-cols-2">
+        <Note icon={COMING.icon} label="Coming next" text={COMING.text} />
+        <Note icon={NEVER.icon} label="Never" text={NEVER.text} />
+      </div>
     </Panel>
+  );
+}
+
+function Note({ icon: Icon, label, text }: { icon: typeof Lock; label: string; text: string }) {
+  return (
+    <div className="flex gap-3 rounded-lg bg-muted/40 p-3 text-[12px]">
+      <Icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+      <p><span className="font-medium">{label}. </span><span className="text-muted-foreground">{text}</span></p>
+    </div>
   );
 }
 
 const time = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
+function useActivity(on: boolean, show: boolean) {
+  return useQuery({ queryKey: ["mcp", "activity"], queryFn: ipc.mcpActivity, enabled: show, refetchInterval: on && show ? 2_000 : false }).data ?? [];
+}
+
 function DeveloperPreview({ on }: { on: boolean }) {
-  const { data = [] } = useQuery({ queryKey: ["mcp", "activity"], queryFn: ipc.mcpActivity, refetchInterval: on ? 2_000 : false });
-  const changes = data.filter((c) => c.changed);
+  const dev = usePref(DEV_PREF, parseDev);
+  const show = dev.value === true;
+  const calls = useActivity(on, show);
+  const changes = calls.filter((c) => c.changed);
   return (
     <Panel className="p-5">
-      <div className="flex items-center gap-2">
-        <h2 className="text-[15px] font-semibold">Developer preview</h2>
-        <span className="rounded-md bg-muted px-1.5 text-[11px] leading-5 text-muted-foreground">Since Pluto opened</span>
+      <div className="flex items-start gap-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[15px] font-semibold">Developer preview</h2>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">See every request an assistant makes and anything it changed, as it happens. Useful for testing an assistant. Kept only until Pluto closes.</p>
+        </div>
+        <Switch checked={show} onCheckedChange={(v) => void dev.set(v)} aria-label="Developer preview" />
       </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <Calls title="Requests" calls={data} empty={on ? "No requests yet. Ask your assistant to make Pluto cheer." : "Turn on Connect assistants to see requests here."} />
-        <Calls title="What it changed" calls={changes} empty="Nothing changed. Assistants can only show things on the pet for now." />
-      </div>
+      {show && (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <Calls title="Requests" calls={calls} empty={on ? "No requests yet. Ask a connected assistant something about your day." : "Assistants are off. Switch them on to see requests."} />
+          <Calls title="What it changed" calls={changes} empty="Nothing changed. Assistants can only read and show things on the pet for now." />
+        </div>
+      )}
     </Panel>
   );
 }
@@ -154,5 +221,95 @@ function Calls({ title, calls, empty }: { title: string; calls: AssistantCall[];
           </ul>
         )}
     </section>
+  );
+}
+
+const OTHER_MANUAL = (exe: string) => JSON.stringify({ mcpServers: { pluto: { command: exe, args: ["--mcp-bridge", "--assistant", "my-assistant"] } } }, null, 2);
+
+function AssistantEditor({ id, a, onClose }: { id: string | null; a: AssistantInfo | null; onClose: () => void }) {
+  const { busy, run } = useConnect();
+  const calls = useActivity(true, id !== null).filter((c) => a && OWNER[c.assistant] === a.id).slice(0, 5);
+  const [manualOpen, setManualOpen] = useState(false);
+  const name = a?.name ?? "Another assistant";
+  const exe = a?.places[0] ? (JSON.parse(a.places[0].manual) as { mcpServers?: { pluto: { command: string } }; servers?: { pluto: { command: string } } }) : null;
+  const command = exe?.mcpServers?.pluto.command ?? exe?.servers?.pluto.command ?? "pluto";
+  const copy = async (text: string) => {
+    try { await navigator.clipboard.writeText(text); notify.success("Setup copied"); } catch { notify.error("Could not copy"); }
+  };
+  return (
+    <Dialog open={id !== null} onOpenChange={(o) => { if (!o) { onClose(); setManualOpen(false); } }}>
+      <DialogContent className="max-w-lg gap-0 p-0">
+        <div className="flex items-center gap-3 border-b p-5">
+          <Monogram name={a ? a.name : "Another"} />
+          <div className="min-w-0">
+            <DialogTitle className="text-base font-semibold">{name}</DialogTitle>
+            <DialogDescription className="text-[13px]">
+              {a ? (a.connected ? "Connected to Pluto." : a.installed ? "Not connected yet." : "Not found on this computer.") : "Any app that supports MCP can use Pluto."}
+            </DialogDescription>
+          </div>
+        </div>
+        <div className="max-h-[65vh] space-y-5 overflow-y-auto p-5 text-[13px]">
+          {a && (
+            <section aria-label="Connection">
+              <ul className="divide-y rounded-lg border">
+                {a.places.map((p) => (
+                  <li key={p.label} className="flex items-center gap-3 px-3 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium">{p.label}</p>
+                      <p className="truncate font-mono text-[11px] text-muted-foreground" title={p.path}>{p.path}</p>
+                    </div>
+                    <span className={`shrink-0 text-[12px] ${p.connected ? "text-primary" : "text-muted-foreground"}`}>{p.connected ? "Set up" : p.installed ? "Not set up" : "Not found"}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex gap-2">
+                {a.connected
+                  ? <Button variant="outline" disabled={busy} onClick={() => void run(() => ipc.mcpDisconnect(a.id), `${a.name} disconnected`)}>Disconnect</Button>
+                  : <Button disabled={busy || !a.installed} onClick={() => void run(() => ipc.mcpConnect(a.id), `${a.name} connected. Restart it to start.`)}>Connect</Button>}
+              </div>
+              <p className="mt-2 text-[12px] text-muted-foreground">Connect adds one entry named "pluto" to these settings and keeps a copy of the file first. Disconnect removes only that entry.</p>
+            </section>
+          )}
+
+          <section aria-label="Manual setup">
+            {a && !manualOpen
+              ? <Button variant="ghost" size="sm" className="-ml-2" onClick={() => setManualOpen(true)}>Show manual setup</Button>
+              : (
+                <>
+                  <h3 className="text-xs font-medium text-muted-foreground">Manual setup</h3>
+                  <p className="mt-1 text-[12px] text-muted-foreground">Paste this into the assistant's MCP settings, then restart it.</p>
+                  {(a ? a.places.map((p) => ({ label: p.label, text: p.manual })) : [{ label: "Setup", text: OTHER_MANUAL(command) }]).map((m) => (
+                    <div key={m.label} className="mt-3">
+                      {a && a.places.length > 1 && <p className="mb-1 text-[12px] font-medium">{m.label}</p>}
+                      <pre aria-label={`${m.label} setup`} className="max-h-44 overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed">{m.text}</pre>
+                      <Button size="sm" variant="outline" className="mt-2" onClick={() => void copy(m.text)}><Copy className="size-3.5" />Copy</Button>
+                    </div>
+                  ))}
+                  {!a && <p className="mt-2 text-[12px] text-muted-foreground">Change "my-assistant" to its name; the pet shows it with every message.</p>}
+                </>
+              )}
+          </section>
+
+          {a && (
+            <section aria-label="Recent requests">
+              <h3 className="text-xs font-medium text-muted-foreground">Recent requests</h3>
+              {calls.length === 0
+                ? <p className="mt-1 text-[12px] text-muted-foreground">None since Pluto opened.</p>
+                : (
+                  <ul className="mt-2 divide-y rounded-lg border">
+                    {calls.map((c, i) => (
+                      <li key={`${c.atMs}-${i}`} className="flex items-center gap-2 px-3 py-2 text-[12px]">
+                        <span className="font-mono">{c.tool}</span>
+                        <span className="min-w-0 flex-1 truncate text-muted-foreground">{c.detail}</span>
+                        <time className="tabular-nums text-muted-foreground">{time(c.atMs)}</time>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </section>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

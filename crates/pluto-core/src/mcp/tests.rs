@@ -13,6 +13,7 @@ use super::*;
 struct FakeHost {
     shown: Mutex<Vec<PetMessage>>,
     recorded: Mutex<Vec<(&'static str, String, bool, String)>>,
+    data: Option<read::Data>,
 }
 
 impl Host for FakeHost {
@@ -36,6 +37,9 @@ impl Host for FakeHost {
     fn show(&self, message: PetMessage) {
         self.shown.lock().unwrap().push(message);
     }
+    fn data(&self) -> Option<read::Data> {
+        self.data.clone()
+    }
     fn record(&self, tool: &'static str, assistant: &str, ok: bool, detail: String) {
         self.recorded
             .lock()
@@ -47,7 +51,11 @@ impl Host for FakeHost {
 type Client = RunningService<RoleClient, ClientConfig>;
 
 async fn connect(mode: ClientLifecycleMode) -> (Client, Arc<FakeHost>) {
-    let host = Arc::new(FakeHost::default());
+    connect_to(FakeHost::default(), mode).await
+}
+
+async fn connect_to(host: FakeHost, mode: ClientLifecycleMode) -> (Client, Arc<FakeHost>) {
+    let host = Arc::new(host);
     let server = PlutoMcp::new(host.clone(), "Claude Code", Arc::new(RateLimit::default()));
     let (server_end, client_end) = tokio::io::duplex(64 * 1024);
     tokio::spawn(server.serve(server_end));
@@ -84,7 +92,23 @@ async fn an_assistant_on_the_newest_protocol_sees_the_three_pet_tools_in_a_fixed
     let (client, _) = connect(newest()).await;
     let tools = client.list_all_tools().await.unwrap();
     let names: Vec<_> = tools.iter().map(|t| t.name.to_string()).collect();
-    assert_eq!(names, ["react", "say", "status"]);
+    assert_eq!(
+        names,
+        [
+            "note_get",
+            "notes_search",
+            "react",
+            "say",
+            "status",
+            "task_get",
+            "tasks_list",
+            "today"
+        ]
+    );
+    assert!(
+        names.iter().all(|n| !n.contains("diary")),
+        "no tool reaches the diary"
+    );
     let status = tools.iter().find(|t| t.name == "status").unwrap();
     assert!(
         status.output_schema.is_some(),
@@ -246,11 +270,13 @@ async fn without_a_running_pluto_the_tools_are_listed_and_every_call_says_so() {
         .serve_with_lifecycle(client_end, newest())
         .await
         .unwrap();
-    assert_eq!(client.list_all_tools().await.unwrap().len(), 3);
+    assert_eq!(client.list_all_tools().await.unwrap().len(), 8);
     for (tool, args) in [
         ("status", json!({})),
         ("react", json!({ "reaction": "agent_done" })),
         ("say", json!({ "text": "hi" })),
+        ("today", json!({})),
+        ("note_get", json!({ "id": "n1" })),
     ] {
         let r = call(&client, tool, args).await;
         assert_eq!(r.is_error, Some(true), "{tool}");
@@ -386,9 +412,169 @@ mod link_tests {
             .serve_with_lifecycle(assistant_end, newest())
             .await
             .unwrap();
-        assert_eq!(client.list_all_tools().await.unwrap().len(), 3);
+        assert_eq!(client.list_all_tools().await.unwrap().len(), 8);
         let r = call(&client, "say", json!({ "text": "hi" })).await;
         assert!(text(&r).contains("Pluto is not running"));
+        client.cancel().await.unwrap();
+    }
+}
+
+mod read_tests {
+    use chrono::NaiveDate;
+    use chrono_tz::Tz;
+
+    use super::*;
+    use crate::bus::EventBus;
+    use crate::clock::FakeClock;
+    use crate::db::Database;
+    use crate::diary::{self, Diary};
+    use crate::notes::{self, NoteInput};
+    use crate::tasks::{self, TaskInput};
+
+    struct World {
+        _dir: tempfile::TempDir,
+        data: read::Data,
+    }
+
+    fn world() -> World {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Database::open(&dir.path().join("pluto.db"), EventBus::default()).unwrap();
+        let clock = FakeClock::at_local(
+            Tz::Asia__Kolkata,
+            NaiveDate::from_ymd_opt(2026, 11, 2).unwrap(),
+            10,
+            0,
+            0,
+        );
+        World {
+            _dir: dir,
+            data: read::Data {
+                db: Arc::new(db),
+                clock: Arc::new(clock),
+            },
+        }
+    }
+
+    async fn client_for(w: &World) -> Client {
+        let host = FakeHost {
+            data: Some(w.data.clone()),
+            ..FakeHost::default()
+        };
+        connect_to(host, newest()).await.0
+    }
+
+    fn answer(r: &CallToolResult) -> Value {
+        r.structured_content.clone().expect("a structured answer")
+    }
+
+    #[tokio::test]
+    async fn today_and_task_lists_show_the_persons_tasks_and_task_get_the_details() {
+        let w = world();
+        let today = w.data.clock.today();
+        let t = tasks::create(
+            &w.data.db,
+            &*w.data.clock,
+            TaskInput {
+                title: "Write the report".into(),
+                description: "Sections 1 to 3".into(),
+                planned_date: Some(today),
+                ..TaskInput::default()
+            },
+        )
+        .await
+        .unwrap();
+        let client = client_for(&w).await;
+
+        let plan = answer(&call(&client, "today", json!({})).await);
+        assert_eq!(plan["date"], "2026-11-02");
+        assert_eq!(plan["tasks"][0]["title"], "Write the report");
+
+        let list =
+            answer(&call(&client, "tasks_list", json!({ "which": "all", "limit": 5 })).await);
+        assert_eq!(list["tasks"].as_array().unwrap().len(), 1);
+        assert_eq!(list["more"], false);
+
+        let one = answer(&call(&client, "task_get", json!({ "id": t.id })).await);
+        assert_eq!(one["description"], "Sections 1 to 3");
+
+        let missing = call(&client, "task_get", json!({ "id": "nope" })).await;
+        assert_eq!(missing.is_error, Some(true));
+        assert!(text(&missing).contains("There is no task with that id."));
+        client.cancel().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn notes_are_found_and_read_but_never_the_diary_or_the_bin() {
+        let w = world();
+        let (db, clock) = (&w.data.db, &*w.data.clock);
+        let kept = notes::create(
+            db,
+            clock,
+            NoteInput {
+                title: "Trip plan".into(),
+                body: "Pack the blue umbrella".into(),
+                ..NoteInput::default()
+            },
+        )
+        .await
+        .unwrap();
+        let binned = notes::create(
+            db,
+            clock,
+            NoteInput {
+                title: "Old umbrella list".into(),
+                ..NoteInput::default()
+            },
+        )
+        .await
+        .unwrap();
+        notes::delete(db, clock, &binned.id).await.unwrap();
+        let diary = Diary::default();
+        diary::setup(db, &diary, clock, "secret-pass")
+            .await
+            .unwrap();
+        diary::day_save(
+            db,
+            &diary,
+            clock,
+            "2026-11-02",
+            "umbrella secret in my diary",
+        )
+        .await
+        .unwrap();
+        let client = client_for(&w).await;
+
+        let hits = answer(&call(&client, "notes_search", json!({ "query": "umbrella" })).await);
+        let found: Vec<_> = hits["notes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n["title"].clone())
+            .collect();
+        assert_eq!(
+            found,
+            [json!("Trip plan")],
+            "the Bin and the diary are never searched"
+        );
+
+        let note = answer(&call(&client, "note_get", json!({ "id": kept.id })).await);
+        assert_eq!(note["body"], "Pack the blue umbrella");
+        assert_eq!(note["cut"], false);
+
+        let gone = call(&client, "note_get", json!({ "id": binned.id })).await;
+        assert_eq!(gone.is_error, Some(true));
+
+        let blank = call(&client, "notes_search", json!({ "query": "  " })).await;
+        assert_eq!(blank.is_error, Some(true));
+        client.cancel().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn read_tools_say_pluto_is_starting_until_its_data_is_open() {
+        let (client, _) = connect(newest()).await;
+        let r = call(&client, "today", json!({})).await;
+        assert_eq!(r.is_error, Some(true));
+        assert!(text(&r).contains("still starting"));
         client.cancel().await.unwrap();
     }
 }

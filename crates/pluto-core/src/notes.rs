@@ -327,6 +327,22 @@ pub async fn get(db: &Database, id: &str) -> Result<Note> {
     db.read(move |conn| load(conn, &id)).await
 }
 
+/// True when the note is in the Bin (deleted, not yet removed for good).
+pub async fn in_bin(db: &Database, id: &str) -> Result<bool> {
+    let id = id.to_owned();
+    db.read(move |conn| {
+        Ok(conn
+            .query_row(
+                "SELECT deleted_at IS NOT NULL FROM notes WHERE id = ?1",
+                [&id],
+                |r| r.get::<_, bool>(0),
+            )
+            .optional()?
+            .unwrap_or(false))
+    })
+    .await
+}
+
 pub async fn create(db: &Database, clock: &dyn Clock, input: NoteInput) -> Result<Note> {
     check_title(&input.title)?;
     check_body(&input.body)?;

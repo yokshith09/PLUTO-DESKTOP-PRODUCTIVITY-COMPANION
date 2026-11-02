@@ -587,3 +587,13 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 | **Built as** | Switch + 3 guided steps (shown only when on); capabilities as Now / Next / Never; developer preview with *Requests* and *What it changed* tiles. Per-assistant cards, levels and Undo from the preview are left out until write tools exist (P4.2), so the page does not show controls that do nothing. Developer reactions (git, build) are listed under "Make the pet react"; their own hook setup comes with P4.3. |
 | **Request log** | Last 50 calls in memory only, never saved, no task or note text; page polls every 2 s while on. |
 | **Switch is live** | `mcp.enabled` is followed through the event bus like `pet.typing`; off removes the token at once. |
+
+## 2026-11-02 — Assistant tiles, auto-setup, read tools (owner)
+
+| Decision | Detail |
+|---|---|
+| **Tiles, one Connect** | Owner: a tile per assistant with Connect; manual setup hidden inside the tile's settings; everything about one assistant lives there. |
+| **One Claude setup** | Claude Code and the Claude app are one tile; Connect writes both (ids `claude-code` and `claude-desktop`, so the pet names them right). |
+| **Auto-setup writes the assistant's own file** | Only the `pluto` entry; first change keeps `<file>.pluto-backup`; atomic write; unreadable file → refuse, show manual. Risk: Claude Code rewrites `~/.claude.json` itself, so connect while it is closed (said in the toast: restart it). |
+| **Developer preview off by default** | Saved as a preference (`assistants.devPreview`). |
+| **Read tools** | Read only; diary never; Bin never; caps 50 rows, 20,000 characters. |

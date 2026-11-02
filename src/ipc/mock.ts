@@ -304,13 +304,39 @@ export function createMock() {
     ],
   ]]);
 
+  const exe = "C:\\Program Files\\Pluto\\pluto.exe";
+  const manual = (key: string, id: string, vs = false) => JSON.stringify({ [key]: { pluto: { ...(vs ? { type: "stdio" } : {}), command: exe, args: ["--mcp-bridge", "--assistant", id] } } }, null, 2);
+  const mockAssistants = [
+    { id: "claude", name: "Claude", installed: true, connected: false, places: [
+      { label: "Claude Code", path: "C:\\Users\\you\\.claude.json", installed: true, connected: false, manual: manual("mcpServers", "claude-code") },
+      { label: "Claude app", path: "C:\\Users\\you\\AppData\\Roaming\\Claude\\claude_desktop_config.json", installed: true, connected: false, manual: manual("mcpServers", "claude-desktop") },
+    ] },
+    { id: "vscode", name: "VS Code", installed: true, connected: false, places: [
+      { label: "VS Code", path: "C:\\Users\\you\\AppData\\Roaming\\Code\\User\\mcp.json", installed: true, connected: false, manual: manual("servers", "vscode", true) },
+    ] },
+    { id: "cursor", name: "Cursor", installed: false, connected: false, places: [
+      { label: "Cursor", path: "C:\\Users\\you\\.cursor\\mcp.json", installed: false, connected: false, manual: manual("mcpServers", "cursor") },
+    ] },
+  ];
+
   const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
     settings_get_all: () => settings,
-    mcp_setup: (a) => ({
-      listening: settings["mcp.enabled"] === true,
-      command: "C:\\Program Files\\Pluto\\pluto.exe",
-      config: JSON.stringify({ mcpServers: { pluto: { command: "C:\\Program Files\\Pluto\\pluto.exe", args: ["--mcp-bridge", "--assistant", String(a.assistant ?? "assistant")] } } }, null, 2),
-    }),
+    mcp_assistants: () => mockAssistants.map((x) => ({ ...x, places: x.places.map((p) => ({ ...p })) })),
+    mcp_connect: (a) => {
+      const x = mockAssistants.find((m) => m.id === a.id);
+      if (!x?.installed) return fail("VALIDATION", "Pluto could not find this assistant on this computer. Open its settings here for the manual setup.");
+      x.places.forEach((p) => { if (p.installed) p.connected = true; });
+      x.connected = true;
+      settings["mcp.enabled"] = true; emit("SettingChanged");
+      return x.places.filter((p) => p.installed).map((p) => p.label);
+    },
+    mcp_disconnect: (a) => {
+      const x = mockAssistants.find((m) => m.id === a.id);
+      x?.places.forEach((p) => { p.connected = false; });
+      if (x) x.connected = false;
+      return null;
+    },
+    mcp_listening: () => settings["mcp.enabled"] === true,
     mcp_activity: () => settings["mcp.enabled"] === true
       ? [{ atMs: now() - 60_000, assistant: "Claude Code", tool: "react", ok: true, detail: "The pet showed agent_done.", changed: false }]
       : [],

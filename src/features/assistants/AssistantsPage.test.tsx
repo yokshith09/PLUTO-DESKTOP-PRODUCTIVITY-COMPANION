@@ -1,44 +1,80 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ipc } from "@/ipc";
+import { ipc, type AssistantInfo } from "@/ipc";
 import { AssistantsPage } from "./AssistantsPage";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
-function renderPage(enabled: boolean) {
+const claude = (connected: boolean): AssistantInfo => ({
+  id: "claude", name: "Claude", installed: true, connected,
+  places: [
+    { label: "Claude Code", path: "/home/you/.claude.json", installed: true, connected, manual: '{"mcpServers":{"pluto":{"command":"pluto","args":["--mcp-bridge","--assistant","claude-code"]}}}' },
+    { label: "Claude app", path: "/home/you/Claude/claude_desktop_config.json", installed: true, connected, manual: '{"mcpServers":{"pluto":{"command":"pluto","args":["--mcp-bridge","--assistant","claude-desktop"]}}}' },
+  ],
+});
+const cursor: AssistantInfo = { id: "cursor", name: "Cursor", installed: false, connected: false, places: [{ label: "Cursor", path: "/home/you/.cursor/mcp.json", installed: false, connected: false, manual: "{}" }] };
+
+function renderPage({ enabled = false, connected = false, dev = false } = {}) {
   vi.spyOn(ipc, "settingsGetAll").mockResolvedValue({ "mcp.enabled": enabled } as never);
-  const set = vi.spyOn(ipc, "settingSet").mockResolvedValue(null);
-  const setup = vi.spyOn(ipc, "mcpSetup").mockImplementation(async (a) => ({ listening: true, command: "pluto.exe", config: `{"assistant":"${a}"}` }));
-  vi.spyOn(ipc, "mcpActivity").mockResolvedValue(enabled
-    ? [{ atMs: 0, assistant: "Claude Code", tool: "say", ok: false, detail: "The bubble has no text.", changed: false }]
-    : []);
+  vi.spyOn(ipc, "settingSet").mockResolvedValue(null);
+  vi.spyOn(ipc, "prefsGet").mockResolvedValue(dev as never);
+  const prefsSet = vi.spyOn(ipc, "prefsSet").mockResolvedValue(null);
+  vi.spyOn(ipc, "mcpAssistants").mockResolvedValue([claude(connected), cursor]);
+  const connect = vi.spyOn(ipc, "mcpConnect").mockResolvedValue(["Claude Code", "Claude app"]);
+  const disconnect = vi.spyOn(ipc, "mcpDisconnect").mockResolvedValue(null);
+  const activity = vi.spyOn(ipc, "mcpActivity").mockResolvedValue([{ atMs: 0, assistant: "Claude Code", tool: "today", ok: true, detail: "Read today's plan.", changed: false }]);
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><AssistantsPage /></QueryClientProvider>);
-  return { set, setup };
+  return { connect, disconnect, prefsSet, activity };
 }
 
 describe("Assistants page", () => {
-  it("off: one switch, what assistants can do, and no setup", async () => {
-    const { set } = renderPage(false);
-    expect(await screen.findByText("Off. No assistant can reach Pluto.")).toBeTruthy();
-    expect(screen.queryByLabelText("Setup")).toBeNull();
-    expect(screen.getByText("Make the pet react")).toBeTruthy();
-    expect(screen.getByText("Your diary")).toBeTruthy();
-    expect(screen.getByText("Turn on Connect assistants to see requests here.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("switch", { name: "Connect assistants" }));
-    await waitFor(() => expect(set).toHaveBeenCalledWith("mcp.enabled", true));
+  it("shows one Claude tile for Claude Code and the Claude app, and Connect sets both up", async () => {
+    const { connect } = renderPage();
+    const tile = await screen.findByRole("listitem", { name: "Claude" });
+    expect(tile.textContent).toContain("Claude Code and Claude app");
+    fireEvent.click(within(tile).getByRole("button", { name: "Connect" }));
+    await waitFor(() => expect(connect).toHaveBeenCalledWith("claude"));
   });
 
-  it("on: guides through the setup for the chosen assistant and lists requests", async () => {
-    const { setup } = renderPage(true);
-    const setupBox = await screen.findByLabelText("Setup");
-    await waitFor(() => expect(setupBox.textContent).toContain("claude-code"));
-    fireEvent.click(screen.getByRole("button", { name: "VS Code" }));
-    await waitFor(() => expect(screen.getByLabelText("Setup").textContent).toContain("vscode"));
-    expect(setup).toHaveBeenCalledWith("vscode");
+  it("an assistant that is not installed offers the manual setup instead of Connect", async () => {
+    renderPage();
+    const tile = await screen.findByRole("listitem", { name: "Cursor" });
+    expect(tile.textContent).toContain("Not found on this computer");
+    expect(within(tile).queryByRole("button", { name: "Connect" })).toBeNull();
+    fireEvent.click(within(tile).getByRole("button", { name: "Set up by hand" }));
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+
+  it("the manual setup stays hidden until asked for, inside the assistant's settings", async () => {
+    const { disconnect } = renderPage({ enabled: true, connected: true });
+    expect(screen.queryByLabelText("Claude Code setup")).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: "Claude settings" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("/home/you/.claude.json")).toBeTruthy();
+    expect(within(dialog).queryByLabelText("Claude Code setup")).toBeNull();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Show manual setup" }));
+    expect(within(dialog).getByLabelText("Claude Code setup").textContent).toContain("claude-code");
+    expect(within(dialog).getByLabelText("Claude app setup").textContent).toContain("claude-desktop");
+    await waitFor(() => expect(within(dialog).getByRole("region", { name: "Recent requests" }).textContent).toContain("Read today's plan."));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Disconnect" }));
+    await waitFor(() => expect(disconnect).toHaveBeenCalledWith("claude"));
+  });
+
+  it("says plainly what assistants can do and that the diary is never shared", async () => {
+    renderPage();
+    expect(await screen.findByText("Find and read your notes when you ask about them.")).toBeTruthy();
+    expect(screen.getByText("Your diary. Assistants can never see it.")).toBeTruthy();
+  });
+
+  it("the developer preview is hidden until switched on", async () => {
+    const { prefsSet } = renderPage({ enabled: true });
+    await screen.findByRole("listitem", { name: "Claude" });
+    expect(screen.queryByRole("region", { name: "Requests" })).toBeNull();
+    fireEvent.click(screen.getByRole("switch", { name: "Developer preview" }));
+    await waitFor(() => expect(prefsSet).toHaveBeenCalledWith("assistants.devPreview", true));
     const requests = await screen.findByRole("region", { name: "Requests" });
-    await waitFor(() => expect(requests.textContent).toContain("The bubble has no text."));
-    expect(screen.getByLabelText("Refused")).toBeTruthy();
+    await waitFor(() => expect(requests.textContent).toContain("Read today's plan."));
     expect(screen.getByRole("region", { name: "What it changed" }).textContent).toContain("Nothing changed");
   });
 });

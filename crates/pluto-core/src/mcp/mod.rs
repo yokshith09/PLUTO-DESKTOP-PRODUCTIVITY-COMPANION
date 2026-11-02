@@ -8,6 +8,8 @@
 pub mod activity;
 mod limit;
 pub mod link;
+pub mod read;
+pub mod setup;
 pub mod status;
 #[cfg(test)]
 mod tests;
@@ -28,8 +30,9 @@ pub const INSTRUCTIONS: &str =
     "Pluto is the person's desktop pet and productivity app (tasks, notes, \
 reminders, meetings, focus sessions, time per app). Everything stays on this computer. Use `react` \
 to show a named moment on the pet (for example agent_done when you finish), `say` for a short \
-bubble, `status` to see what the person is doing. The diary is private and never available. \
-Calls are limited to 10 per minute per tool.";
+bubble, `status` to see what the person is doing, `today` for today's plan, `tasks_list` and \
+`task_get` for tasks, `notes_search` and `note_get` for notes. These tools only read; nothing is \
+changed. The diary is private and never available. Calls are limited to 10 per minute per tool.";
 
 /// What every tool answers while Pluto itself is not running.
 pub const NOT_RUNNING: &str = "Pluto is not running. Open Pluto and try again.";
@@ -47,6 +50,10 @@ pub trait Host: Send + Sync {
     fn status(&self) -> HostFuture<'_, Status>;
     /// Show something on the pet.
     fn show(&self, message: PetMessage);
+    /// Pluto's tasks and notes for the read tools; `None` while the data is not open yet.
+    fn data(&self) -> Option<read::Data> {
+        None
+    }
     /// Note a call for the Assistants page (the host adds the time).
     fn record(&self, _tool: &'static str, _assistant: &str, _ok: bool, _detail: String) {}
 }
@@ -138,6 +145,27 @@ pub struct ReactArgs {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct TasksArgs {
+    /// today (default), upcoming (next 7 days), pending (no day yet), completed, or all.
+    #[serde(default)]
+    pub which: read::Which,
+    /// At most this many (1 to 50, default 20).
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct IdArgs {
+    /// The id from a list or search.
+    pub id: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct SearchArgs {
+    /// Words to look for in note titles and text.
+    pub query: String,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct SayArgs {
     /// Plain text, at most 140 characters.
     pub text: String,
@@ -188,6 +216,40 @@ impl PlutoMcp {
     /// The running Pluto, or the refusal to send when there is none.
     fn host(&self) -> Result<&Arc<dyn Host>, CallToolResult> {
         self.host.as_ref().ok_or_else(|| Self::refused(NOT_RUNNING))
+    }
+
+    /// Pluto's data for a read tool, or the refusal to send.
+    fn data(&self) -> Result<read::Data, CallToolResult> {
+        self.host()?
+            .data()
+            .ok_or_else(|| Self::refused("Pluto is still starting. Try again in a moment."))
+    }
+
+    /// Runs one read tool: limit, data, the read itself, noted for the Assistants page.
+    async fn reading<T, F, Fut>(
+        &self,
+        tool: &'static str,
+        what: &str,
+        read: F,
+    ) -> Result<Json<T>, CallToolResult>
+    where
+        F: FnOnce(read::Data) -> Fut,
+        Fut: Future<Output = Result<T, String>>,
+    {
+        if let Some(refused) = self.over_limit(tool) {
+            return Err(self.noted(tool, refused));
+        }
+        let data = self.data()?;
+        match read(data).await {
+            Ok(answer) => {
+                self.noted(
+                    tool,
+                    CallToolResult::success(vec![ContentBlock::text(format!("Read {what}."))]),
+                );
+                Ok(Json(answer))
+            }
+            Err(why) => Err(self.noted(tool, Self::refused(why))),
+        }
     }
 
     fn refused(message: impl Into<String>) -> CallToolResult {
@@ -309,6 +371,81 @@ impl PlutoMcp {
             "say",
             CallToolResult::success(vec![ContentBlock::text("The pet said it.")]),
         )
+    }
+
+    #[tool(
+        title = "Today's plan",
+        description = "Today's date and the person's open tasks for today, including overdue ones and ones in progress, in the order Pluto shows them. Read only.",
+        annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
+    )]
+    async fn today(&self) -> Result<Json<read::Today>, CallToolResult> {
+        self.reading(
+            "today",
+            "today's plan",
+            |d| async move { read::today(&d).await },
+        )
+        .await
+    }
+
+    #[tool(
+        title = "List tasks",
+        description = "The person's tasks: today, upcoming (next 7 days), pending (no day yet), completed, or all. Titles, status, priority, project and days; use task_get for the description. Read only.",
+        annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
+    )]
+    async fn tasks_list(
+        &self,
+        Parameters(args): Parameters<TasksArgs>,
+    ) -> Result<Json<read::TaskList>, CallToolResult> {
+        let limit = args.limit.map_or(20, |n| n as usize);
+        self.reading("tasks_list", "a list of tasks", |d| async move {
+            read::tasks_list(&d, args.which, limit).await
+        })
+        .await
+    }
+
+    #[tool(
+        title = "Read a task",
+        description = "One task with its description, links and the note it belongs to. Read only.",
+        annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
+    )]
+    async fn task_get(
+        &self,
+        Parameters(args): Parameters<IdArgs>,
+    ) -> Result<Json<read::TaskDetail>, CallToolResult> {
+        self.reading("task_get", "a task", |d| async move {
+            read::task_get(&d, args.id.trim()).await
+        })
+        .await
+    }
+
+    #[tool(
+        title = "Search notes",
+        description = "Find the person's notes (and archived notes) whose title or text contains the words. Returns titles and the start of each note; use note_get for the whole note. Never searches the diary. Read only.",
+        annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
+    )]
+    async fn notes_search(
+        &self,
+        Parameters(args): Parameters<SearchArgs>,
+    ) -> Result<Json<read::NoteHits>, CallToolResult> {
+        self.reading("notes_search", "a note search", |d| async move {
+            read::notes_search(&d, &args.query).await
+        })
+        .await
+    }
+
+    #[tool(
+        title = "Read a note",
+        description = "One whole note: title, text, labels and project. Notes in the Bin are not available. Read only.",
+        annotations(read_only_hint = true, idempotent_hint = true, open_world_hint = false)
+    )]
+    async fn note_get(
+        &self,
+        Parameters(args): Parameters<IdArgs>,
+    ) -> Result<Json<read::NoteFull>, CallToolResult> {
+        self.reading("note_get", "a note", |d| async move {
+            read::note_get(&d, args.id.trim()).await
+        })
+        .await
     }
 }
 
