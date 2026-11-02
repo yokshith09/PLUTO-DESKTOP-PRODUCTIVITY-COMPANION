@@ -2897,6 +2897,7 @@ dependencies = [
  "objc2-app-kit",
  "objc2-foundation",
  "pluto-core",
+ "rmcp",
  "serde",
  "serde_json",
  "tauri",

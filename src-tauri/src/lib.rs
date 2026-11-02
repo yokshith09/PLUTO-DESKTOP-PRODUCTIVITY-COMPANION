@@ -5,6 +5,7 @@ mod autostart;
 mod earlier_app;
 mod ipc;
 mod logs;
+mod mcp;
 mod media;
 mod note_window;
 mod notify;
@@ -120,6 +121,12 @@ fn forward_webview_args(context: &mut tauri::Context) {
     }
     #[cfg(not(windows))]
     let _ = context;
+}
+
+/// `Pluto --mcp-bridge`: run as an assistant's bridge and exit, before any window, tray or
+/// single-instance rule (owner 2026-11-02). `None` means start the app as usual.
+pub fn bridge_main() -> Option<i32> {
+    mcp::bridge_main(&std::env::args().collect::<Vec<_>>())
 }
 
 pub fn run() {
@@ -409,6 +416,19 @@ pub fn run() {
             pet::start(app.handle().clone(), settings.clone(), &bus);
             shortcuts::start(app.handle().clone(), settings.clone(), &bus);
             typing::start(app.handle().clone(), settings.clone(), &bus);
+            // MCP: the private pipe for assistants, only when switched on (off by default).
+            {
+                let (handle, settings, dir) = (app.handle().clone(), settings.clone(), data_dir.clone());
+                tauri::async_runtime::spawn(async move {
+                    let on = settings
+                        .get_all()
+                        .await
+                        .ok()
+                        .and_then(|all| all.get("mcp.enabled").and_then(|v| v.as_bool()))
+                        .unwrap_or(false);
+                    mcp::start(handle, dir, on);
+                });
+            }
             if let Some(logs) = logs {
                 logs::follow_setting(logs, settings.clone(), &bus);
             }

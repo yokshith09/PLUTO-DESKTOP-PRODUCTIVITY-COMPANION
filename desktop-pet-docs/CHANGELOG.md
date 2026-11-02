@@ -7,6 +7,8 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 (MCP, 0.6.0, is built on top of 0.5.8.)
 
+- Added (MCP P4.1a, **Unverified on a real PC**, off by default): **the bridge and the private pipe.** `Pluto --mcp-bridge --assistant <id>` runs before any window, tray or one-at-a-time rule and relays an assistant's stdio to the running Pluto over a named pipe (Windows, local clients only) or a Unix socket (macOS, owner-only), after a first line carrying this run's token. Wrong token, no first line in 5 s, or a bad id: closed. With Pluto closed the bridge still lists the tools and each call says "Pluto is not running". New setting `mcp.enabled` (off); Pluto listens only if it is on at start-up (the switch on the MCP page comes next). `react` and `say` show on the real pet; `status` returns empty counts until the read tools. Tests: 16 MCP tests in the core (including assistant ⇄ bridge ⇄ pipe ⇄ Pluto in memory), 4 in the shell (including the real Unix socket), and the real binary driven over stdio with no display. Windows target type-checked and linted.
+
 ## [0.5.8] — 2026-11-02 (draft for owner testing; Unverified)
 
 All fixes since 0.5.7, for the owner's real-PC test of the time and flicker problems before MCP. The 0.5.7 draft is set aside (owner). The MCP server core is in the code but cannot be reached (no bridge, pipe or switch yet).

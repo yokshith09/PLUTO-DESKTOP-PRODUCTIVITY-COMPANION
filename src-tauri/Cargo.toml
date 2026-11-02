@@ -61,3 +61,4 @@ objc2-foundation = { version = "0.3", default-features = false, features = ["std
 
 [dev-dependencies]
 tempfile = "3.27.0"
+rmcp = { version = "=3.8.0", default-features = false, features = ["client"] }

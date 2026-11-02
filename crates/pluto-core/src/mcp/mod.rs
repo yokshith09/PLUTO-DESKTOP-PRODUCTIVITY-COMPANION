@@ -6,6 +6,7 @@
 //! Step P4.1a: the pet tools `status`, `react` and `say`, the rate limit and the input rules.
 
 mod limit;
+pub mod link;
 #[cfg(test)]
 mod tests;
 
@@ -27,6 +28,9 @@ reminders, meetings, focus sessions, time per app). Everything stays on this com
 to show a named moment on the pet (for example agent_done when you finish), `say` for a short \
 bubble, `status` to see what the person is doing. The diary is private and never available. \
 Calls are limited to 10 per minute per tool.";
+
+/// What every tool answers while Pluto itself is not running.
+pub const NOT_RUNNING: &str = "Pluto is not running. Open Pluto and try again.";
 
 /// Longest bubble an assistant may show, in characters.
 pub const SAY_MAX_CHARS: usize = 140;
@@ -138,7 +142,8 @@ pub struct SayArgs {
 /// One assistant's connection to Pluto.
 #[derive(Clone)]
 pub struct PlutoMcp {
-    host: Arc<dyn Host>,
+    /// `None` while the bridge cannot reach a running Pluto.
+    host: Option<Arc<dyn Host>>,
     assistant: Arc<str>,
     limit: Arc<RateLimit>,
 }
@@ -148,10 +153,37 @@ impl PlutoMcp {
     /// of that assistant's connections.
     pub fn new(host: Arc<dyn Host>, assistant: &str, limit: Arc<RateLimit>) -> Self {
         Self {
-            host,
+            host: Some(host),
             assistant: assistant.into(),
             limit,
         }
+    }
+
+    /// What the bridge serves while Pluto is not running: the same tools (so the assistant knows
+    /// them), each answering [`NOT_RUNNING`].
+    pub fn offline(assistant: &str) -> Self {
+        Self {
+            host: None,
+            assistant: assistant.into(),
+            limit: Arc::new(RateLimit::default()),
+        }
+    }
+
+    /// Serves one connection until the other side closes it.
+    pub async fn serve<T>(self, io: T) -> Result<(), String>
+    where
+        T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send + Unpin + 'static,
+    {
+        let running = rmcp::ServiceExt::serve(self, io)
+            .await
+            .map_err(|e| e.to_string())?;
+        running.waiting().await.map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// The running Pluto, or the refusal to send when there is none.
+    fn host(&self) -> Result<&Arc<dyn Host>, CallToolResult> {
+        self.host.as_ref().ok_or_else(|| Self::refused(NOT_RUNNING))
     }
 
     fn refused(message: impl Into<String>) -> CallToolResult {
@@ -178,7 +210,7 @@ impl PlutoMcp {
         if let Some(refused) = self.over_limit("status") {
             return Err(refused);
         }
-        Ok(Json(self.host.status().await))
+        Ok(Json(self.host()?.status().await))
     }
 
     #[tool(
@@ -195,6 +227,10 @@ impl PlutoMcp {
         if let Some(refused) = self.over_limit("react") {
             return refused;
         }
+        let host = match self.host() {
+            Ok(host) => host,
+            Err(refused) => return refused,
+        };
         let Some((reaction, text)) = reaction_line(args.reaction.trim(), &self.assistant) else {
             let names: Vec<&str> = REACTIONS.iter().map(|(n, _)| *n).collect();
             return Self::refused(format!(
@@ -203,7 +239,7 @@ impl PlutoMcp {
                 names.join(", ")
             ));
         };
-        self.host.show(PetMessage {
+        host.show(PetMessage {
             assistant: self.assistant.to_string(),
             text,
             reaction: Some(reaction),
@@ -227,11 +263,15 @@ impl PlutoMcp {
         if let Some(refused) = self.over_limit("say") {
             return refused;
         }
+        let host = match self.host() {
+            Ok(host) => host,
+            Err(refused) => return refused,
+        };
         let text = match clean_bubble(&args.text) {
             Ok(text) => text,
             Err(why) => return Self::refused(why),
         };
-        self.host.show(PetMessage {
+        host.show(PetMessage {
             assistant: self.assistant.to_string(),
             text,
             reaction: None,

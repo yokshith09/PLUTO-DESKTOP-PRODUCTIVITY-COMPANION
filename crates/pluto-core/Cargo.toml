@@ -20,7 +20,7 @@ thiserror = "2.0.21"
 tokio = { version = "1.53.2", features = ["sync", "rt", "time", "macros"] }
 tracing = "0.1.44"
 unicode-normalization = "0.1.25"
-uuid = { version = "1.27.0", features = ["v7"] }
+uuid = { version = "1.27.0", features = ["v4", "v7"] }
 tracing-appender = "0.2.5"
 lz4_flex = { version = "0.11", default-features = false, features = ["safe-decode", "std"] }
 zip = { version = "9", default-features = false, features = ["deflate"] }

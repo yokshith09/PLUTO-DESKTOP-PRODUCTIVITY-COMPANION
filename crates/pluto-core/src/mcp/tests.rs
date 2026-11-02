@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use rmcp::model::{CallToolRequestParams, CallToolResult, ClientConfig, ProtocolVersion};
 use rmcp::service::RunningService;
-use rmcp::{ClientLifecycleMode, ClientServiceExt, RoleClient, ServiceExt};
+use rmcp::{ClientLifecycleMode, ClientServiceExt, RoleClient};
 use serde_json::{json, Value};
 
 use super::*;
@@ -43,11 +43,7 @@ async fn connect(mode: ClientLifecycleMode) -> (Client, Arc<FakeHost>) {
     let host = Arc::new(FakeHost::default());
     let server = PlutoMcp::new(host.clone(), "Claude Code", Arc::new(RateLimit::default()));
     let (server_end, client_end) = tokio::io::duplex(64 * 1024);
-    tokio::spawn(async move {
-        if let Ok(running) = server.serve(server_end).await {
-            let _ = running.waiting().await;
-        }
-    });
+    tokio::spawn(server.serve(server_end));
     let client = ClientConfig::default()
         .serve_with_lifecycle(client_end, mode)
         .await
@@ -216,4 +212,159 @@ fn every_reaction_has_a_line_and_only_assistant_lines_carry_the_name() {
         "Cursor hit an error"
     );
     assert!(reaction_line("nope", "Cursor").is_none());
+}
+
+#[tokio::test]
+async fn without_a_running_pluto_the_tools_are_listed_and_every_call_says_so() {
+    let (server_end, client_end) = tokio::io::duplex(64 * 1024);
+    tokio::spawn(PlutoMcp::offline("Claude Code").serve(server_end));
+    let client = ClientConfig::default()
+        .serve_with_lifecycle(client_end, newest())
+        .await
+        .unwrap();
+    assert_eq!(client.list_all_tools().await.unwrap().len(), 3);
+    for (tool, args) in [
+        ("status", json!({})),
+        ("react", json!({ "reaction": "agent_done" })),
+        ("say", json!({ "text": "hi" })),
+    ] {
+        let r = call(&client, tool, args).await;
+        assert_eq!(r.is_error, Some(true), "{tool}");
+        assert!(text(&r).contains("Pluto is not running"), "{tool}");
+    }
+    client.cancel().await.unwrap();
+}
+
+mod link_tests {
+    use super::*;
+    use crate::mcp::link::{self, Refused};
+
+    #[test]
+    fn tokens_are_long_random_and_never_repeat() {
+        let a = link::new_token();
+        let b = link::new_token();
+        assert_eq!(a.len(), 64);
+        assert!(a.bytes().all(|c| c.is_ascii_hexdigit()));
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn the_first_line_must_carry_this_runs_token_and_a_plain_id() {
+        let t = link::new_token();
+        assert_eq!(
+            link::check_hello(&link::hello_line(&t, "claude-code"), &t),
+            Ok("claude-code".into())
+        );
+        assert_eq!(
+            link::check_hello(&link::hello_line(&link::new_token(), "claude-code"), &t),
+            Err(Refused::WrongToken)
+        );
+        assert_eq!(
+            link::check_hello(&format!("PLUTO1 {t}\n"), &t),
+            Err(Refused::BadHello)
+        );
+        assert_eq!(
+            link::check_hello(&format!("PLUTO1 {t} a b\n"), &t),
+            Err(Refused::BadHello)
+        );
+        assert_eq!(
+            link::check_hello(&format!("PLUTO2 {t} cursor\n"), &t),
+            Err(Refused::BadHello)
+        );
+        assert_eq!(
+            link::check_hello(&link::hello_line(&t, "Bad_Id"), &t),
+            Err(Refused::BadHello)
+        );
+        assert_eq!(
+            link::check_hello(&link::hello_line(&t, &"a".repeat(41)), &t),
+            Err(Refused::BadHello)
+        );
+    }
+
+    #[test]
+    fn assistants_get_readable_names() {
+        assert_eq!(link::display_name("claude-code"), "Claude Code");
+        assert_eq!(link::display_name("my-agent"), "My Agent");
+        assert_eq!(link::display_name("cursor"), "Cursor");
+    }
+
+    /// Assistant ⇄ bridge (stdio) ⇄ pipe ⇄ Pluto, all in memory: the whole path an assistant uses.
+    #[tokio::test]
+    async fn an_assistant_reaches_pluto_through_the_bridge_and_the_pet_reacts() {
+        let host = Arc::new(FakeHost::default());
+        let token = link::new_token();
+        let (pluto_end, bridge_pipe) = tokio::io::duplex(64 * 1024);
+        let (bridge_stdio, assistant_end) = tokio::io::duplex(64 * 1024);
+        let (h, t) = (host.clone() as Arc<dyn Host>, token.clone());
+        let pluto = tokio::spawn(async move {
+            link::accept(pluto_end, &t, h, |_| Arc::new(RateLimit::default())).await
+        });
+        let t = token.clone();
+        tokio::spawn(async move {
+            link::bridge(Some(bridge_pipe), &t, "claude-code", bridge_stdio).await
+        });
+        let client = ClientConfig::default()
+            .serve_with_lifecycle(assistant_end, newest())
+            .await
+            .unwrap();
+        let r = call(&client, "react", json!({ "reaction": "agent_done" })).await;
+        assert_ne!(r.is_error, Some(true));
+        assert_eq!(host.shown.lock().unwrap()[0].text, "Claude Code is done");
+        client.cancel().await.unwrap();
+        assert_eq!(pluto.await.unwrap(), Ok("claude-code".into()));
+    }
+
+    #[tokio::test]
+    async fn a_bridge_with_the_wrong_token_never_reaches_the_pet() {
+        let host = Arc::new(FakeHost::default());
+        let (pluto_end, bridge_pipe) = tokio::io::duplex(64 * 1024);
+        let (bridge_stdio, _assistant_end) = tokio::io::duplex(64 * 1024);
+        let h = host.clone() as Arc<dyn Host>;
+        let pluto = tokio::spawn(async move {
+            link::accept(pluto_end, "right-token", h, |_| {
+                Arc::new(RateLimit::default())
+            })
+            .await
+        });
+        tokio::spawn(async move {
+            link::bridge(
+                Some(bridge_pipe),
+                "wrong-token",
+                "claude-code",
+                bridge_stdio,
+            )
+            .await
+        });
+        assert_eq!(pluto.await.unwrap(), Err(Refused::WrongToken));
+        assert!(host.shown.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_connection_that_never_says_hello_is_closed() {
+        let (pluto_end, _silent) = tokio::io::duplex(1024);
+        let r = link::accept(pluto_end, "t", Arc::new(FakeHost::default()), |_| {
+            Arc::new(RateLimit::default())
+        })
+        .await;
+        assert_eq!(r, Err(Refused::NoHello));
+    }
+
+    #[tokio::test]
+    async fn with_pluto_closed_the_bridge_still_lists_the_tools_and_explains() {
+        let (bridge_stdio, assistant_end) = tokio::io::duplex(64 * 1024);
+        tokio::spawn(link::bridge(
+            None::<tokio::io::DuplexStream>,
+            "",
+            "cursor",
+            bridge_stdio,
+        ));
+        let client = ClientConfig::default()
+            .serve_with_lifecycle(assistant_end, newest())
+            .await
+            .unwrap();
+        assert_eq!(client.list_all_tools().await.unwrap().len(), 3);
+        let r = call(&client, "say", json!({ "text": "hi" })).await;
+        assert!(text(&r).contains("Pluto is not running"));
+        client.cancel().await.unwrap();
+    }
 }

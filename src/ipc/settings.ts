@@ -21,6 +21,8 @@ export interface Settings {
   "pet.media": boolean;
   /** Installed pet pack shown instead of the bear (FR-63); null = the bear. */
   "pet.pack": string | null;
+  /** AI assistants on this PC may connect (MCP); off by default. */
+  "mcp.enabled": boolean;
   "shortcuts.global_open": string | null;
   "shortcuts.global_new_note": string | null;
   "shortcuts.global_pet": string | null;

@@ -51,6 +51,12 @@ pub enum SettingsKey {
     #[serde(rename = "pet.pack")]
     PetPack,
 
+    // mcp
+    /// AI assistants on this PC may connect to Pluto (P4, `MCP_PLAN.md`). Off by default; off
+    /// closes the private pipe and deletes its token.
+    #[serde(rename = "mcp.enabled")]
+    McpEnabled,
+
     // shortcuts (F1-24 registers these)
     #[serde(rename = "shortcuts.global_open")]
     ShortcutsGlobalOpen,
@@ -125,6 +131,7 @@ impl SettingsKey {
             Self::PetTyping => "pet.typing",
             Self::PetHoverCard => "pet.hover_card",
             Self::PetHideFullscreen => "pet.hide_fullscreen",
+            Self::McpEnabled => "mcp.enabled",
             Self::PetMedia => "pet.media",
             Self::PetPack => "pet.pack",
             Self::ShortcutsGlobalOpen => "shortcuts.global_open",
@@ -152,6 +159,7 @@ impl SettingsKey {
             "pet.typing" => Some(Self::PetTyping),
             "pet.hover_card" => Some(Self::PetHoverCard),
             "pet.hide_fullscreen" => Some(Self::PetHideFullscreen),
+            "mcp.enabled" => Some(Self::McpEnabled),
             "pet.media" => Some(Self::PetMedia),
             "pet.pack" => Some(Self::PetPack),
             "shortcuts.global_open" => Some(Self::ShortcutsGlobalOpen),
@@ -180,6 +188,7 @@ impl SettingsKey {
             Self::PetTyping => json!(false),
             Self::PetHoverCard => json!(true),
             Self::PetHideFullscreen => json!(true),
+            Self::McpEnabled => json!(false),
             Self::PetMedia => json!(false),
             Self::PetPack => json!(null),
             Self::ShortcutsGlobalOpen => json!(null),
@@ -203,6 +212,7 @@ impl SettingsKey {
             | Self::PetTyping
             | Self::PetHoverCard
             | Self::PetHideFullscreen
+            | Self::McpEnabled
             | Self::PetMedia
             | Self::TrackingApps
             | Self::TrackingSites
@@ -342,6 +352,7 @@ pub fn all_defaults() -> BTreeMap<String, Value> {
         SettingsKey::PetHideFullscreen,
         SettingsKey::PetMedia,
         SettingsKey::PetPack,
+        SettingsKey::McpEnabled,
         SettingsKey::ShortcutsGlobalOpen,
         SettingsKey::ShortcutsGlobalNewNote,
         SettingsKey::ShortcutsGlobalNewTask,
@@ -398,7 +409,12 @@ mod tests {
     #[test]
     fn all_defaults_exist() {
         let defaults = all_defaults();
-        assert_eq!(defaults.len(), 21);
+        assert_eq!(defaults.len(), 22);
+        assert_eq!(
+            defaults["mcp.enabled"],
+            json!(false),
+            "assistants are off until turned on"
+        );
         assert_eq!(
             defaults["pet.hover_card"],
             json!(true),

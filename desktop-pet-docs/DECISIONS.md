@@ -563,3 +563,12 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 |---|---|
 | **0.5.8 (owner)** | Every fix since 0.5.7, both OSs, built now for the owner to test time tracking and the hover flicker on a real PC and make it production-ready before MCP. 0.5.7 is set aside. Supersedes "ship the fixes with MCP" (same day). |
 | **0.6.0 (owner)** | MCP is built on top of 0.5.8. Meanwhile the owner decides the name and runs the Mac test and real-world PC runs. |
+
+## 2026-11-02 — MCP P4.1a technical choices (Claude, open to review)
+
+| Decision | Detail |
+|---|---|
+| **First line** | `PLUTO1 <token> <assistant id>`; token 64 hex characters (two random v4 UUIDs), compared in constant time; first line must arrive within 5 s and be at most 256 bytes. |
+| **Where** | Windows: `\\.\pipe\pluto-mcp-<user>`, first instance only, remote clients rejected. macOS: `mcp.sock` in the data folder, mode 0600. Token: `mcp-token` in the data folder (0600 on macOS), new each run, deleted at start-up when MCP is off. |
+| **Switch for now** | `mcp.enabled`, read at start-up; turning it on takes effect after a restart until the MCP page adds a live switch. |
+| **Assistant id for now** | From `--assistant <id>` (lowercase, digits, `-`); unknown ids are accepted until the assistant list (migration 012) exists, and named from the id ("claude-code" → "Claude Code"). |
