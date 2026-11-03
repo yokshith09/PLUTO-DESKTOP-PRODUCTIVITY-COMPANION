@@ -324,5 +324,6 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-03: U-1 note editor built (tests: 525 UI, 551 core, 48 shell). Unverified on a real PC. Next: U-2 Settings in two tabs (preview first), or FS-1/TT-1 if the owner moves them up.
 
 - 2026-11-03: Claude Code chat named on the pet (folder + first request; permission vs reply). Tests 555 core, 49 shell. Unverified on Windows. Next: U-2 build.
+- 2026-11-03: U-3 task editor built from the owner's reference (cards, calendar, priority redesigned). Tests 529 UI. Unverified in the real window. Next: H-1..H-4 assistants.
 - 2026-11-03: Fix: the private pipe no longer stops for good after one bad connection (pet went quiet on "Claude Code is done"). Shell tests 51. Unverified on Windows.
 - 2026-11-03: U-2 Settings in two tabs built as the preview (Main / Profile; Character links to Profile and back). Tests 527 UI. Unverified in the real window. Next: FS-1/TT-1 or U-3, as the owner orders.

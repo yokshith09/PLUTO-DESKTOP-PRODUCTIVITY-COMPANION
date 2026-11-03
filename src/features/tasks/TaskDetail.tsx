@@ -1,18 +1,17 @@
 import { useEffect, useState } from "react";
-import { ConfirmAction } from "@/components/ConfirmAction";
-import { Presets } from "@/components/Presets";
-import { dayPresets } from "@/lib/datePresets";
-import { AlignLeft, Bell, CalendarClock, CalendarPlus, Check, ChevronRight, Timer, ExternalLink, FilePlus2, Flag, FolderKanban, History, Lightbulb, Link2, MessageSquarePlus, Trash2, X } from "lucide-react";
+import { ArrowRight, Bell, CalendarDays, ExternalLink, FilePlus2, FileText, Flag, FolderKanban, History, Lightbulb, Link2, MoreHorizontal, Pencil, Play, Plus, StickyNote, Timer, X } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { NoteEditor } from "@/features/notes/NoteEditor";
-import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ConfirmAction } from "@/components/ConfirmAction";
 import { useAllTasks, useNotes, useTask, useTaskActions, useTaskHistory, useWorkUpdates } from "@/hooks/usePluto";
 import { overdueLabel, ymd } from "@/lib/dates";
 import { STATUS_LABEL, isFinished, transitionsFrom } from "@/lib/taskStatus";
+import { cn } from "@/lib/utils";
 import { clockTime, formatWhen } from "@/lib/time";
 import { errorMessage, ipc, type Priority, type Task, type TaskEvent } from "@/ipc";
 import { notify } from "@/lib/notify";
@@ -23,30 +22,24 @@ import { FocusLength } from "@/features/focus/FocusTile";
 import { TaskReminders } from "./TaskReminders";
 import { StarButton } from "./TaskBits";
 import { CoursePicker } from "@/features/student/CoursePicker";
-import { STEPS, dueLine, stepIndex, taskHints } from "./hints";
+import { dueLine, taskHints } from "./hints";
 import { LinksEditor, PlanEditor, RepeatHistory, planOf, planStateOf, samePlan } from "./TaskPlanEditor";
 
 const NONE = "none";
-const PRIORITIES = [{ value: NONE, label: "None" }, { value: "LOW", label: "Low" }, { value: "MEDIUM", label: "Medium" }, { value: "HIGH", label: "High" }];
 const DELETE_WINDOW_MS = 5 * 60_000;
 
-/** A heading with one short line saying what the section is for (owner 2026-10-25: "what is deadline, reminder, note?"). */
-function SectionHead({ icon, title, hint, count }: { icon: React.ReactNode; title: string; hint: string; count?: number }) {
+/** One card of the editor (U-3, owner's reference 2026-11-03): an icon, a title, one short line. */
+function Card({ icon, title, hint, right, children, className }: {
+  icon: React.ReactNode; title: string; hint?: string; right?: React.ReactNode; children: React.ReactNode; className?: string;
+}) {
   return (
-    <div>
-      <h3 className="flex items-center gap-1.5 text-[13px] font-semibold [&_svg]:size-4 [&_svg]:text-muted-foreground">{icon}{title}{count !== undefined && count > 0 && <span className="text-xs font-normal tabular-nums text-muted-foreground">{count}</span>}</h3>
-      <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
-    </div>
-  );
-}
-
-/** One setting of the task in its own card. */
-/** A smaller part inside a card, with its own one-line hint. */
-function Sub({ icon, title, hint, children, first = false }: { icon: React.ReactNode; title: string; hint: string; children: React.ReactNode; first?: boolean }) {
-  return (
-    <section aria-label={title} className={`space-y-2.5 ${first ? "" : "border-t pt-4"}`}>
-      <SectionHead icon={icon} title={title} hint={hint} />
-      {children}
+    <section aria-label={title} className={cn("min-w-0 rounded-xl border bg-card p-4", className)}>
+      <div className="flex items-center gap-2 [&>svg]:size-[18px] [&>svg]:shrink-0">
+        {icon}<h3 className="text-[14px] font-semibold">{title}</h3>
+        {right && <div className="ml-auto flex items-center gap-2">{right}</div>}
+      </div>
+      {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+      <div className="mt-3">{children}</div>
     </section>
   );
 }
@@ -55,22 +48,28 @@ function HintButton({ action, run }: { action: { id: "move-today" | "start" | "s
   return <Button size="sm" variant="outline" onClick={() => void run(action.id)}>{action.label}</Button>;
 }
 
-/** Planned, In progress, Completed: where the task is, at a glance. */
-function StatusTrack({ status }: { status: Task["status"] }) {
-  const at = stepIndex(status);
-  if (at < 0) return <Badge>{STATUS_LABEL[status]}</Badge>;
+/** Priority as four choices in two rows, each saying what it means; the marks match the task lists. */
+const PRIORITY_CHOICES = [
+  { value: "HIGH", label: "High", glyph: "▲", hint: "Shows first", cls: "text-primary" },
+  { value: "MEDIUM", label: "Medium", glyph: "■", hint: "This week", cls: "text-foreground/70" },
+  { value: "LOW", label: "Low", glyph: "▼", hint: "Can wait", cls: "text-muted-foreground" },
+  { value: NONE, label: "None", glyph: "–", hint: "No priority", cls: "text-muted-foreground" },
+] as const;
+
+function PriorityPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <ol aria-label="Progress" className="flex items-center gap-1.5 text-xs">
-      {STEPS.map((st, i) => (
-        <li key={st.id} aria-current={i === at ? "step" : undefined} className="flex items-center gap-1.5">
-          {i > 0 && <ChevronRight aria-hidden className="size-3 text-muted-foreground/60" />}
-          <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${i === at ? "bg-primary/15 text-primary" : i < at ? "text-foreground" : "text-muted-foreground"}`}>
-            {i < at && <Check aria-hidden className="size-3" />}
-            {i === at && status === "PENDING" ? "Paused" : st.label}
+    <ToggleGroup type="single" value={value} onValueChange={(v) => v && onChange(v)} aria-label="Priority" className="grid w-full grid-cols-2 gap-2">
+      {PRIORITY_CHOICES.map((p) => (
+        <ToggleGroupItem key={p.value} value={p.value} aria-label={p.label}
+          className="h-auto justify-start gap-2.5 rounded-lg border px-3 py-2 text-left data-[state=on]:border-primary data-[state=on]:bg-primary/10">
+          <span aria-hidden className={cn("w-3 text-center text-[13px]", p.cls)}>{p.glyph}</span>
+          <span className="min-w-0">
+            <span className="block text-[13px] font-medium text-foreground">{p.label}</span>
+            <span className="block text-[11px] font-normal text-muted-foreground">{p.hint}</span>
           </span>
-        </li>
+        </ToggleGroupItem>
       ))}
-    </ol>
+    </ToggleGroup>
   );
 }
 
@@ -91,7 +90,7 @@ export function TaskDetail({ taskId, onClose }: { taskId: string | null; onClose
   const { data: task } = useTask(taskId);
   return (
     <Dialog open={taskId !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="flex max-h-[calc(100vh-2rem)] w-[min(48rem,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
+      <DialogContent className="flex max-h-[calc(100vh-2rem)] w-[min(74rem,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
         {task ? <Body key={task.id} task={task} onClose={onClose} /> : <div className="p-8 text-center text-[13px] text-muted-foreground"><DialogTitle className="sr-only">Task</DialogTitle>Loading…</div>}
       </DialogContent>
     </Dialog>
@@ -118,6 +117,8 @@ function Body({ task, onClose }: { task: Task; onClose: () => void }) {
   const planChanged = !samePlan(planOf(plan), planOf(planStateOf(task)));
   const [update, setUpdate] = useState("");
   const [deferTo, setDeferTo] = useState("");
+  const [moving, setMoving] = useState(false);
+  const [askDelete, setAskDelete] = useState(false);
   const [openNote, setOpenNote] = useState<string | null>(null);
   const qc = useQueryClient();
   /** FR-42: make a note from this task (title and details), link it, and open it. */
@@ -177,23 +178,20 @@ function Body({ task, onClose }: { task: Task; onClose: () => void }) {
 
   const others = transitionsFrom(task.status).filter((t) => t.to !== primaryTo);
   const primary = transitionsFrom(task.status).find((t) => t.to === primaryTo);
-  // What is set in "Advanced options", so it can be seen without opening it.
-  const extras = [
-    due && `Deadline ${day(due)}`,
-    project.trim() && project.trim(),
-    noteId && "Note linked",
-    description.trim() && "Details",
-    updates.length > 0 && `${updates.length} update${updates.length === 1 ? "" : "s"}`,
-  ].filter(Boolean).join(" · ");
+  // Updates and history in one list, newest first (U-3).
+  type Line = { key: string; at: number; text: React.ReactNode; update?: { id: string } };
+  const lines: Line[] = [
+    ...updates.map((u): Line => ({ key: `u${u.id}`, at: u.created_at, text: <>Update: <q className="whitespace-pre-line">{u.body}</q></>, update: { id: u.id } })),
+    ...history.map((e, i): Line => ({ key: `h${i}`, at: e.at, text: describe(e) })),
+  ].sort((x, y) => y.at - x.at);
+  const canMove = !finished && plan.mode === "one";
 
   return (
-    <>
-      {/* The essentials only (owner 2026-10-27: "so many buttons, it feels confusing"): title, the one
-          next step, when, priority, Save. Everything else is in "Advanced options". */}
+    <div className="contents" onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); void save(); } }}>
       <div className="border-b px-6 pb-4 pt-5 pr-14">
-        <DialogDescription className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <span className="font-medium uppercase tracking-wide">{STATUS_LABEL[task.status]}</span>
-          {task.project && <span className="flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5"><FolderKanban aria-hidden className="size-3" />{task.project}</span>}
+        <DialogDescription className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span aria-label={`Status: ${STATUS_LABEL[task.status]}`} className="rounded-md bg-primary/12 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary">{STATUS_LABEL[task.status]}</span>
+          {task.project && <span className="flex items-center gap-1 rounded-md border bg-muted/50 px-2 py-0.5 text-foreground"><FolderKanban aria-hidden className="size-3" />{task.project}</span>}
           {dueText && <span className={overdueText ? "font-medium text-destructive" : "font-medium text-foreground"}>{dueText}</span>}
           {focusedMs > 0 && <span className="tabular-nums" title="Finished focus sessions on this task">Focused {hoursLabel(focusedMs)}</span>}
           {focus.session?.task_id === task.id && <span className="font-medium text-primary tabular-nums">Focusing · {focusClock(focus.remaining)} left</span>}
@@ -202,7 +200,7 @@ function Body({ task, onClose }: { task: Task; onClose: () => void }) {
           <DialogTitle className="sr-only">Task: {task.title}</DialogTitle>
           <input
             value={title} onChange={(e) => setTitle(e.target.value)} maxLength={300} aria-label="Title"
-            className="min-w-0 flex-1 bg-transparent text-xl font-semibold tracking-tight outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent text-[22px] font-semibold tracking-tight outline-none placeholder:text-muted-foreground"
           />
           <StarButton starred={task.starred} title={task.title} onToggle={() => void actions.star(task.id, !task.starred)} className="opacity-100" />
           {primary && (
@@ -210,165 +208,148 @@ function Body({ task, onClose }: { task: Task; onClose: () => void }) {
               <Button size="sm" onClick={() => void actions.transition(task.id, primary.to)}>{primary.label}</Button>
             </div>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button size="icon-sm" variant="ghost" aria-label="More actions" title="More actions"><MoreHorizontal /></Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-52">
+              {others.map((t) => <DropdownMenuItem key={t.to} onSelect={() => void actions.transition(task.id, t.to)}>{t.label}</DropdownMenuItem>)}
+              {canMove && (
+                <>
+                  {others.length > 0 && <DropdownMenuSeparator />}
+                  <DropdownMenuItem onSelect={() => void actions.defer(task.id, tomorrow)}>Move to tomorrow</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setMoving(true)}>Move to a day…</DropdownMenuItem>
+                </>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setAskDelete(true)}>Delete task…</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+        {moving && (
+          <form className="mt-3 flex flex-wrap items-center gap-2" aria-label="Move to a day" onSubmit={(e) => { e.preventDefault(); if (deferTo) void actions.defer(task.id, deferTo).then(() => { setDeferTo(""); setMoving(false); }); }}>
+            <span className="text-xs text-muted-foreground">Move to</span>
+            <Input type="date" value={deferTo} min={tomorrow} onChange={(e) => setDeferTo(e.target.value)} aria-label="Defer to" className="h-8 w-40" autoFocus />
+            <Button type="submit" size="sm" variant="outline" disabled={!deferTo}>Move</Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setMoving(false)}>Cancel</Button>
+          </form>
+        )}
       </div>
 
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
         {hints[0] && (
-          <p aria-label="Suggestions" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-primary/5 px-3 py-2 text-[13px]">
+          <p aria-label="Suggestions" className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-primary/8 px-3 py-2 text-[13px]">
             <Lightbulb aria-hidden className="size-4 shrink-0 text-primary" />
             <span className="min-w-0 flex-1">{hints[0].text}</span>
             {hints[0].action && <HintButton action={hints[0].action} run={runHint} />}
           </p>
         )}
 
-        <div className="grid gap-5 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-          <section aria-label="When" className="space-y-1.5">
-            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><CalendarPlus aria-hidden className="size-3.5" />When <span className="font-normal">· the day it shows on Today</span></p>
-            <PlanEditor value={plan} onChange={setPlan} planned={planned} onPlanned={setPlanned} />
-            <RepeatHistory task={task} />
-          </section>
-          <section className="space-y-1.5">
-            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Flag aria-hidden className="size-3.5" />Priority</p>
-            <ToggleGroup type="single" value={priority} onValueChange={(v) => v && setPriority(v)} aria-label="Priority" className="w-full">
-              {PRIORITIES.map((p) => <ToggleGroupItem key={p.value} value={p.value} className="flex-1 px-2">{p.label}</ToggleGroupItem>)}
-            </ToggleGroup>
-          </section>
-        </div>
-
-        <details className="group rounded-lg border" aria-label="Advanced options">
-          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-            <ChevronRight aria-hidden className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
-            Advanced options
-            <span className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground">{extras || "Details, deadline, reminder, project, note, links, focus"}</span>
-          </summary>
-          <div className="grid gap-6 border-t p-4 md:grid-cols-2">
-            <div className="min-w-0 space-y-5">
-              <section aria-label="Details" className="space-y-2">
-                <SectionHead icon={<AlignLeft />} title="Details" hint="What this task is about." />
-                <textarea
-                  value={description} onChange={(e) => setDescription(e.target.value)} rows={4} maxLength={20000} aria-label="Description" placeholder="Add details…"
-                  className="w-full resize-none rounded-md border border-input bg-transparent px-3 py-2 text-[13.5px] leading-relaxed outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                />
-              </section>
-              <Sub first icon={<CalendarClock />} title="Deadline" hint="The last day it can be done. After that it shows as overdue.">
-                <div className="flex gap-2">
-                  <Input id="td-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Deadline date" />
-                  {due && <Button size="sm" variant="ghost" onClick={() => setDue("")}>Clear</Button>}
-                </div>
-                <Presets label="Deadline presets" options={dayPresets()} value={due} onPick={setDue} />
-              </Sub>
-              <Sub icon={<Bell />} title="Reminder" hint="A notification and the pet ring before it starts.">
-                <TaskReminders task={task} />
-              </Sub>
-              {!finished && plan.mode === "one" && (
-                <Sub icon={<CalendarPlus />} title="Move it" hint="Push it to another day now.">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button size="sm" variant="outline" aria-label="Defer to tomorrow" onClick={() => void actions.defer(task.id, tomorrow)}>Tomorrow</Button>
-                    <Input type="date" value={deferTo} min={tomorrow} onChange={(e) => setDeferTo(e.target.value)} aria-label="Defer to" className="h-8 w-36" />
-                    <Button size="sm" variant="outline" disabled={!deferTo} onClick={() => void actions.defer(task.id, deferTo).then(() => setDeferTo(""))}>Move</Button>
-                  </div>
-                </Sub>
-              )}
-            </div>
-            <div className="min-w-0 space-y-5">
-              <div className="space-y-1.5">
-                <label htmlFor="td-project" className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><FolderKanban aria-hidden className="size-3.5" />Project</label>
-                <Input id="td-project" value={project} maxLength={100} onChange={(e) => setProject(e.target.value)} placeholder="No project" aria-label="Project name" list="td-projects" />
-                <datalist id="td-projects">{projects.map((p) => <option key={p} value={p} />)}</datalist>
-              </div>
-              <CoursePicker kind="task" id={task.id} />
-              <div className="space-y-1.5">
-                <label htmlFor="td-note" className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Link2 aria-hidden className="size-3.5" />Note</label>
-                <div className="flex gap-2">
-                  <select id="td-note" aria-label="Linked note" value={noteId} onChange={(e) => setNoteId(e.target.value)} className="h-8 min-w-0 flex-1 rounded-md border border-input bg-card px-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                    <option value="">No note</option>
-                    {notes.map((n) => <option key={n.id} value={n.id}>{n.title || "Untitled"}</option>)}
-                  </select>
-                  {noteId ? (
-                    <Button size="sm" variant="outline" aria-label="Open note" onClick={() => setOpenNote(noteId)}><ExternalLink />Open</Button>
-                  ) : (
-                    <Button size="sm" variant="outline" aria-label="New note from this task" onClick={() => void noteFromTask()}><FilePlus2 />New note</Button>
-                  )}
-                </div>
-              </div>
-              <LinksEditor task={task} />
-              {!finished && !focus.session && (
-                <div className="space-y-1.5">
-                  <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Timer aria-hidden className="size-3.5" />Focus on it</p>
-                  <div className="flex items-center gap-2">
-                    <FocusLength minutes={minutes} onChange={(m) => void setMinutes(m)} />
-                    <Button size="sm" variant="outline" onClick={() => void focus.start("FOCUS", minutes, task.id)}><Timer />Focus {minutes} min</Button>
-                  </div>
-                </div>
-              )}
-              {others.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground">Status</p>
-                  <StatusTrack status={task.status} />
-                  <div className="flex flex-wrap gap-2" role="group" aria-label="Other status changes">
-                    {others.map((t) => <Button key={t.to} size="sm" variant="outline" onClick={() => void actions.transition(task.id, t.to)}>{t.label}</Button>)}
-                  </div>
-                </div>
-              )}
-            </div>
-            <section aria-label="Work updates" className="space-y-2 md:col-span-2">
-              <SectionHead icon={<MessageSquarePlus />} title="Work updates" hint="Short progress notes, each with the time." count={updates.length} />
-              <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void addUpdate(); }}>
-                <Input value={update} onChange={(e) => setUpdate(e.target.value)} placeholder="What happened?" aria-label="New work update" maxLength={5000} />
-                <Button type="submit" size="sm" variant="secondary" disabled={!update.trim()}>Add</Button>
-              </form>
-              {updates.length > 0 && (
-                <ul className="space-y-2">
-                  {updates.map((u) => (
-                    <li key={u.id} className="group/update flex items-start gap-2 rounded-md bg-muted/40 px-3 py-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="whitespace-pre-line text-[13px] leading-snug">{u.body}</p>
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">{formatWhen(u.created_at, now)}</p>
-                      </div>
-                      {now - u.created_at <= DELETE_WINDOW_MS && (
-                        <ConfirmAction message="Delete this update?" onConfirm={() => void actions.removeUpdate(u.id)}>
-                          <button type="button" aria-label="Delete update" title="Can be deleted for 5 minutes"
-                            className="grid size-6 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-destructive/15 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring"><X className="size-3.5" /></button>
-                        </ConfirmAction>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-            <div aria-label="History" className="space-y-1 md:col-span-2">
-              <p className="flex items-center gap-1.5 text-[13px] font-semibold"><History aria-hidden className="size-4 text-muted-foreground" />History <span className="text-xs font-normal tabular-nums text-muted-foreground">{history.length}</span></p>
-              <ol className="space-y-1">
-                {[...history].reverse().map((e, i) => (
-                  <li key={i} className="flex items-baseline gap-3 text-[12px]">
-                    <span className="w-32 shrink-0 tabular-nums text-muted-foreground">{formatWhen(e.at, now)}</span>
-                    <span>{describe(e)}</span>
-                  </li>
-                ))}
-              </ol>
-              <p className="text-[11px] text-muted-foreground">Created {formatWhen(task.created_at, now)}{task.completed_at ? ` · finished at ${clockTime(task.completed_at)}` : ""}</p>
-            </div>
-            <div className="flex items-center gap-2 md:col-span-2">
-              <ConfirmAction
-                message={finished ? "Delete this task and its history for good?" : "This task isn’t finished. Delete it anyway?"}
-                onConfirm={() => void actions.removeAny(task).then(onClose)}
-              >
-                <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive"><Trash2 />Delete task</Button>
-              </ConfirmAction>
-            </div>
+        <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+          <div className="grid min-w-0 gap-3.5">
+            <Card icon={<CalendarDays />} title="Schedule" hint="When you work on it, and the last day it can be done.">
+              <PlanEditor value={plan} onChange={setPlan} planned={planned} onPlanned={setPlanned} deadline={due} onDeadline={setDue} />
+              <div className="mt-3 empty:hidden"><RepeatHistory task={task} /></div>
+            </Card>
+            <Card icon={<StickyNote />} title="Details" hint="What this task is about.">
+              <textarea
+                value={description} onChange={(e) => setDescription(e.target.value)} rows={4} maxLength={20000} aria-label="Description" placeholder="Add details…"
+                className="w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-[13.5px] leading-relaxed outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              {description.length > 18000 && <p className="mt-1 text-right text-[11px] tabular-nums text-muted-foreground">{description.length.toLocaleString()} / 20,000</p>}
+            </Card>
+            <Card icon={<Bell />} title="Reminder" hint="A notification and the pet ring before it starts.">
+              <TaskReminders task={task} />
+            </Card>
           </div>
-        </details>
+
+          <div className="grid min-w-0 gap-3.5">
+            <Card icon={<Flag />} title="Priority" hint="How important it is.">
+              <PriorityPicker value={priority} onChange={setPriority} />
+            </Card>
+            <Card icon={<FolderKanban />} title="Project">
+              <Input id="td-project" value={project} maxLength={100} onChange={(e) => setProject(e.target.value)} placeholder="No project" aria-label="Project name" list="td-projects" />
+              <datalist id="td-projects">{projects.map((p) => <option key={p} value={p} />)}</datalist>
+              <div className="mt-2 empty:hidden"><CoursePicker kind="task" id={task.id} /></div>
+            </Card>
+            {!finished && (
+              <Card icon={<Timer />} title="Focus timer" hint="Work on this task with a timer.">
+                {focus.session ? (
+                  <p className="text-[13px] text-muted-foreground">{focus.session.task_id === task.id ? <>Focusing on this task · <span className="tabular-nums text-foreground">{focusClock(focus.remaining)}</span> left</> : "A focus session is already running."}</p>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <FocusLength minutes={minutes} onChange={(m) => void setMinutes(m)} />
+                    <Button size="sm" variant="outline" className="border-primary/60 text-primary hover:bg-primary/10" aria-label={`Focus ${minutes} min`}
+                      onClick={() => void focus.start("FOCUS", minutes, task.id)}><Play />Start focus</Button>
+                  </div>
+                )}
+              </Card>
+            )}
+            <Card icon={<FileText />} title="Note">
+              <div className="flex gap-2">
+                <select id="td-note" aria-label="Linked note" value={noteId} onChange={(e) => setNoteId(e.target.value)} className="h-9 min-w-0 flex-1 rounded-md border border-input bg-card px-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <option value="">No note</option>
+                  {notes.map((n) => <option key={n.id} value={n.id}>{n.title || "Untitled"}</option>)}
+                </select>
+                {noteId ? (
+                  <Button size="sm" variant="outline" className="h-9" aria-label="Open note" onClick={() => setOpenNote(noteId)}><ExternalLink />Open</Button>
+                ) : (
+                  <Button size="sm" variant="outline" className="h-9" aria-label="New note from this task" onClick={() => void noteFromTask()}><FilePlus2 />New note</Button>
+                )}
+              </div>
+            </Card>
+            <Card icon={<Link2 />} title="Links" hint="Web pages for this task. Click one to open it.">
+              <LinksEditor task={task} />
+            </Card>
+          </div>
+
+          <Card icon={<History />} title="Updates and history" hint="Write a short progress note; everything that happened to the task is listed with the time." className="lg:col-span-2">
+            <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void addUpdate(); }}>
+              <Input value={update} onChange={(e) => setUpdate(e.target.value)} placeholder="What happened?" aria-label="New work update" maxLength={5000} />
+              <Button type="submit" size="sm" variant="secondary" className="h-9" disabled={!update.trim()}><Plus />Add</Button>
+            </form>
+            <ol className="mt-2" aria-label="History">
+              {lines.map((l) => (
+                <li key={l.key} className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-3 border-t py-2 first:border-t-0">
+                  <span aria-hidden className={cn("grid size-7 place-items-center rounded-full border bg-muted/40", l.update ? "text-primary" : "text-muted-foreground")}>
+                    {l.update ? <Pencil className="size-3.5" /> : <ArrowRight className="size-3.5" />}
+                  </span>
+                  <span className="min-w-0 text-[13px]">{l.text}</span>
+                  <span className="flex items-center gap-1 whitespace-nowrap text-[12px] tabular-nums text-muted-foreground">
+                    {formatWhen(l.at, now)}
+                    {l.update && now - l.at <= DELETE_WINDOW_MS && (
+                      <ConfirmUpdateDelete onConfirm={() => l.update && void actions.removeUpdate(l.update.id)} />
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-1 text-[11px] text-muted-foreground">Created {formatWhen(task.created_at, now)}{task.completed_at ? ` · finished at ${clockTime(task.completed_at)}` : ""}</p>
+          </Card>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 border-t px-4 py-3">
-        {dirty && <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span aria-hidden className="size-1.5 rounded-full bg-primary" />Unsaved changes</span>}
+        {askDelete ? (
+          <div role="alertdialog" aria-label="Delete this task?" className="flex flex-wrap items-center gap-2">
+            <span className="text-[13px] font-medium">{finished ? "Delete this task and its history for good?" : "This task isn’t finished. Delete it anyway?"}</span>
+            <Button size="sm" variant="outline" onClick={() => setAskDelete(false)} autoFocus>Cancel</Button>
+            <Button size="sm" variant="destructive" onClick={() => void actions.removeAny(task).then(onClose)}>Delete</Button>
+          </div>
+        ) : dirty && <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span aria-hidden className="size-1.5 rounded-full bg-primary" />Unsaved changes</span>}
         <div className="ml-auto flex items-center gap-2">
           <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
-          <Button size="sm" onClick={() => void save()}>Save changes</Button>
+          <Button size="sm" onClick={() => void save()}>Save changes<kbd aria-hidden className="ml-1 hidden text-[10px] opacity-70 sm:inline">{navigator.platform.includes("Mac") ? "⌘S" : "Ctrl S"}</kbd></Button>
         </div>
       </div>
       <NoteEditor noteId={openNote} onClose={() => setOpenNote(null)} />
-    </>
+    </div>
+  );
+}
+
+function ConfirmUpdateDelete({ onConfirm }: { onConfirm: () => void }) {
+  return (
+    <ConfirmAction message="Delete this update?" onConfirm={onConfirm}>
+      <button type="button" aria-label="Delete update" title="Can be deleted for 5 minutes"
+        className="grid size-6 place-items-center rounded text-muted-foreground outline-none hover:bg-destructive/15 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring"><X className="size-3.5" /></button>
+    </ConfirmAction>
   );
 }

@@ -79,7 +79,7 @@ describe("Notes screen (against the in-memory shell)", () => {
     await user.click(await screen.findByRole("button", { name: "Edit Refactor the tray menu" }));
     const dialog = await screen.findByRole("dialog");
     // Each setting says what it is for (owner 2026-10-25).
-    expect(within(dialog).getByText("The last day it can be done. After that it shows as overdue.")).toBeTruthy();
+    expect(within(dialog).getByText("When you work on it, and the last day it can be done.")).toBeTruthy();
     await user.click(within(dialog).getByRole("radio", { name: "High" }));
     await user.type(within(dialog).getByLabelText("Deadline date"), "2030-05-04");
     await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
@@ -165,14 +165,20 @@ describe("Notes screen (against the in-memory shell)", () => {
     await user.click(await screen.findByRole("button", { name: "Open Refactor the tray menu" }));
     const dialog = await screen.findByRole("dialog");
     await user.click(await within(dialog).findByRole("button", { name: "Start" }));
-    expect(await within(dialog).findByRole("button", { name: "Pause" })).toBeTruthy();
+    // Pause, Move and Delete wait in the ⋯ menu (U-3).
+    await user.click(await within(dialog).findByRole("button", { name: "More actions" }));
+    expect(await screen.findByRole("menuitem", { name: "Pause" })).toBeTruthy();
+    await user.keyboard("{Escape}");
     await user.type(within(dialog).getByRole("textbox", { name: "New work update" }), "wired the menu{Enter}");
     expect(await within(dialog).findByText("wired the menu")).toBeTruthy();
-    await user.click(within(dialog).getByRole("button", { name: "Defer to tomorrow" }));
+    await user.click(within(dialog).getByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Move to tomorrow" }));
+    expect(await within(dialog).findByText(/^Moved from /)).toBeTruthy();
     await user.click(await within(dialog).findByRole("button", { name: "Complete" }));
     expect(await within(dialog).findByRole("button", { name: "Reopen" })).toBeTruthy();
     // A finished task can be deleted, after a confirmation.
-    await user.click(within(dialog).getByRole("button", { name: "Delete task" }));
+    await user.click(within(dialog).getByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete task…" }));
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.queryByRole("button", { name: "Open Refactor the tray menu" })).toBeNull();
@@ -781,15 +787,21 @@ describe("task upgrades (FR-106..FR-109)", () => {
     const user = userEvent.setup();
     render(<App />);
     const dialog = await openTask(user, "Clear design feedback");
-    const more = within(dialog).getByText("Advanced options").closest("details") as HTMLDetailsElement;
-    expect(more.open).toBe(false);
-    // Only these sit outside the fold (plus the dialog's own close button).
-    for (const name of ["Title", "Priority"]) expect(within(dialog).getByLabelText(name)).toBeTruthy();
+    // U-3 (owner's reference 2026-11-03): nothing folded away; every setting is its own card.
+    expect(within(dialog).queryByText("Advanced options")).toBeNull();
+    for (const card of ["Schedule", "Details", "Reminder", "Priority", "Project", "Focus timer", "Note", "Links", "Updates and history"]) {
+      expect(within(dialog).getByRole("region", { name: card })).toBeTruthy();
+    }
+    expect(within(within(dialog).getByRole("region", { name: "Priority" })).getAllByRole("radio")).toHaveLength(4);
+    for (const label of ["Title", "Deadline date", "Project name", "Linked note", "Description"]) expect(within(dialog).getByLabelText(label)).toBeTruthy();
+    // One main status button; the rarer actions (Delete…) wait in the ⋯ menu.
     expect(within(within(dialog).getByRole("group", { name: "Status" })).getAllByRole("button")).toHaveLength(1);
-    for (const label of ["Deadline date", "Project name", "Linked note", "Description"]) expect(more.contains(within(dialog).getByLabelText(label))).toBe(true);
-    expect(more.contains(within(dialog).getByRole("button", { name: "Delete task" }))).toBe(true);
+    expect(within(dialog).queryByRole("button", { name: /Delete task/ })).toBeNull();
+    await user.click(within(dialog).getByRole("button", { name: "More actions" }));
+    expect(await screen.findByRole("menuitem", { name: "Delete task…" })).toBeTruthy();
+    await user.keyboard("{Escape}");
     // Never wider or taller than the window.
-    expect(dialog.className).toContain("w-[min(48rem,calc(100vw-2rem))]");
+    expect(dialog.className).toContain("w-[min(74rem,calc(100vw-2rem))]");
     expect(dialog.className).toContain("max-h-[calc(100vh-2rem)]");
   });
 
@@ -839,9 +851,14 @@ describe("task upgrades (FR-106..FR-109)", () => {
     render(<App />);
     const dialog = await openTask(user, "Prepare weekly planning");
     await user.click(within(dialog).getByRole("radio", { name: "Chosen days" }));
-    const days = within(dialog).getByRole("group", { name: "Next 7 days" });
-    await user.click(within(days).getByRole("button", { name: "Today" }));
-    await user.click(within(days).getAllByRole("button")[2] as HTMLElement);
+    // Days are clicked on the month calendar (U-3); the next one may be in next month.
+    const cal = within(dialog).getByRole("group", { name: "Calendar" });
+    await user.click(within(cal).getByRole("button", { name: /, today$/ }));
+    const next = new Date();
+    next.setDate(next.getDate() + 2);
+    const label = next.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+    if (!within(cal).queryByRole("button", { name: label })) await user.click(within(cal).getByRole("button", { name: "Next month" }));
+    await user.click(within(cal).getByRole("button", { name: label }));
     expect(within(within(dialog).getByRole("list", { name: "Chosen days" })).getAllByRole("listitem")).toHaveLength(2);
     await user.click(within(dialog).getByRole("button", { name: "Save changes" }));
     await petSays("Task saved");
@@ -970,8 +987,9 @@ describe("date presets (FR-45)", () => {
     await goTo(user, /^Tasks/);
     await user.click(await screen.findByRole("button", { name: "Open Refactor the tray menu" }));
     const dialog = await screen.findByRole("dialog");
-    await user.click(within(within(dialog).getByRole("group", { name: "Deadline presets" })).getByRole("button", { name: "Tomorrow" }));
-    expect((within(dialog).getByLabelText("Deadline date") as HTMLInputElement).value).toBe(dayPresets().find((p) => p.label === "Tomorrow")?.value);
+    // The planned day keeps its one-click presets; the deadline is typed or read off the calendar (U-3).
+    await user.click(within(within(dialog).getByRole("group", { name: "Planned day presets" })).getByRole("button", { name: "Tomorrow" }));
+    expect((within(dialog).getByLabelText("Planned for") as HTMLInputElement).value).toBe(dayPresets().find((p) => p.label === "Tomorrow")?.value);
     await user.keyboard("{Escape}");
 
     await goTo(user, /^Today/);
@@ -998,7 +1016,7 @@ describe("open tabs are easy to find (FR-62)", () => {
 });
 
 describe("owner's UI reset, batch 1 (2026-10-25)", () => {
-  it("a task reminder: when it starts, how many minutes before (+ / −), and sound", async () => {
+  it("a task reminder: when it starts, how many minutes before, and sound", async () => {
     const { ipc } = await import("@/ipc");
     const user = userEvent.setup();
     render(<App />);
@@ -1009,9 +1027,9 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     const start = within(card).getByLabelText("It starts at") as HTMLInputElement;
     await user.clear(start);
     await user.type(start, "2031-03-04T10:00");
-    expect(within(card).getByText("5 min before")).toBeTruthy();
-    await user.click(within(card).getByRole("button", { name: "Remind earlier" }));
-    expect(within(card).getByText("10 min before")).toBeTruthy();
+    const early = within(card).getByRole("combobox", { name: "How early" }) as HTMLSelectElement;
+    expect(early.value).toBe("5");
+    await user.selectOptions(early, "10");
     await user.click(within(card).getByRole("switch", { name: "Play a sound" }));
     await user.click(within(card).getByRole("button", { name: "Add reminder" }));
     await waitFor(async () => {
@@ -1048,7 +1066,7 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     const [first] = await within(list).findAllByRole("button", { name: /^Open / });
     await user.click(first as HTMLElement);
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByRole("list", { name: "Progress" })).toBeTruthy();
+    expect(within(dialog).getByLabelText(/^Status: /)).toBeTruthy();
     expect(within(dialog).queryByText("Unsaved changes")).toBeNull();
     await user.type(within(dialog).getByRole("textbox", { name: "Title" }), "!");
     expect(await within(dialog).findByText("Unsaved changes")).toBeTruthy();

@@ -5,6 +5,9 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+### Changed
+- **U-3 Task editor, from the owner's reference.** A wide editor of cards: **Schedule** (One day / Chosen days / Repeats, the planned day and the deadline beside a month calendar; planned days filled, the deadline a red ring; chosen days as chips with Clear all), **Details**, **Reminder** (start time, "Remind me" dropdown, Sound) on the left; **Priority** (four choices with the same marks as the task lists and what each means), **Project**, **Focus timer**, **Note**, **Links** on the right; **Updates and history** in one list across the bottom. Pause, Cancel, Move to tomorrow / to a day, and Delete are in the ⋯ menu next to the main button; Delete confirms in the footer. Nothing is folded under "Advanced options" any more. Ctrl/Cmd+S saves. Nothing stored changed. Unverified in the real window.
+
 ### Fixed
 - **The pet stopped saying "Claude Code is done" after a while** (owner 2026-11-03). On Windows, one hook that opened Pluto's private pipe and closed it before Pluto picked it up (likely with several chats finishing close together) ended the pipe for good: every later hook, git reaction and new assistant connection was dropped silently until Pluto restarted. Now a bad connection loses only itself, the pipe reopens by itself if it ever stops, and a hook tries again for up to a second while Pluto is between two connections. Not related to nudges or their limits. Unverified on Windows (clippy and tests for the Windows target pass).
 

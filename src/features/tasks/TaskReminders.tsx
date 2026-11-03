@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ConfirmAction } from "@/components/ConfirmAction";
-import { Bell, Minus, Plus, Volume2, VolumeX, X } from "lucide-react";
+import { Bell, Volume2, VolumeX, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,24 +83,21 @@ export function TaskReminders({ task }: { task: Task }) {
           ))}
         </ul>
       )}
-      <div className="space-y-2">
-        <label className="block space-y-1 text-xs text-muted-foreground">It starts at
+      <div className="grid items-end gap-2 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto]">
+        <label className="space-y-1 text-xs text-muted-foreground">It starts at
           <Input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} aria-label="It starts at" />
         </label>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="inline-flex h-8 items-center overflow-hidden rounded-md border" role="group" aria-label="How early">
-            <button type="button" aria-label="Remind later" disabled={lead === 0} onClick={() => setLead(nextLead(lead, -1))}
-              className="grid h-full w-8 place-items-center text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"><Minus className="size-3.5" /></button>
-            <span className="min-w-28 px-1 text-center text-[13px] font-medium" aria-live="polite">{leadLabel(lead)}</span>
-            <button type="button" aria-label="Remind earlier" disabled={lead === 1440} onClick={() => setLead(nextLead(lead, 1))}
-              className="grid h-full w-8 place-items-center text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"><Plus className="size-3.5" /></button>
-          </div>
-          <label className="flex items-center gap-2 text-[13px]">
-            <Switch checked={sound} onCheckedChange={setSound} aria-label="Play a sound" />Sound
-          </label>
-        </div>
-        <Button type="button" size="sm" variant="secondary" onClick={() => void add()}><Bell />Add reminder</Button>
+        <label className="space-y-1 text-xs text-muted-foreground">Remind me
+          <select aria-label="How early" value={lead} onChange={(e) => setLead(Number(e.target.value))}
+            className="h-9 w-full rounded-md border border-input bg-card px-2 text-[13px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {LEADS.map((m) => <option key={m} value={m}>{leadLabel(m)}</option>)}
+          </select>
+        </label>
+        <label className="flex h-9 items-center gap-2 text-[13px]">
+          <Switch checked={sound} onCheckedChange={setSound} aria-label="Play a sound" />Sound
+        </label>
       </div>
+      <Button type="button" size="sm" variant="secondary" onClick={() => void add()}><Bell />Add reminder</Button>
     </div>
   );
 }

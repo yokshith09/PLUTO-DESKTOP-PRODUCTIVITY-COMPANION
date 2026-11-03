@@ -212,8 +212,8 @@ Order: FS-1 → TT-1, each with a preview first. Owner 2026-11-03: after the UI 
 | H-2 | Cursor | Already connects (`~/.cursor/mcp.json`) | `~/.cursor/hooks.json` `stop` → done | Cursor CLI sends fewer hook events (known Cursor bug). |
 | H-3 | OpenCode | `~/.config/opencode/opencode.json` `mcp.pluto` (`type: local`, command array) | A small plugin file on `session.idle` → done | |
 | H-4 | Windsurf | `~/.codeium/windsurf/mcp_config.json` (`mcpServers`); newer builds also read `%APPDATA%\devin\mcp_config.json` / `~/.config/devin/` — write the ones that exist | Hooks: to be checked when built | Windsurf's docs moved to Devin; verify paths on the owner's PC. |
-| H-5 | ChatGPT (app) | **Not possible locally**: ChatGPT only adds remote HTTPS MCP servers, never a program on your computer. Would need a public tunnel, which breaks "nothing leaves your computer". | — | Shown as a tile that explains this and points to Codex (same account). |
-| H-6 | DeepSeek | **A model, not an app that connects**: use it inside Codex, OpenCode or Cursor and Pluto works there. | — | Shown as a tile that explains this. |
+| H-5 (dropped from the page, owner 2026-11-03) | ChatGPT (app) | **Not possible locally**: ChatGPT only adds remote HTTPS MCP servers, never a program on your computer. Would need a public tunnel, which breaks "nothing leaves your computer". | — | Shown as a tile that explains this and points to Codex (same account). |
+| H-6 (dropped from the page, owner 2026-11-03) | DeepSeek | **A model, not an app that connects**: use it inside Codex, OpenCode or Cursor and Pluto works there. | — | Shown as a tile that explains this. |
 
 Each needs a preview (Assistants page) before code. Unverified until run on the owner's PC.
 
