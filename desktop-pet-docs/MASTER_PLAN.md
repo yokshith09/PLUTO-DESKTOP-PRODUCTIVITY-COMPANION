@@ -198,6 +198,24 @@ Order: FS-1 → TT-1, each with a preview first. Owner 2026-11-03: after the UI 
 | A-3 Long task finished while away | If you were away (idle) when a chat finished, the pet tells you when you come back, once. | Idle detection exists. |
 | A-4 Click to go there | Clicking the bubble brings the terminal or VS Code window of that chat to the front. | Window lookup by folder name in the title (Windows UI Automation; macOS AppleScript). Medium. |
 | A-5 Daily "with Claude" line | End-of-day recap: chats finished, permissions answered, per project. | A-2 first. |
+| A-6 Permission names the tool | "DESKTOP-PET wants to run **Bash**". | The hook message already names the tool. Small. |
+| A-7 Long run notice | "DESKTOP-PET has been working 25 min", so you know it is not stuck. | Prompt-submit time per chat (UserPromptSubmit hook). |
+| A-8 Different chime per kind | "Needs you" and "done" sound different. | Sound setting per reaction. Small. |
+
+**Owner 2026-11-03: all of A-1..A-8 are in the plan**, listed on the Assistants page under "Coming" (clearly marked as not yet working). Suggested order: A-6, A-1, A-8, A-3, A-7, A-2, A-5, A-4 (A-4 last: finding a window by its title is unreliable).
+
+### More assistants (owner 2026-11-03: Codex, Cursor, OpenCode, ChatGPT, Windsurf, DeepSeek)
+
+| Id | Tool | Connect (MCP) | Pet reactions (done / needs you) | Notes |
+|---|---|---|---|---|
+| H-1 | Codex (CLI and app) | `~/.codex/config.toml` `[mcp_servers.pluto]` (TOML, new format in setup) | Codex hooks (beta: Stop) or `notify` on agent-turn-complete; never overwrite a `notify` the user already has | |
+| H-2 | Cursor | Already connects (`~/.cursor/mcp.json`) | `~/.cursor/hooks.json` `stop` → done | Cursor CLI sends fewer hook events (known Cursor bug). |
+| H-3 | OpenCode | `~/.config/opencode/opencode.json` `mcp.pluto` (`type: local`, command array) | A small plugin file on `session.idle` → done | |
+| H-4 | Windsurf | `~/.codeium/windsurf/mcp_config.json` (`mcpServers`); newer builds also read `%APPDATA%\devin\mcp_config.json` / `~/.config/devin/` — write the ones that exist | Hooks: to be checked when built | Windsurf's docs moved to Devin; verify paths on the owner's PC. |
+| H-5 | ChatGPT (app) | **Not possible locally**: ChatGPT only adds remote HTTPS MCP servers, never a program on your computer. Would need a public tunnel, which breaks "nothing leaves your computer". | — | Shown as a tile that explains this and points to Codex (same account). |
+| H-6 | DeepSeek | **A model, not an app that connects**: use it inside Codex, OpenCode or Cursor and Pluto works there. | — | Shown as a tile that explains this. |
+
+Each needs a preview (Assistants page) before code. Unverified until run on the owner's PC.
 
 ## After MCP: UI polish batch (owner 2026-10-31; **not before P4 is done**)
 
