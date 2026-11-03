@@ -650,3 +650,6 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 - 2026-11-03 (owner): Routine tracker is a calendar grid; hovering a day shows the habits planned that day, which were done, and the count. U-1 note editor preview published.
 
 - 2026-11-03 (owner): U-1 built as previewed: ticked items move to a collapsed Done (n) like Google Keep; slash menu kept; Show Markdown kept in the ⋯ menu; "n of m done" on the editor and the card. TipTap 2.11.5 (+ tiptap-markdown 0.8.10) chosen; single line breaks stay line breaks.
+
+- 2026-11-03 (owner): pet lines for Claude Code name the chat (folder + start of the first request) and tell a permission request (`agent_permission`) from waiting for a reply. Reaction line protocol gains an optional percent-encoded place word (old lines still work).
+- 2026-11-03 (owner): U-2 approved: name/birthday/pet details move from Character to Settings › Profile (Character links there); nudges stay on Character; Settings always opens on Main settings.

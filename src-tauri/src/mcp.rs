@@ -15,9 +15,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use pluto_core::mcp::activity::{Activity, Call};
 use pluto_core::mcp::ask::{Question, ANSWER_WAIT};
-use pluto_core::mcp::link;
 use pluto_core::mcp::setup::{self, Format};
 use pluto_core::mcp::write::{self, Change};
+use pluto_core::mcp::{hookctx, link};
 use pluto_core::mcp::{Host, HostFuture, PetMessage, RateLimit, Status};
 use pluto_core::settings_service::SettingsService;
 use serde::Serialize;
@@ -87,9 +87,61 @@ async fn react_now(assistant: &str, reaction: &str) {
     if token.is_empty() {
         return;
     }
+    // A Claude Code hook pipes its chat's details in: say which chat (folder, first request)
+    // and whether it is asking for permission (owner 2026-11-03).
+    let (reaction, place) = match hook_input() {
+        Some(input) => from_hook(reaction, &input),
+        None => (reaction, None),
+    };
     if let Some(pipe) = connect().await {
-        let _ = link::send_reaction(pipe, &token, assistant, reaction).await;
+        let _ = link::send_reaction(pipe, &token, assistant, reaction, place.as_deref()).await;
     }
+}
+
+/// The reaction and the chat it is about, from a Claude Code hook's input: a "needs you" that asks
+/// for a permission becomes `agent_permission`; the place is the folder and the first request.
+fn from_hook<'a>(reaction: &'a str, input: &str) -> (&'a str, Option<String>) {
+    let ctx = hookctx::parse(input);
+    let request = ctx
+        .transcript
+        .as_deref()
+        .and_then(transcript_head)
+        .and_then(|t| hookctx::first_request(&t));
+    let reaction = if ctx.permission && reaction == "agent_needs_you" {
+        "agent_permission"
+    } else {
+        reaction
+    };
+    (reaction, hookctx::place(&ctx, request.as_deref()))
+}
+
+/// What a hook wrote to our stdin, if anything (never waits on a terminal, at most 1 s).
+fn hook_input() -> Option<String> {
+    use std::io::{IsTerminal, Read};
+    if std::io::stdin().is_terminal() {
+        return None;
+    }
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut buf = String::new();
+        let _ = std::io::stdin().take(64 * 1024).read_to_string(&mut buf);
+        let _ = tx.send(buf);
+    });
+    rx.recv_timeout(std::time::Duration::from_secs(1))
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+}
+
+/// The start of a chat's transcript (enough to find its first request).
+fn transcript_head(path: &Path) -> Option<String> {
+    use std::io::Read;
+    let mut buf = Vec::new();
+    std::fs::File::open(path)
+        .ok()?
+        .take(256 * 1024)
+        .read_to_end(&mut buf)
+        .ok()?;
+    Some(String::from_utf8_lossy(&buf).into_owned())
 }
 
 /// What the command line asks for, read before Tauri starts.
@@ -951,6 +1003,33 @@ mod tests {
 
     fn args(list: &[&str]) -> Vec<String> {
         list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn a_claude_code_hook_names_its_chat_and_a_permission_request_is_its_own_reaction() {
+        let dir = tempfile::tempdir().unwrap();
+        let t = dir.path().join("chat.jsonl");
+        std::fs::write(
+            &t,
+            "{\"type\":\"user\",\"message\":{\"content\":\"Add Tab Tantrum\"}}\n",
+        )
+        .unwrap();
+        let input = serde_json::json!({ "cwd": "E:\\Projects\\DESKTOP-PET", "transcript_path": t, "message": "Claude needs your permission to use Bash" }).to_string();
+        assert_eq!(
+            from_hook("agent_needs_you", &input),
+            (
+                "agent_permission",
+                Some("DESKTOP-PET · “Add Tab Tantrum”".to_owned())
+            )
+        );
+        let done =
+            serde_json::json!({ "cwd": "/home/me/staysync", "transcript_path": "/missing.jsonl" })
+                .to_string();
+        assert_eq!(
+            from_hook("agent_done", &done),
+            ("agent_done", Some("staysync".to_owned()))
+        );
+        assert_eq!(from_hook("agent_done", "garbage"), ("agent_done", None));
     }
 
     #[test]

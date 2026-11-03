@@ -138,7 +138,7 @@ pub fn start(app: AppHandle, settings: Arc<SettingsService>) {
                         .unwrap_or_else(|| spaces::folder_name(repo));
                     let mcp = app.state::<crate::mcp::Mcp>();
                     let host = crate::mcp::shell_host(&app, &mcp);
-                    let _ = PlutoMcp::new(host, &name, limit.clone()).react_once(reaction);
+                    let _ = PlutoMcp::new(host, &name, limit.clone()).react_once(reaction, None);
                 }
             }
             tokio::time::sleep(TICK).await;

@@ -7,6 +7,7 @@
 
 pub mod activity;
 pub mod ask;
+pub mod hookctx;
 mod limit;
 pub mod link;
 pub mod read;
@@ -128,6 +129,7 @@ pub struct PetMessage {
 pub const REACTIONS: &[(&str, &str)] = &[
     ("agent_done", "{} is done"),
     ("agent_needs_you", "{} needs you"),
+    ("agent_permission", "{} wants your permission"),
     ("agent_error", "{} hit an error"),
     ("git_commit", "{}: committed"),
     ("git_push", "{}: pushed"),
@@ -320,14 +322,20 @@ impl PlutoMcp {
 
     /// One reaction from a hook, git or a build (no MCP session): the same limit, focus guard and
     /// log as the `react` tool. Returns what happened, in words.
-    pub fn react_once(&self, reaction: &'static str) -> String {
+    /// Plays one reaction. `place` says where it happened (a chat's folder and first request),
+    /// shown after the line: "Claude Code is done · DESKTOP-PET · “fix tray”".
+    pub fn react_once(&self, reaction: &'static str, place: Option<&str>) -> String {
         let result = match (self.over_limit("react"), &self.host) {
             (Some(refused), _) => refused,
             (None, None) => Self::refused(NOT_RUNNING),
             (None, Some(host)) => {
-                let text = reaction_line(reaction, &self.assistant)
+                let line = reaction_line(reaction, &self.assistant)
                     .map(|(_, t)| t)
                     .unwrap_or_default();
+                let text = match place.and_then(hookctx::clean_place) {
+                    Some(p) => format!("{line} · {p}"),
+                    None => line,
+                };
                 let shown = Self::show_or_hold(
                     host,
                     PetMessage {

@@ -35,17 +35,28 @@ pub fn hello_line(token: &str, assistant: &str) -> String {
 }
 
 /// The one line a hook, a git hook or a build sends to play one reaction and close (developer
-/// reactions, P4.2/P4.3): `PLUTO1R <token> <id> <reaction>`.
+/// reactions, P4.2/P4.3): `PLUTO1R <token> <id> <reaction> [place]`, where the optional place
+/// (which chat or project, percent-encoded) is shown after the line.
 pub const REACT_HELLO: &str = "PLUTO1R";
 
-pub fn react_line(token: &str, assistant: &str, reaction: &str) -> String {
-    format!("{REACT_HELLO} {token} {assistant} {reaction}\n")
+pub fn react_line(token: &str, assistant: &str, reaction: &str, place: Option<&str>) -> String {
+    match place.and_then(super::hookctx::clean_place) {
+        Some(p) => format!(
+            "{REACT_HELLO} {token} {assistant} {reaction} {}\n",
+            super::hookctx::encode(&p)
+        ),
+        None => format!("{REACT_HELLO} {token} {assistant} {reaction}\n"),
+    }
 }
 
+/// A checked reaction line: the assistant id, the reaction, and where (if given).
+pub type ReactLine = (String, &'static str, Option<String>);
+
 /// Checks a reaction line: the token, the id, and a reaction Pluto knows.
-pub fn check_react(line: &str, token: &str) -> Result<(String, &'static str), Refused> {
+pub fn check_react(line: &str, token: &str) -> Result<ReactLine, Refused> {
     let mut parts = line.trim_end_matches(['\r', '\n']).split(' ');
-    let (Some(REACT_HELLO), Some(given), Some(id), Some(name), None) = (
+    let (Some(REACT_HELLO), Some(given), Some(id), Some(name), place, None) = (
+        parts.next(),
         parts.next(),
         parts.next(),
         parts.next(),
@@ -53,6 +64,14 @@ pub fn check_react(line: &str, token: &str) -> Result<(String, &'static str), Re
         parts.next(),
     ) else {
         return Err(Refused::BadHello);
+    };
+    let place = match place {
+        Some(w) => Some(
+            super::hookctx::decode(w)
+                .and_then(|p| super::hookctx::clean_place(&p))
+                .ok_or(Refused::BadHello)?,
+        ),
+        None => None,
     };
     if !same(given.as_bytes(), token.as_bytes()) {
         return Err(Refused::WrongToken);
@@ -62,7 +81,7 @@ pub fn check_react(line: &str, token: &str) -> Result<(String, &'static str), Re
         .find(|(n, _)| *n == name)
         .map(|(n, _)| *n);
     match known {
-        Some(reaction) if id_is_valid(id) => Ok((id.to_owned(), reaction)),
+        Some(reaction) if id_is_valid(id) => Ok((id.to_owned(), reaction, place)),
         _ => Err(Refused::BadHello),
     }
 }
@@ -160,9 +179,9 @@ where
         .await
         .map_err(|_| Refused::NoHello)??;
     if line.starts_with(REACT_HELLO) {
-        let (id, reaction) = check_react(&line, token)?;
+        let (id, reaction, place) = check_react(&line, token)?;
         let server = PlutoMcp::new(host, &display_name(&id), limit_for(&id));
-        let said = server.react_once(reaction);
+        let said = server.react_once(reaction, place.as_deref());
         let _ = stream.write_all(format!("{said}\n").as_bytes()).await;
         let _ = stream.shutdown().await;
         return Ok(id);
@@ -181,11 +200,12 @@ pub async fn send_reaction<P>(
     token: &str,
     assistant: &str,
     reaction: &str,
+    place: Option<&str>,
 ) -> Option<String>
 where
     P: AsyncRead + AsyncWrite + Unpin,
 {
-    pipe.write_all(react_line(token, assistant, reaction).as_bytes())
+    pipe.write_all(react_line(token, assistant, reaction, place).as_bytes())
         .await
         .ok()?;
     let mut answer = String::new();

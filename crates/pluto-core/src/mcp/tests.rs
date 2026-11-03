@@ -424,23 +424,48 @@ mod link_tests {
         let pluto = tokio::spawn(async move {
             link::accept(pluto_end, "tok", h, |_| Arc::new(RateLimit::default())).await
         });
-        let said = link::send_reaction(hook_end, "tok", "claude-code", "agent_done").await;
+        let said = link::send_reaction(
+            hook_end,
+            "tok",
+            "claude-code",
+            "agent_done",
+            Some("DESKTOP-PET · “fix tray”"),
+        )
+        .await;
         assert_eq!(said.as_deref(), Some("The pet showed agent_done."));
         assert_eq!(pluto.await.unwrap(), Ok("claude-code".into()));
-        assert_eq!(host.shown.lock().unwrap()[0].text, "Claude Code is done");
+        assert_eq!(
+            host.shown.lock().unwrap()[0].text,
+            "Claude Code is done · DESKTOP-PET · “fix tray”"
+        );
         assert_eq!(host.recorded.lock().unwrap()[0].0, "react");
 
         assert_eq!(
-            link::check_react(&link::react_line("bad", "git", "git_push"), "tok"),
+            link::check_react(&link::react_line("bad", "git", "git_push", None), "tok"),
             Err(Refused::WrongToken)
         );
         assert_eq!(
-            link::check_react(&link::react_line("tok", "git", "explode"), "tok"),
+            link::check_react(&link::react_line("tok", "git", "explode", None), "tok"),
             Err(Refused::BadHello)
         );
         assert_eq!(
-            link::check_react(&link::react_line("tok", "git", "git_push"), "tok"),
-            Ok(("git".into(), "git_push"))
+            link::check_react(&link::react_line("tok", "git", "git_push", None), "tok"),
+            Ok(("git".into(), "git_push", None))
+        );
+        assert_eq!(
+            link::check_react(
+                &link::react_line("tok", "claude-code", "agent_permission", Some("staysync")),
+                "tok"
+            ),
+            Ok((
+                "claude-code".into(),
+                "agent_permission",
+                Some("staysync".into())
+            ))
+        );
+        assert_eq!(
+            link::check_react("PLUTO1R tok git git_push %ZZ\n", "tok"),
+            Err(Refused::BadHello)
         );
     }
 

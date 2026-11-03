@@ -189,6 +189,16 @@ P4's local part is done in code (MCP, hooks, git watcher, Project Spaces). Full 
 
 Order: FS-1 → TT-1, each with a preview first. Both before the UI polish batch only if the owner says so; otherwise right after U-1.
 
+### Assistant ideas (owner asked 2026-11-03 for more like "which chat needs you"; not built, owner to pick)
+
+| Idea | What you would see | Needs |
+|---|---|---|
+| A-1 Waiting count on the pet | A small badge "2" when two chats are waiting for you; hover lists them by folder. | Hooks already send it; keep a list until the chat replies (UserPromptSubmit hook clears it). |
+| A-2 Chats in Project Activity | A project's Activity shows "Claude Code finished · “Add Tab Tantrum”" for chats in its folder. | Folder → project (built); store hook events like git events. |
+| A-3 Long task finished while away | If you were away (idle) when a chat finished, the pet tells you when you come back, once. | Idle detection exists. |
+| A-4 Click to go there | Clicking the bubble brings the terminal or VS Code window of that chat to the front. | Window lookup by folder name in the title (Windows UI Automation; macOS AppleScript). Medium. |
+| A-5 Daily "with Claude" line | End-of-day recap: chats finished, permissions answered, per project. | A-2 first. |
+
 ## After MCP: UI polish batch (owner 2026-10-31; **not before P4 is done**)
 
 MCP is the top priority once the open fixes are out. These four come after it, in this order, and each needs a preview approved by the owner before it is built (CLAUDE.md: ask before design choices).
@@ -205,7 +215,7 @@ MCP is the top priority once the open fixes are out. These four come after it, i
 | U-8 | **Routine tracker (FR-114)** | Owner 2026-11-02: "progress from day to day, how many routines I follow, my performance" | Calendar grid, week vs week, each habit's 30-day rate, "x of the last 7 days" (no guilt streaks). Hovering a day shows its planned and completed habits with the count (owner 2026-11-03). Needs each day's planned habits stored from now on. Preview first. |
 | U-7 | **Project templates (FR-113, #31-33)** | Owner list 2026-11-02 | Developer · Student · Research · Freelance · Personal set the first tabs of a Project Space; one page, not five. Preview first. |
 
-**Progress:** U-1 built 2026-11-03 (Unverified). Next: U-2. Rule: a preview, owner approval, then code; one item at a time, tests with each, docs in the same change.
+**Progress:** U-1 built 2026-11-03 (Unverified). U-2 approved 2026-11-03 (name and pet details move to Profile with a link from Character; nudges stay on Character; Settings opens on Main) — building. Rule: a preview, owner approval, then code; one item at a time, tests with each, docs in the same change.
 
 Other pages are fine for now (owner); they get fixed later, as they come up.
 

@@ -322,3 +322,5 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-02: owner decisions recorded (name Pluto, usage counts allowed, credentials as a user file, AI later, computer use last, signing on hold); FR-114 routine tracker added (U-8).
 
 - 2026-11-03: U-1 note editor built (tests: 525 UI, 551 core, 48 shell). Unverified on a real PC. Next: U-2 Settings in two tabs (preview first), or FS-1/TT-1 if the owner moves them up.
+
+- 2026-11-03: Claude Code chat named on the pet (folder + first request; permission vs reply). Tests 555 core, 49 shell. Unverified on Windows. Next: U-2 build.
