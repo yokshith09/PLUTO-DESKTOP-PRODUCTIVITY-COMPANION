@@ -187,7 +187,7 @@ P4's local part is done in code (MCP, hooks, git watcher, Project Spaces). Full 
 | FS-1 | **Full-screen compatibility (FR-26)** | Setting "In full screen: Hide · Small in a corner · Stay" (default Small in a corner). The pet, Focus timer pill and Tab Tantrum still work over a full-screen browser, video or editor. | Windows: pet window stays topmost (borderless full screen; exclusive full-screen games cannot be drawn over, said in the setting). macOS: full-screen auxiliary + all Spaces. | Owner checks a full-screen browser and video on Windows and Mac. |
 | TT-1 | **Tab Tantrum (FR-08)** | Past your limit (default 15 tabs in the front browser window), the pet throws a small tantrum; click it to see the tabs and close some. Off by default. | **Blocker fixed:** the count comes from the tab strip, which lists every tab's title on Windows (accurate count); only the domain of background tabs is unknown there. macOS reads every tab. No extension. Uses the existing `tracking.sites` permission. | Unit tests for the threshold and cooldown; owner checks the count against a real browser. |
 
-Order: FS-1 → TT-1, each with a preview first. Both before the UI polish batch only if the owner says so; otherwise right after U-1.
+Order: FS-1 → TT-1, each with a preview first. Owner 2026-11-03: after the UI polish (U-3 first).
 
 ### Assistant ideas (owner asked 2026-11-03 for more like "which chat needs you"; not built, owner to pick)
 
@@ -208,6 +208,7 @@ MCP is the top priority once the open fixes are out. These four come after it, i
 | U-1 | **Rich-text note editor** | Tick a checklist box while writing, in the editing view (today boxes can be ticked in Preview only). | Replaces the plain text box with an editor that shows boxes, bold, headings and lists as you type, and still saves Markdown, so existing notes, search and export are unchanged. Needs a library choice (decision) and a migration test over real notes. The biggest of the four. |
 | U-2 | **Settings in two tabs** | "Main settings" and "Profile" (grouping, not a new page). | Profile = the role, name, birthday, tour and quiz that sit in Settings and the Character page today. Preview first. |
 | U-3 | **Task editor, tidier** | "Optimise the UI". | A calmer layout of the editor that already has one row per property (links, star, repeat, reminder lead and sound, focus length). Preview first, with what is dropped or moved listed before it is touched. |
+| U-9 | **Character page, cleaner** | Owner 2026-11-03: "enhance the UI, keep the reactions collapsed under a neatly designed button, keep borders and layouts good." | The moment list (Idle, Working, …) folds behind one button; even borders and spacing across the page. Preview first, after U-3. |
 | U-4 | **Diary and Study tabs, richer** | "Enhance". | What "enhance" means is not decided: the owner picks from a list of options (for example: Diary mood and streak view, a weekly look back; Study timetable view, a study-time chart per course, flashcard-style review). Not designed yet. |
 
 | U-5 | **Tiles: free resize (FR-22, #7)** | Owner list 2026-11-02 | Optional; today a row shares its width equally. Preview first. |
