@@ -79,7 +79,8 @@ Owner decisions on 2026-11-02: **#11 Full-screen compatibility and Tab Tantrum: 
 
 **FR-114 Routine tracker (new).** Day-to-day progress of the daily routine: how many routines you follow, how many you did each day, and how you are doing over time.
 - What exists: the Daily routine tile keeps 60 days of which habits were ticked (`ui.routine.history`) and shows "x/7" per habit.
-- Missing data (fix): the history does not record how many habits you had on each day, so a day's % cannot be computed honestly. Add `history[day] = { done: ids, of: count }` from the next rollover; older days show done count only, marked as such.
+- Missing data (fix): the history does not record which habits you had on each day. Add `history[day] = { planned: ids + titles, done: ids }` from the next rollover; older days show only what was done, marked as such.
+- **Hover (owner 2026-11-03):** each day's square, on hover or keyboard focus, shows that day's planned habits with a tick or not for each, and the count ("4 of 6 done").
 - Screen (preview first): a Routine page or a tab on the tile's expand: a calendar grid (square per day, darker = more done), this week vs last week, each habit's 30-day rate, best and current run (shown as "5 of the last 7 days", not a guilt streak, FR-90), and the days you missed with no red alarms. Keep 365 days instead of 60.
 - Plan: U-8 in the UI polish batch, after U-6 (same calendar grid component).
 

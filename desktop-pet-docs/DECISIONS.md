@@ -646,3 +646,5 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 - 2026-11-02 (owner): AI provider decided when P8 starts. Computer use is the last item. Code signing on hold.
 - 2026-11-02 (owner): credentials stay in the user's own file on their PC; Pluto provides the file format (`NAME=value`, `# rotate:` dates) and links the file's path per project; values masked, revealed only on confirm, never stored by Pluto.
 - 2026-11-02 (owner): new FR-114 Routine tracker (day-to-day progress, number of routines, performance), U-8 in the UI polish batch; routine history starts recording each day's habit count and keeps 365 days.
+
+- 2026-11-03 (owner): Routine tracker is a calendar grid; hovering a day shows the habits planned that day, which were done, and the count. U-1 note editor preview published.
