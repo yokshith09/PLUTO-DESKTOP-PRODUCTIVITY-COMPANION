@@ -205,7 +205,7 @@ MCP is the top priority once the open fixes are out. These four come after it, i
 | U-8 | **Routine tracker (FR-114)** | Owner 2026-11-02: "progress from day to day, how many routines I follow, my performance" | Calendar grid, week vs week, each habit's 30-day rate, "x of the last 7 days" (no guilt streaks). Hovering a day shows its planned and completed habits with the count (owner 2026-11-03). Needs each day's planned habits stored from now on. Preview first. |
 | U-7 | **Project templates (FR-113, #31-33)** | Owner list 2026-11-02 | Developer · Student · Research · Freelance · Personal set the first tabs of a Project Space; one page, not five. Preview first. |
 
-**Ready to start (2026-11-02):** U-1 first. Rule: a preview, owner approval, then code; one item at a time, tests with each, docs in the same change.
+**Progress:** U-1 built 2026-11-03 (Unverified). Next: U-2. Rule: a preview, owner approval, then code; one item at a time, tests with each, docs in the same change.
 
 Other pages are fine for now (owner); they get fixed later, as they come up.
 

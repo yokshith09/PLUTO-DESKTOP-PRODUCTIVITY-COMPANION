@@ -25,7 +25,7 @@ async function violations(container: HTMLElement) {
 class NoopObserver { observe() { /* no layout in jsdom */ } unobserve() { /* nothing */ } disconnect() { /* nothing */ } }
 vi.stubGlobal("ResizeObserver", NoopObserver);
 
-const note: NoteSummary = { id: "n1", title: "Plan", excerpt: "Read chapter 3", color: "default", pinned: false, archived: false, created_at: 0, edited_at: 0, labels: [], project: null };
+const note: NoteSummary = { id: "n1", title: "Plan", excerpt: "Read chapter 3", color: "default", pinned: false, archived: false, created_at: 0, edited_at: 0, labels: [], project: null, checks_done: 0, checks_total: 0 };
 const handlers = () => ({ onOpen: vi.fn(), onPin: vi.fn(), onArchive: vi.fn(), onDelete: vi.fn() });
 const wrap = (ui: React.ReactElement) => <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>;
 

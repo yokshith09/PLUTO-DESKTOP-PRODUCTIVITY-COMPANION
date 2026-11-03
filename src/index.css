@@ -259,3 +259,30 @@ html.pet * { scrollbar-width: none; }
 .pet-lid-late { animation-delay: 0.4s; }
 .pet-look { transform-box: view-box; transform-origin: 100px 120px; animation: pet-look 2.8s ease-in-out infinite; }
 @keyframes pet-look { 0%, 100% { transform: rotate(0); } 40%, 70% { transform: rotate(-4deg); } }
+
+/* U-1 rich note editor (TipTap). Boxes, headings and lists as you write. */
+.pluto-rich .ProseMirror { min-height: 16rem; outline: none; }
+.pluto-rich .ProseMirror > * + * { margin-top: 0.35em; }
+.pluto-rich .ProseMirror h1 { font-size: 1.35em; font-weight: 650; }
+.pluto-rich .ProseMirror h2 { font-size: 1.2em; font-weight: 650; margin-top: 0.6em; }
+.pluto-rich .ProseMirror h3 { font-size: 1.05em; font-weight: 650; }
+.pluto-rich .ProseMirror ul:not([data-type="taskList"]) { list-style: disc; padding-left: 1.4em; }
+.pluto-rich .ProseMirror ol { list-style: decimal; padding-left: 1.6em; }
+.pluto-rich .ProseMirror ul[data-type="taskList"] { list-style: none; padding-left: 0; }
+.pluto-rich .ProseMirror ul[data-type="taskList"] li { display: flex; gap: 0.6em; align-items: flex-start; }
+.pluto-rich .ProseMirror ul[data-type="taskList"] li > label { margin-top: 0.28em; flex: none; user-select: none; }
+.pluto-rich .ProseMirror ul[data-type="taskList"] li > div { flex: 1; min-width: 0; }
+.pluto-rich .ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+  appearance: none; width: 1.05em; height: 1.05em; border-radius: 0.3em; border: 1.6px solid var(--muted-foreground);
+  display: grid; place-items: center; cursor: pointer; margin: 0;
+}
+.pluto-rich .ProseMirror ul[data-type="taskList"] input[type="checkbox"]:checked { background: var(--primary); border-color: var(--primary); }
+.pluto-rich .ProseMirror ul[data-type="taskList"] input[type="checkbox"]:checked::after {
+  content: ""; width: 0.3em; height: 0.55em; border: solid var(--primary-foreground); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px);
+}
+.pluto-rich .ProseMirror ul[data-type="taskList"] input[type="checkbox"]:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.pluto-rich .ProseMirror li[data-checked="true"] > div { color: var(--muted-foreground); text-decoration: line-through; }
+.pluto-rich.hide-done .ProseMirror li[data-checked="true"] { display: none; }
+.pluto-rich .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder); color: var(--muted-foreground); float: left; height: 0; pointer-events: none;
+}

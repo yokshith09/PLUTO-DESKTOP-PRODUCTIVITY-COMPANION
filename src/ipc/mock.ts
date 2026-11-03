@@ -157,7 +157,8 @@ export function createMock() {
 
   function summary(x: Note): NoteSummary {
     const { body, ...rest } = x;
-    return { ...rest, excerpt: body.slice(0, 200) };
+    const done = (body.match(/^\s*[-*+] \[[xX]\]/gm) ?? []).length;
+    return { ...rest, excerpt: body.slice(0, 200), checks_done: done, checks_total: done + (body.match(/^\s*[-*+] \[ \]/gm) ?? []).length };
   }
   const find = (id: unknown) => notes.find((x) => x.id === id) ?? fail("NOT_FOUND", "That note no longer exists.");
 

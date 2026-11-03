@@ -134,6 +134,36 @@ pub struct NoteSummary {
     pub edited_at: i64,
     pub labels: Vec<Label>,
     pub project: Option<String>,
+    /// Checklist boxes in the whole note, and how many are ticked ("2 of 5 done" on the card, U-1).
+    pub checks_done: u32,
+    pub checks_total: u32,
+}
+
+/// Checklist boxes (`- [ ]` / `- [x]` lines) in a note body: (ticked, all).
+pub fn check_count(body: &str) -> (u32, u32) {
+    let mut done = 0;
+    let mut total = 0;
+    for line in body.lines() {
+        let t = line.trim_start();
+        let rest = t
+            .strip_prefix("- ")
+            .or_else(|| t.strip_prefix("* "))
+            .or_else(|| t.strip_prefix("+ "));
+        let Some(rest) = rest.map(str::trim_start) else {
+            continue;
+        };
+        if rest.starts_with("[ ] ") || rest == "[ ]" {
+            total += 1;
+        } else if rest.starts_with("[x] ")
+            || rest.starts_with("[X] ")
+            || rest == "[x]"
+            || rest == "[X]"
+        {
+            total += 1;
+            done += 1;
+        }
+    }
+    (done, total)
 }
 
 /// A card in the Bin: what the list shows, plus when the note was binned. It is permanently
@@ -694,7 +724,7 @@ fn summaries(
     args: &[&dyn rusqlite::ToSql],
 ) -> Result<Vec<SummaryRow>> {
     let sql = format!(
-        "SELECT n.id, n.title, substr(n.body, 1, {EXCERPT_CHARS}), n.color, n.pinned, n.archived, n.created_at, n.edited_at, n.deleted_at, n.project
+        "SELECT n.id, n.title, substr(n.body, 1, {EXCERPT_CHARS}), n.color, n.pinned, n.archived, n.created_at, n.edited_at, n.deleted_at, n.project, n.body
            FROM notes n {tail}"
     );
     let mut stmt = conn.prepare(&sql)?;
@@ -711,6 +741,7 @@ fn summaries(
                 r.get::<_, i64>(7)?,
                 r.get::<_, Option<i64>>(8)?,
                 r.get::<_, Option<String>>(9)?,
+                check_count(&r.get::<_, String>(10)?),
             ))
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?
@@ -727,6 +758,7 @@ fn summaries(
                 edited_at,
                 deleted_at,
                 project,
+                (checks_done, checks_total),
             )| {
                 Ok((
                     NoteSummary {
@@ -738,6 +770,8 @@ fn summaries(
                         archived,
                         created_at,
                         edited_at,
+                        checks_done,
+                        checks_total,
                         labels: Vec::new(),
                         project,
                     },
@@ -1953,5 +1987,17 @@ mod tests {
             after.edited_at, note.edited_at,
             "losing a label is not an edit of the note"
         );
+    }
+}
+
+#[cfg(test)]
+mod check_count_tests {
+    use super::check_count;
+
+    #[test]
+    fn counts_ticked_and_open_boxes_in_the_whole_note() {
+        let body = "# Release\n- [x] changelog\n- [ ] sign\n  - [X] nested\n* [ ] star bullet\n- not a box\n[ ] no bullet\n- [x]";
+        assert_eq!(check_count(body), (3, 5));
+        assert_eq!(check_count(""), (0, 0));
     }
 }

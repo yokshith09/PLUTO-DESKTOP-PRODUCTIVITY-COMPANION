@@ -5,6 +5,9 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+### Added
+- **U-1 Note editor: tick boxes while you write.** Notes show boxes, headings, lists, bold and italic as you type (TipTap); a box ticks right where it is, and ticked items move to the bottom under a collapsed **Done (n)**, like Google Keep. Typing `[]`, `#`, `-` or `1.` and a space formats the line; `/` opens an insert menu (Checklist, Heading, Bullet list, Numbered list); Ctrl/Cmd+Enter ticks the line you are on. "2 of 5 done" shows in the editor and on the note's card (counted over the whole note by the core). The Preview button is gone; **⋯ › Show Markdown** (Ctrl/Cmd+E) shows the plain source. Notes are still saved as Markdown, written only when you change something, so older notes open unchanged; one-thing-per-line notes keep their lines. Colour, labels, pin, archive, delete, font, course, project and Own window are unchanged. Unverified on Windows/macOS.
+
 ### Docs
 - Owner decisions recorded (stays Pluto; usage counts may be sent; credentials as the user's own file; AI later; computer use last; signing on hold) and FR-114 Routine tracker planned (U-8).
 - Plan updated from the owner's 33-item feature list: status, key points and a fix for each blocker; P4.5 full screen + Tab Tantrum; FR-113 project templates; U-5 to U-7.

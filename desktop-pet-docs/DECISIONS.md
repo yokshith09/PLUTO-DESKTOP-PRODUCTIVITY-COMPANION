@@ -648,3 +648,5 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 - 2026-11-02 (owner): new FR-114 Routine tracker (day-to-day progress, number of routines, performance), U-8 in the UI polish batch; routine history starts recording each day's habit count and keeps 365 days.
 
 - 2026-11-03 (owner): Routine tracker is a calendar grid; hovering a day shows the habits planned that day, which were done, and the count. U-1 note editor preview published.
+
+- 2026-11-03 (owner): U-1 built as previewed: ticked items move to a collapsed Done (n) like Google Keep; slash menu kept; Show Markdown kept in the ⋯ menu; "n of m done" on the editor and the card. TipTap 2.11.5 (+ tiptap-markdown 0.8.10) chosen; single line breaks stay line breaks.

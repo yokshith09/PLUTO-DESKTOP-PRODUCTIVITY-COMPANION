@@ -441,3 +441,5 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-02: added P4.5 (FS-1 full-screen compatibility, TT-1 Tab Tantrum), U-5 free tile resize, U-6 Time calendar grid, U-7 / FR-113 project templates. Blockers and fixes per feature in docs/features/OWNER_FEATURE_LIST_2026-11-02.md.
 
 - 2026-11-02: U-8 Routine tracker (FR-114). D-TELEMETRY, D-CRED, D-NAME decided (see DECISIONS).
+
+- 2026-11-03: U-1 done in code. Next U-2.

@@ -95,3 +95,16 @@ export const NOTE_FONTS: { value: NoteFont; label: string }[] = [
 ];
 export const fontClass = (f: NoteFont | null | undefined) =>
   f === "serif" ? "font-serif" : f === "mono" ? "font-mono" : "";
+
+/** How many checklist boxes a note has and how many are ticked ("2 of 5 done", U-1). */
+export function checkCount(md: string): { done: number; total: number } {
+  let done = 0;
+  let total = 0;
+  for (const line of md.split("\n")) {
+    const m = /^\s*[-*+]\s+\[( |x|X)\]\s/.exec(line);
+    if (!m) continue;
+    total += 1;
+    if (m[1] !== " ") done += 1;
+  }
+  return { done, total };
+}

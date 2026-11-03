@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NoteSummary } from "@/ipc";
 import { NoteCard, NoteRow, PinnedCard } from "./NoteCard";
 
-const note: NoteSummary = { id: "n1", title: "Plan", excerpt: "Read chapter 3", color: "default", pinned: false, archived: false, created_at: 0, edited_at: 0, labels: [], project: null };
+const note: NoteSummary = { id: "n1", title: "Plan", excerpt: "Read chapter 3", color: "default", pinned: false, archived: false, created_at: 0, edited_at: 0, labels: [], project: null, checks_done: 0, checks_total: 0 };
 const handlers = () => ({ onOpen: vi.fn(), onPin: vi.fn(), onArchive: vi.fn(), onDelete: vi.fn() });
 
 describe("note card delete (owner 2026-10-27: the confirm shook and vanished)", () => {

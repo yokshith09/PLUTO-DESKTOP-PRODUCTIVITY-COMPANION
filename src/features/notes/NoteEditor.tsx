@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ConfirmAction } from "@/components/ConfirmAction";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, Bold, Check, CheckSquare, Eye, FolderKanban, Heading2, Italic, List, ListOrdered, Palette, Pencil, Pin, PinOff, Plus, SquareArrowOutUpRight, Tag, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Bold, Check, CheckSquare, Code2, FolderKanban, Heading2, Italic, List, ListOrdered, MoreHorizontal, Palette, Pin, PinOff, Plus, SquareArrowOutUpRight, Tag, Trash2, Type } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { RichBody, type RichHandle, type RichKind } from "./RichBody";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -15,9 +17,8 @@ import { keys, useAllTasks, useLabels, useNoteActions, useNotes, useTasksQuery }
 import { TaskDetail } from "@/features/tasks/TaskDetail";
 import { STATUS_LABEL } from "@/lib/taskStatus";
 import { COLOR_NAMES } from "./colors";
-import { MarkdownView } from "./MarkdownView";
 import { CoursePicker } from "@/features/student/CoursePicker";
-import { NOTE_FONTS, continueList, fontClass, lines, toggleCheck, wrap, type Edit, type LineKind, type NoteFont } from "./format";
+import { NOTE_FONTS, checkCount, continueList, fontClass, lines, wrap, type Edit, type LineKind, type NoteFont } from "./format";
 
 const FONT_KEY = ["prefs", "ui.note_font"] as const;
 
@@ -88,7 +89,9 @@ function EditorBody({ note, onClose, fullWindow }: { note: Note; onClose: () => 
   const [body, setBody] = useState(note.body);
   const [status, setStatus] = useState<"saved" | "saving">("saved");
   const [newLabel, setNewLabel] = useState("");
-  const [preview, setPreview] = useState(false);
+  /** "Show Markdown" (⋯ menu): the plain source instead of the formatted editor (owner 2026-11-03). */
+  const [source, setSource] = useState(false);
+  const rich = useRef<RichHandle>(null);
   const [labelsOpen, setLabelsOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const latest = useRef({ title, body });
@@ -146,6 +149,15 @@ function EditorBody({ note, onClose, fullWindow }: { note: Note; onClose: () => 
     edit({ body: next.text });
   };
   const line = (kind: LineKind) => format((e) => lines(e, kind));
+  /** Toolbar: in the formatted editor the editor does it; in the source the text helpers do. */
+  const RICH: Record<LineKind, RichKind> = { heading: "heading", bullet: "bullet", number: "number", check: "check" };
+  const tool = (kind: LineKind | "bold" | "italic") => {
+    if (!source) return rich.current?.run(kind === "bold" || kind === "italic" ? kind : RICH[kind]);
+    if (kind === "bold") return format((e) => wrap(e, "**"));
+    if (kind === "italic") return format((e) => wrap(e, "_"));
+    return line(kind);
+  };
+  const progress = checkCount(body);
   const saveProject = () => {
     if ((note.project ?? "") !== project.trim()) void actions.update(note.id, { project: project.trim() });
   };
@@ -166,6 +178,7 @@ function EditorBody({ note, onClose, fullWindow }: { note: Note; onClose: () => 
       aria-describedby="note-editor-desc"
       onOpenAutoFocus={(e) => {
         e.preventDefault();
+        if (note.title && !source) return void rich.current?.focus();
         const el = note.title ? bodyRef.current : titleRef.current;
         el?.focus();
         el?.setSelectionRange(el.value.length, el.value.length);
@@ -182,11 +195,11 @@ function EditorBody({ note, onClose, fullWindow }: { note: Note; onClose: () => 
         if (!(e.ctrlKey || e.metaKey)) return;
         const k = e.key.toLowerCase();
         if (k === "d" && !e.shiftKey) { e.preventDefault(); void actions.pin(note.id, !note.pinned); }
-        else if (k === "e" && !e.shiftKey) { e.preventDefault(); setPreview((p) => !p); }
+        else if (k === "e" && !e.shiftKey) { e.preventDefault(); setSource((p) => !p); }
         else if (k === "a" && e.shiftKey) { e.preventDefault(); void actions.archive(note.id, !note.archived).then(onClose); }
         else if (k === "l" && !e.shiftKey) { e.preventDefault(); setLabelsOpen(true); }
-        else if (k === "b" && !e.shiftKey && !preview) { e.preventDefault(); format((x) => wrap(x, "**")); }
-        else if (k === "i" && !e.shiftKey && !preview) { e.preventDefault(); format((x) => wrap(x, "_")); }
+        else if (k === "b" && !e.shiftKey && source) { e.preventDefault(); format((x) => wrap(x, "**")); }
+        else if (k === "i" && !e.shiftKey && source) { e.preventDefault(); format((x) => wrap(x, "_")); }
       }}
       showClose={false}
       className={cn("gap-0 overflow-hidden", fullWindow && "left-0 top-0 flex h-screen w-screen max-w-none translate-x-0 translate-y-0 flex-col rounded-none border-0 data-[state=open]:zoom-in-100", note.color !== "default" && "note-tint")}
@@ -194,13 +207,13 @@ function EditorBody({ note, onClose, fullWindow }: { note: Note; onClose: () => 
       <DialogTitle className="sr-only">Edit note</DialogTitle>
       <DialogDescription id="note-editor-desc" className="sr-only">Changes save automatically.</DialogDescription>
       <div role="toolbar" aria-label="Formatting" className="flex flex-wrap items-center gap-0.5 border-b border-foreground/10 px-4 py-2">
-        <ToolButton label={`Bold (${mod}+B)`} onClick={() => format((e) => wrap(e, "**"))} disabled={preview}><Bold /></ToolButton>
-        <ToolButton label={`Italic (${mod}+I)`} onClick={() => format((e) => wrap(e, "_"))} disabled={preview}><Italic /></ToolButton>
-        <ToolButton label="Heading" onClick={() => line("heading")} disabled={preview}><Heading2 /></ToolButton>
+        <ToolButton label={`Bold (${mod}+B)`} onClick={() => tool("bold")}><Bold /></ToolButton>
+        <ToolButton label={`Italic (${mod}+I)`} onClick={() => tool("italic")}><Italic /></ToolButton>
+        <ToolButton label="Heading" onClick={() => tool("heading")}><Heading2 /></ToolButton>
         <span aria-hidden className="mx-1 h-5 w-px bg-foreground/15" />
-        <ToolButton label="Numbered list" onClick={() => line("number")} disabled={preview}><ListOrdered /></ToolButton>
-        <ToolButton label="Bullet list" onClick={() => line("bullet")} disabled={preview}><List /></ToolButton>
-        <ToolButton label="Checklist" onClick={() => line("check")} disabled={preview}><CheckSquare /></ToolButton>
+        <ToolButton label="Numbered list" onClick={() => tool("number")}><ListOrdered /></ToolButton>
+        <ToolButton label="Bullet list" onClick={() => tool("bullet")}><List /></ToolButton>
+        <ToolButton label="Checklist" onClick={() => tool("check")}><CheckSquare /></ToolButton>
         <span aria-hidden className="mx-1 h-5 w-px bg-foreground/15" />
         <select aria-label="Font" value={font} onChange={(e) => void setFont(e.target.value as NoteFont)}
           className="h-7 rounded-md border border-foreground/15 bg-transparent px-1.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -230,8 +243,8 @@ function EditorBody({ note, onClose, fullWindow }: { note: Note; onClose: () => 
           aria-label="Title"
           className="h-auto border-0 bg-transparent px-0 text-xl font-semibold tracking-tight shadow-none focus-visible:ring-0"
         />
-        {preview ? (
-          <div aria-label="Preview" className={cn("min-h-64 overflow-y-auto", fullWindow ? "flex-1" : "max-h-[50vh]")}><MarkdownView source={body} onToggle={(n) => edit({ body: toggleCheck(body, n) })} /></div>
+        {!source ? (
+          <RichBody ref={rich} value={body} onChange={(md) => edit({ body: md })} className={cn("overflow-y-auto", fullWindow ? "flex-1" : "max-h-[50vh]")} />
         ) : (
           <textarea
             ref={bodyRef}
@@ -337,12 +350,13 @@ function EditorBody({ note, onClose, fullWindow }: { note: Note; onClose: () => 
             <Trash2 />
           </Button>
         </ConfirmAction>
-        <Button
-          variant="ghost" size="icon-sm" aria-pressed={preview} aria-label={preview ? "Edit" : "Preview"} title={`${preview ? "Edit" : "Preview"} (${mod}+E)`}
-          onClick={() => setPreview((p) => !p)}
-        >
-          {preview ? <Pencil /> : <Eye />}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label="More" title="More"><MoreHorizontal /></Button></DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="start" className="[&_svg]:size-3.5">
+            <DropdownMenuItem onSelect={() => setSource((s) => !s)}>{source ? <Type /> : <Code2 />}{source ? "Show formatted" : "Show Markdown"}<span className="ml-auto pl-4 text-[11px] text-muted-foreground">{mod}+E</span></DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {progress.total > 0 && <span className="ml-2 text-xs tabular-nums text-foreground/60">{progress.done} of {progress.total} done</span>}
         <span className="ml-auto mr-2 text-xs text-foreground/50" aria-live="polite">
           {status === "saving" ? "Saving…" : `Edited ${timeAgo(note.edited_at)}`}
         </span>

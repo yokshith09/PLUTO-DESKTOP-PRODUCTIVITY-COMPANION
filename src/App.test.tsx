@@ -229,39 +229,61 @@ describe("Notes screen (against the in-memory shell)", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("a note previews as Markdown, never as raw HTML", async () => {
+  it("U-1: the note shows boxes and headings while you write, never raw HTML; a box ticks in place and saves Markdown", async () => {
+    const { ipc } = await import("@/ipc");
     const user = userEvent.setup();
     render(<App />);
     await openNotes(user);
     await user.click(await screen.findByRole("button", { name: "Groceries" }));
     const dialog = await screen.findByRole("dialog");
-    const body = within(dialog).getByRole("textbox", { name: "Note" });
-    await user.clear(body);
-    await user.click(body);
-    await user.paste("# Big heading\n\n- [x] done item\n\n<b>raw</b> text");
-    await user.click(within(dialog).getByRole("button", { name: "Preview" }));
-    const preview = within(dialog).getByLabelText("Preview");
-    expect(within(preview).getByRole("heading", { level: 1, name: "Big heading" })).toBeTruthy();
-    const box = within(preview).getByRole("checkbox") as HTMLInputElement;
-    expect(box.checked).toBe(true);
-    expect(box.disabled).toBe(false); // ticking in the preview edits the note
-    expect(preview.textContent).toContain("<b>raw</b> text");
-    expect(preview.querySelector("b")).toBeNull();
-    await user.click(box);
-    expect((within(preview).getByRole("checkbox") as HTMLInputElement).checked).toBe(false);
-    await user.click(within(dialog).getByRole("button", { name: "Edit" }));
-    expect((within(dialog).getByRole("textbox", { name: "Note" }) as HTMLTextAreaElement).value).toContain("- [ ] done item");
-    await user.click(within(dialog).getByRole("button", { name: "Preview" }));
-    await user.click(within(dialog).getByRole("button", { name: "Edit" }));
-    expect(within(dialog).getByRole("textbox", { name: "Note" })).toBeTruthy();
+    // The source (⋯ › Show Markdown, or Ctrl+E) is where Markdown is typed as text.
+    await user.click(within(dialog).getByRole("button", { name: "More" }));
+    await user.click(await screen.findByRole("menuitem", { name: /Show Markdown/ }));
+    const source = within(dialog).getByRole("textbox", { name: "Note" }) as HTMLTextAreaElement;
+    await user.clear(source);
+    await user.click(source);
+    await user.paste("# Big heading\n\n- [x] done item\n- [ ] open item\n\n<b>raw</b> text");
+    await user.keyboard("{Control>}e{/Control}");
+    const rich = await within(dialog).findByRole("textbox", { name: "Note" });
+    expect(rich.tagName).not.toBe("TEXTAREA");
+    expect(within(rich).getByRole("heading", { level: 1, name: "Big heading" })).toBeTruthy();
+    expect(rich.textContent).toContain("<b>raw</b> text");
+    expect(rich.querySelector("b")).toBeNull();
+    expect(within(dialog).getByText("1 of 2 done")).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Done (1)" })).toBeTruthy();
+    const boxes = within(rich).getAllByRole("checkbox") as HTMLInputElement[];
+    const open = boxes.find((b) => !b.checked) as HTMLInputElement;
+    await user.click(open);
+    await waitFor(() => expect(within(dialog).getByText("2 of 2 done")).toBeTruthy());
+    await waitFor(async () => {
+      const note = await ipc.noteGet("n4");
+      expect(note.body).toContain("- [x] open item");
+      expect(note.body).toContain("- [x] done item");
+    });
   });
 
-  it("Enter in a checklist starts the next box", async () => {
+  it("U-1: older notes open unchanged (the editor writes only when you change something)", async () => {
+    const { ipc } = await import("@/ipc");
+    const before = (await ipc.noteGet("n4")).body;
     const user = userEvent.setup();
     render(<App />);
     await openNotes(user);
     await user.click(await screen.findByRole("button", { name: "Groceries" }));
     const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByRole("textbox", { name: "Note" });
+    await user.click(within(dialog).getByRole("button", { name: "Done" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect((await ipc.noteGet("n4")).body).toBe(before);
+  });
+
+  it("Enter in a checklist starts the next box (Markdown source)", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await openNotes(user);
+    await user.click(await screen.findByRole("button", { name: "Groceries" }));
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("Note"));
+    await user.keyboard("{Control>}e{/Control}");
     const body = within(dialog).getByRole("textbox", { name: "Note" }) as HTMLTextAreaElement;
     await user.clear(body);
     await user.click(within(dialog).getByRole("button", { name: "Checklist" }));
@@ -271,16 +293,19 @@ describe("Notes screen (against the in-memory shell)", () => {
     expect(body.value).toBe("- [ ] milk\n- [ ] eggs");
   });
 
-  it("note editor shortcuts: Ctrl+D pins, Ctrl+E toggles preview", async () => {
+  it("note editor shortcuts: Ctrl+D pins, Ctrl+E switches to the Markdown source and back", async () => {
     const user = userEvent.setup();
     render(<App />);
     await openNotes(user);
     await user.click(await screen.findByRole("button", { name: "Groceries" }));
     const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("Note"));
     await user.keyboard("{Control>}d{/Control}");
     expect(await within(dialog).findByRole("button", { name: "Unpin" })).toBeTruthy();
     await user.keyboard("{Control>}e{/Control}");
-    expect(within(dialog).getByLabelText("Preview")).toBeTruthy();
+    expect(within(dialog).getByRole("textbox", { name: "Note" }).tagName).toBe("TEXTAREA");
+    await user.keyboard("{Control>}e{/Control}");
+    expect(within(dialog).getByRole("textbox", { name: "Note" }).tagName).not.toBe("TEXTAREA");
   });
 
   it("labels can be renamed and deleted from the label manager", async () => {
@@ -1113,6 +1138,8 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     await openNotes(user);
     await user.click(await screen.findByRole("button", { name: "Groceries" }));
     const dialog = await screen.findByRole("dialog");
+    await waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("Note"));
+    await user.keyboard("{Control>}e{/Control}"); // the Markdown source keeps the text helpers
     const body = within(dialog).getByRole("textbox", { name: "Note" }) as HTMLTextAreaElement;
     body.setSelectionRange(0, 4); // "Oats"
     await user.click(within(dialog).getByRole("button", { name: /^Bold/ }));

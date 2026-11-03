@@ -320,3 +320,5 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-02: plan updated from the owner's 33-item list (docs/features/OWNER_FEATURE_LIST_2026-11-02.md). Next: UI polish U-1 (preview first), P4.5 full screen + Tab Tantrum, then 0.5.10 on the owner's word.
 
 - 2026-11-02: owner decisions recorded (name Pluto, usage counts allowed, credentials as a user file, AI later, computer use last, signing on hold); FR-114 routine tracker added (U-8).
+
+- 2026-11-03: U-1 note editor built (tests: 525 UI, 551 core, 48 shell). Unverified on a real PC. Next: U-2 Settings in two tabs (preview first), or FS-1/TT-1 if the owner moves them up.

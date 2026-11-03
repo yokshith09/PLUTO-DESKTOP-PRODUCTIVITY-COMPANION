@@ -5,4 +5,8 @@ import type { NoteColor } from "./NoteColor";
 /**
  * What the list shows: a card, not the whole note.
  */
-export type NoteSummary = { id: string, title: string, excerpt: string, color: NoteColor, pinned: boolean, archived: boolean, created_at: number, edited_at: number, labels: Array<Label>, project: string | null, };
+export type NoteSummary = { id: string, title: string, excerpt: string, color: NoteColor, pinned: boolean, archived: boolean, created_at: number, edited_at: number, labels: Array<Label>, project: string | null, 
+/**
+ * Checklist boxes in the whole note, and how many are ticked ("2 of 5 done" on the card, U-1).
+ */
+checks_done: number, checks_total: number, };

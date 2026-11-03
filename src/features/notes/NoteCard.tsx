@@ -96,6 +96,7 @@ export function NoteCard({ note, ...h }: { note: NoteSummary } & NoteHandlers) {
       {note.title && <h3 className="mb-2 pr-5 text-[14.5px] font-semibold leading-snug tracking-tight">{note.title}</h3>}
       {note.excerpt && <p className="line-clamp-6 whitespace-pre-line text-[13px] leading-relaxed text-foreground/75">{withBoxes(note.excerpt)}</p>}
       {!note.title && !note.excerpt && <p className="text-[13px] italic text-muted-foreground">Empty note</p>}
+      {note.checks_total > 0 && <p className="text-[11.5px] tabular-nums text-foreground/60" aria-label={`${note.checks_done} of ${note.checks_total} done`}>☑ {note.checks_done} of {note.checks_total} done</p>}
       <div className="mt-4 flex items-center gap-1.5">
         <CourseTag kind="note" id={note.id} />{note.project && <Badge>{note.project}</Badge>}
         {note.labels.slice(0, 3).map((l) => (
