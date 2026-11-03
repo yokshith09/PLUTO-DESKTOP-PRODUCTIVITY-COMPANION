@@ -451,3 +451,4 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-03: U-2 done in code (Unverified in the real window).
 - 2026-11-03: U-4 Diary part done in code (date-card year, several entries per day); owner to review the layout. Study screens to be suggested.
 - 2026-11-03: U-4 Diary reworked to month tiles with sliding and a flip-open day card; owner to review.
+- 2026-11-03: U-10 colour themes planned (five choices, Periwinkle default); previews shown, Diary in Periwinkle approved to build with the theme. Nothing built yet.
