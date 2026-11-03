@@ -42,7 +42,7 @@ describe("the diary page", () => {
     fireEvent.click(screen.getByRole("checkbox"));
     fireEvent.click(screen.getByRole("button", { name: "Open my diary" }));
     // The calendar opens first, and says how to begin.
-    expect(await screen.findByRole("region", { name: "Your year" })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "Diary month" })).toBeTruthy();
     expect(screen.getByText(/Press “Write today” to start/)).toBeTruthy();
   });
 
@@ -59,7 +59,7 @@ describe("the diary page", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("not the right recovery key");
     type("Recovery key", key.toLowerCase());
     fireEvent.click(screen.getByRole("button", { name: "Recover diary" }));
-    expect(await screen.findByRole("region", { name: "Your year" })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "Diary month" })).toBeTruthy();
     await ipc.diaryLock();
     await ipc.diaryUnlock("fresh pass1");
   });
@@ -90,7 +90,7 @@ describe("the diary page", () => {
     await waitFor(() => expect(again.value).toBe("Dear diary, today was calm."));
   });
 
-  it("a day holds two entries as separate notes, and the calendar and the recent days show both", async () => {
+  it("a day holds two entries as separate notes, and the month tile shows both", async () => {
     await ipc.diaryErase();
     await ipc.diarySetup("secret pass");
     render(wrap());
@@ -107,11 +107,10 @@ describe("the diary page", () => {
     expect(screen.getByText(/· 2 entries$/)).toBeTruthy();
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    // The square says 2 entries and the recent card says it too; one click opens the day again.
-    expect(await screen.findByRole("button", { name: /2 entries, 10 words/ })).toBeTruthy();
-    const recent = within(screen.getByRole("region", { name: "Recent days" }));
-    expect(recent.getByText("2 entries")).toBeTruthy();
-    fireEvent.click(recent.getByRole("button", { name: `Open ${today}` }));
+    // The tile lights up, says 2 entries, and one click opens the day again.
+    const tile = await screen.findByRole("button", { name: /2 entries, 10 words/ });
+    expect(tile.textContent).toContain("Morning: the lab went well.");
+    fireEvent.click(tile);
     expect(await screen.findByRole("textbox", { name: "Entry 2 text" })).toBeTruthy();
   });
 
@@ -147,19 +146,34 @@ describe("the diary page", () => {
     expect((screen.getByRole("button", { name: "Next day" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it("the year shows its totals and the streak, and Previous year moves back", async () => {
+  it("the month shows its totals and the streak, lights only written days, and slides back and forth", async () => {
     await ipc.diaryErase();
     await ipc.diarySetup("secret pass");
     const day = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return ymd(d); };
-    for (const n of [0, 1, 2, 5]) await ipc.diarySave(day(n), "A few words here");
+    // Stay inside this month so the totals do not depend on the date the test runs.
+    const dayOfMonth = new Date().getDate();
+    const written = [0, 1, 2, 5].filter((n) => n < dayOfMonth);
+    for (const n of written) await ipc.diarySave(day(n), "A few words here");
     render(wrap());
-    const year = await screen.findByRole("region", { name: "Your year" });
-    await waitFor(() => expect(within(year).getByText(/in a row/).textContent).toContain("3 in a row · longest 3"));
-    expect(within(year).getByText(/entries on/).textContent).toContain("4 entries on 4 days");
-    fireEvent.click(within(year).getByRole("button", { name: "Previous year" }));
-    expect(within(year).getByRole("heading").textContent).toBe(String(Number(today.slice(0, 4)) - 1));
-    expect(within(year).getByText(/entries on/).textContent).toContain("0 entries on 0 days");
-    expect((within(year).getByRole("button", { name: "Next year" }) as HTMLButtonElement).disabled).toBe(false);
+    const month = await screen.findByRole("region", { name: "Diary month" });
+    await waitFor(() => expect(within(month).getByText(/entries? on/).textContent).toContain(`${written.length} ${written.length === 1 ? "entry" : "entries"} on ${written.length} ${written.length === 1 ? "day" : "days"}`));
+    expect(within(month).getAllByRole("button", { name: /: 1 entry, 4 words$/ })).toHaveLength(written.length);
+    const heading = () => within(month).getByRole("heading").textContent;
+    const now = heading();
+    expect((within(month).getByRole("button", { name: "Next month" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(month).getByRole("button", { name: "Previous month" }));
+    expect(heading()).not.toBe(now);
+    expect(within(month).getByText(/entries on/).textContent).toContain("0 entries on 0 days");
+    expect((within(month).getByRole("button", { name: "Next month" }) as HTMLButtonElement).disabled).toBe(false);
+    // A sideways swipe moves by a month too: left goes forward, back to this month.
+    const grid = month.querySelector(".diary-slide-prev, .diary-slide-next") as HTMLElement;
+    // (jsdom has no PointerEvent, so a mouse event of the pointer type carries the coordinates.)
+    fireEvent(grid, new MouseEvent("pointerdown", { bubbles: true, clientX: 300, clientY: 100 }));
+    fireEvent(grid, new MouseEvent("pointerup", { bubbles: true, clientX: 150, clientY: 110 }));
+    expect(heading()).toBe(now);
+    // The month strip jumps to a month of this year.
+    fireEvent.click(within(month).getByRole("button", { name: /^Jan \d{4}, / }));
+    expect(heading()).toMatch(/^January/);
   });
 
   it("underlines to-dos only when asked, and Make task adds the task with the date read from the words", async () => {

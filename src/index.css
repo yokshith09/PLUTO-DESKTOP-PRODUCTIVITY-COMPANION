@@ -162,6 +162,21 @@ html.pet * { scrollbar-width: none; }
   background: oklch(0.72 0.16 var(--nh));
 }
 
+/* Diary (src/features/diary): the day card flips open out of the tile you clicked, turns when you
+   step to another day, and the month of tiles slides in from the side you moved towards. */
+.diary-flip { backface-visibility: hidden; animation: diary-flip 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes diary-flip {
+  from { opacity: 0; transform: perspective(1500px) translate(var(--fx), var(--fy)) scale(var(--fs)) rotateY(-180deg); }
+  25% { opacity: 1; }
+  to { opacity: 1; transform: perspective(1500px) translate(0, 0) scale(1) rotateY(0); }
+}
+.diary-turn { backface-visibility: hidden; animation: diary-turn 0.3s ease-out both; }
+@keyframes diary-turn { from { opacity: 0; transform: perspective(1500px) rotateY(-60deg) translateX(-24px); } to { opacity: 1; transform: perspective(1500px) rotateY(0) translateX(0); } }
+.diary-slide-next { animation: diary-slide-next 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.diary-slide-prev { animation: diary-slide-prev 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes diary-slide-next { from { opacity: 0; transform: translateX(10%); } to { opacity: 1; transform: none; } }
+@keyframes diary-slide-prev { from { opacity: 0; transform: translateX(-10%); } to { opacity: 1; transform: none; } }
+
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
     animation-duration: 0.001ms !important;

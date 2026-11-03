@@ -330,3 +330,4 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-03: Fix: the private pipe no longer stops for good after one bad connection (pet went quiet on "Claude Code is done"). Shell tests 51. Unverified on Windows.
 - 2026-11-03: U-2 Settings in two tabs built as the preview (Main / Profile; Character links to Profile and back). Tests 527 UI. Unverified in the real window. Next: FS-1/TT-1 or U-3, as the owner orders.
 - 2026-11-03: U-4 Diary built (year of date cards, several entries per day). Tests 543 UI, 566 core, 56 shell; clippy clean for Linux and the Windows target. Unverified in the real window. Waiting for the owner's changes; Study screens still to suggest.
+- 2026-11-03: U-4 Diary reworked after the owner's review: month of day tiles with sliding months, lit written days, tile flips open into the day card. Tests 542 UI. Unverified in the real window. Waiting for the owner's next changes.

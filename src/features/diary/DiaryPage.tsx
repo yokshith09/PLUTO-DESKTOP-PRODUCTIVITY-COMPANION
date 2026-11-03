@@ -9,10 +9,11 @@ import { usePref } from "@/features/guide/usePref";
 import { PageHeader } from "@/features/shell/PageHeader";
 import { errorMessage, ipc } from "@/ipc";
 import { onCommand } from "@/ipc/transport";
-import { parseYmd, ymd } from "@/lib/dates";
+import { ymd } from "@/lib/dates";
 import { notify } from "@/lib/notify";
-import { DayCard } from "./DayCard";
-import { DiaryCalendar } from "./DiaryCalendar";
+import { monthOf } from "@/features/tasks/MonthCalendar";
+import { DayCard, type Origin } from "./DayCard";
+import { MonthTiles } from "./MonthTiles";
 
 export const IDLE_LOCK_MS = 5 * 60_000;
 export const PICKUP_PREF = "diary.pickup";
@@ -76,54 +77,25 @@ function RecoveryKeyCard({ recoveryKey, onDone }: { recoveryKey: string; onDone:
   );
 }
 
-const RECENT = 8;
-
 function Journal({ onLock }: { onLock: () => void }) {
   const qc = useQueryClient();
   const today = ymd(new Date());
-  const [year, setYear] = useState(() => Number(today.slice(0, 4)));
+  const [month, setMonth] = useState(() => monthOf(today));
   const [open, setOpen] = useState<string | null>(null);
-  const [all, setAll] = useState(false);
+  const [from, setFrom] = useState<Origin | null>(null);
   const pickup = usePref<boolean>(PICKUP_PREF, (r) => r === true);
   const overview = useQuery({ queryKey: OVERVIEW, queryFn: () => ipc.diaryOverview() });
   const infos = overview.data ?? [];
   const [query, setQuery] = useState("");
   const results = useQuery({ queryKey: ["diary", "search", query.trim()], queryFn: () => ipc.diarySearch(query), enabled: query.trim().length > 0 });
   const changed = useCallback(() => void qc.invalidateQueries({ queryKey: OVERVIEW }), [qc]);
-  // Opening a day in another year moves the calendar there too.
-  const show = (day: string) => { setOpen(day); setYear(Number(day.slice(0, 4))); };
-  const recent = all ? infos : infos.slice(0, RECENT);
+  // Opening a day in another month moves the tiles there too. Only a click on a tile flips out of it.
+  const show = (day: string, origin: Origin | null = null) => { setOpen(day); setFrom(origin); setMonth(monthOf(day)); };
 
   return (
     <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[minmax(0,1fr)_14rem]">
-      <div className="min-w-0 space-y-5">
-        <DiaryCalendar year={year} onYear={setYear} infos={infos} onOpen={show} />
-
-        <section aria-label="Recent days">
-          <h2 className="mb-2 text-[13px] font-semibold text-muted-foreground">Recent days</h2>
-          {infos.length === 0 ? (
-            <p className="rounded-xl border border-dashed p-6 text-center text-[13px] text-muted-foreground">Nothing yet. Press “Write today” to start; each day you write turns one square on.</p>
-          ) : (
-            <>
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {recent.map((d) => (
-                  <li key={d.day}>
-                    <button type="button" onClick={() => show(d.day)} aria-label={`Open ${d.day}`}
-                      className="flex h-full w-full flex-col gap-1 rounded-xl border bg-card p-3 text-left outline-none transition-colors hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring">
-                      <span className="flex items-center gap-2 text-[13px] font-semibold">
-                        {parseYmd(d.day).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
-                        <span className="ml-auto rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">{d.entries} {d.entries === 1 ? "entry" : "entries"}</span>
-                      </span>
-                      <span className="line-clamp-2 min-h-[2.6em] text-[13px] text-muted-foreground">{d.snippet}</span>
-                      <span className="text-[11px] tabular-nums text-muted-foreground">{d.words} words</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              {infos.length > RECENT && <Button variant="ghost" size="sm" className="mt-2" onClick={() => setAll((v) => !v)}>{all ? "Show fewer" : `Show all ${infos.length} days`}</Button>}
-            </>
-          )}
-        </section>
+      <div className="min-w-0">
+        <MonthTiles month={month} onMonth={setMonth} infos={infos} onOpen={show} />
       </div>
 
       <aside className="space-y-4">
@@ -146,7 +118,7 @@ function Journal({ onLock }: { onLock: () => void }) {
         </div>
       </aside>
 
-      <DayCard day={open} onClose={() => setOpen(null)} onDay={show} onChanged={changed} pickup={pickup.value === true} onPickup={(v) => void pickup.set(v)} />
+      <DayCard day={open} from={from} onClose={() => setOpen(null)} onDay={show} onChanged={changed} pickup={pickup.value === true} onPickup={(v) => void pickup.set(v)} />
     </div>
   );
 }

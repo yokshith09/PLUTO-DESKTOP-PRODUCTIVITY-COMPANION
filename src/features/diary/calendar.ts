@@ -13,43 +13,6 @@ export function level(info: Pick<DayInfo, "words" | "entries"> | null | undefine
   return 1;
 }
 
-/** A calendar year as columns of seven days, Sunday first. Days outside the year are null. */
-export function yearWeeks(year: number): (string | null)[][] {
-  const first = new Date(year, 0, 1);
-  const last = new Date(year, 11, 31);
-  const weeks: (string | null)[][] = [];
-  let week: (string | null)[] = Array.from({ length: first.getDay() }, () => null);
-  for (const d = new Date(first); d <= last; d.setDate(d.getDate() + 1)) {
-    week.push(ymd(d));
-    if (week.length === 7) {
-      weeks.push(week);
-      week = [];
-    }
-  }
-  if (week.length) {
-    while (week.length < 7) week.push(null);
-    weeks.push(week);
-  }
-  return weeks;
-}
-
-/** The month name above the column where the month starts. */
-export function monthLabels(weeks: (string | null)[][]): { col: number; label: string }[] {
-  const out: { col: number; label: string }[] = [];
-  weeks.forEach((w, col) => {
-    const first = w.find((d): d is string => d !== null);
-    if (!first) return;
-    const day = Number(first.slice(8));
-    // A month is named over the first week that holds its 1st (or, for January, the first week).
-    const holdsFirst = w.some((d) => d !== null && d.endsWith("-01"));
-    if (holdsFirst || (col === 0 && day <= 7)) {
-      const month = holdsFirst ? (w.find((d) => d?.endsWith("-01")) as string) : first;
-      out.push({ col, label: parseYmd(month).toLocaleDateString([], { month: "short" }) });
-    }
-  });
-  return out;
-}
-
 /** The run of days in a row that have an entry: now (today, or yesterday if today is still empty) and the longest ever. */
 export function streaks(days: readonly string[], today: string): { current: number; longest: number } {
   const set = new Set(days);
@@ -78,4 +41,20 @@ export function yearTotals(infos: readonly DayInfo[], year: number): { entries: 
     (t, i) => ({ entries: t.entries + i.entries, days: t.days + 1, words: t.words + i.words }),
     { entries: 0, days: 0, words: 0 },
   );
+}
+
+/** Entries and days in one month ("YYYY-MM-01" or any day of it). */
+export function monthTotals(infos: readonly DayInfo[], month: string): { entries: number; days: number; words: number } {
+  const prefix = month.slice(0, 7);
+  return infos.filter((i) => i.day.startsWith(prefix)).reduce(
+    (t, i) => ({ entries: t.entries + i.entries, days: t.days + 1, words: t.words + i.words }),
+    { entries: 0, days: 0, words: 0 },
+  );
+}
+
+/** Days written in each month of a year (index 0 is January), for the strip that jumps between months. */
+export function monthCounts(infos: readonly DayInfo[], year: number): number[] {
+  const out = Array.from({ length: 12 }, () => 0);
+  for (const i of infos) if (i.day.startsWith(`${year}-`) && i.entries > 0) out[Number(i.day.slice(5, 7)) - 1] = (out[Number(i.day.slice(5, 7)) - 1] ?? 0) + 1;
+  return out;
 }
