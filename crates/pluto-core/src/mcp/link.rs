@@ -102,6 +102,7 @@ pub fn display_name(id: &str) -> String {
         "claude-code" => "Claude Code".into(),
         "claude-desktop" | "claude" => "Claude".into(),
         "chatgpt" => "ChatGPT".into(),
+        "opencode" => "OpenCode".into(),
         "vscode" | "copilot" => "VS Code".into(),
         _ => id
             .split('-')

@@ -14,6 +14,10 @@ pub enum Format {
     McpServers,
     /// `{"servers": {"pluto": {"type": "stdio", "command", "args"}}}` (VS Code).
     VsCode,
+    /// `{"mcp": {"pluto": {"type": "local", "command": [program, args…]}}}` (OpenCode).
+    OpenCode,
+    /// Codex's `config.toml`: a `[mcp_servers.pluto]` table, plus `notify` for the pet (H-1).
+    CodexToml,
 }
 
 impl Format {
@@ -21,6 +25,8 @@ impl Format {
         match self {
             Format::McpServers => "mcpServers",
             Format::VsCode => "servers",
+            Format::OpenCode => "mcp",
+            Format::CodexToml => "mcp_servers",
         }
     }
 }
@@ -28,6 +34,14 @@ impl Format {
 /// The `pluto` entry for this format.
 pub fn entry(format: Format, command: &str, args: &[String]) -> Value {
     let mut e = Map::new();
+    if format == Format::OpenCode {
+        let mut all = vec![command.to_owned()];
+        all.extend(args.iter().cloned());
+        e.insert("type".into(), "local".into());
+        e.insert("command".into(), all.into());
+        e.insert("enabled".into(), true.into());
+        return Value::Object(e);
+    }
     if format == Format::VsCode {
         e.insert("type".into(), "stdio".into());
     }
@@ -38,6 +52,9 @@ pub fn entry(format: Format, command: &str, args: &[String]) -> Value {
 
 /// The whole block to paste by hand.
 pub fn manual(format: Format, command: &str, args: &[String]) -> String {
+    if format == Format::CodexToml {
+        return codex::table(command, args);
+    }
     let mut servers = Map::new();
     servers.insert(ENTRY.into(), entry(format, command, args));
     let mut root = Map::new();
@@ -72,6 +89,9 @@ pub fn add(
     command: &str,
     args: &[String],
 ) -> Result<String, String> {
+    if format == Format::CodexToml {
+        return codex::add(existing, command, args);
+    }
     let mut root = parse(existing)?;
     let servers = root
         .entry(format.key())
@@ -85,6 +105,9 @@ pub fn add(
 
 /// The file without Pluto, or `None` when Pluto was not in it (nothing to write).
 pub fn remove(existing: Option<&str>, format: Format) -> Result<Option<String>, String> {
+    if format == Format::CodexToml {
+        return Ok(codex::remove(existing.unwrap_or("")));
+    }
     let mut root = parse(existing)?;
     let Some(Value::Object(servers)) = root.get_mut(format.key()) else {
         return Ok(None);
@@ -97,16 +120,226 @@ pub fn remove(existing: Option<&str>, format: Format) -> Result<Option<String>, 
 
 /// True when the file has a `pluto` entry that starts this program.
 pub fn is_set(existing: Option<&str>, format: Format, command: &str) -> bool {
+    if format == Format::CodexToml {
+        return existing.is_some_and(|t| codex::is_set(t, command));
+    }
     parse(existing)
         .ok()
         .and_then(|root| {
-            root.get(format.key())?
-                .get(ENTRY)?
-                .get("command")?
-                .as_str()
-                .map(|c| c == command)
+            let c = root.get(format.key())?.get(ENTRY)?.get("command")?;
+            // OpenCode keeps the program as the first word of a list.
+            let c = if format == Format::OpenCode {
+                c.get(0)?
+            } else {
+                c
+            };
+            c.as_str().map(|c| c == command)
         })
         .unwrap_or(false)
+}
+
+/// Codex's `config.toml`, edited as text between Pluto's own marker comments so nothing else in
+/// the file moves (no TOML library: the file is the user's, and only Pluto's lines change).
+pub mod codex {
+    const TABLE_START: &str = "# >>> pluto (added by Pluto; Disconnect in Pluto removes it)";
+    const TABLE_END: &str = "# <<< pluto";
+    const NOTIFY_START: &str = "# >>> pluto notify (the pet cheers when Codex finishes a turn)";
+    const NOTIFY_END: &str = "# <<< pluto notify";
+
+    /// A TOML string: literal ('...') when it can be, so Windows paths need no escaping.
+    pub fn string(s: &str) -> String {
+        if !s.contains('\'') && !s.contains('\n') {
+            format!("'{s}'")
+        } else {
+            format!(
+                "\"{}\"",
+                s.replace('\\', "\\\\")
+                    .replace('"', "\\\"")
+                    .replace('\n', "\\n")
+            )
+        }
+    }
+
+    fn list(items: &[String]) -> String {
+        format!(
+            "[{}]",
+            items
+                .iter()
+                .map(|a| string(a))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+
+    /// The table to paste by hand (and the one Pluto adds).
+    pub fn table(command: &str, args: &[String]) -> String {
+        format!(
+            "[mcp_servers.pluto]\ncommand = {}\nargs = {}\n",
+            string(command),
+            list(args)
+        )
+    }
+
+    /// The `notify` program line: Codex runs it with the turn's details as one JSON argument.
+    pub fn notify(command: &str) -> String {
+        let words: Vec<String> = [command, "--react", "agent_done", "--assistant", "codex"]
+            .map(String::from)
+            .to_vec();
+        format!("notify = {}\n", list(&words))
+    }
+
+    /// The text without the block between `start` and `end` (markers included).
+    fn cut(text: &str, start: &str, end: &str) -> (String, bool) {
+        let mut out = Vec::new();
+        let mut inside = false;
+        let mut found = false;
+        for line in text.lines() {
+            if line.trim() == start {
+                inside = true;
+                found = true;
+                continue;
+            }
+            if inside {
+                if line.trim() == end {
+                    inside = false;
+                }
+                continue;
+            }
+            out.push(line);
+        }
+        let mut s = out.join("\n");
+        if !s.is_empty() {
+            s.push('\n');
+        }
+        (s, found)
+    }
+
+    /// The user's own top-level keys come before the first `[table]`; is `key` one of them?
+    fn has_top_level(text: &str, key: &str) -> bool {
+        text.lines()
+            .map(str::trim)
+            .take_while(|l| !l.starts_with('['))
+            .any(|l| l.split('=').next().is_some_and(|k| k.trim() == key) && l.contains('='))
+    }
+
+    fn has_own_pluto_table(text: &str) -> bool {
+        text.lines().any(|l| {
+            let t: String = l.chars().filter(|c| !c.is_whitespace()).collect();
+            t == "[mcp_servers.pluto]" || t == "[mcp_servers.\"pluto\"]"
+        })
+    }
+
+    pub fn add(existing: Option<&str>, command: &str, args: &[String]) -> Result<String, String> {
+        let (text, _) = cut(existing.unwrap_or(""), TABLE_START, TABLE_END);
+        let (text, _) = cut(&text, NOTIFY_START, NOTIFY_END);
+        if has_own_pluto_table(&text) {
+            return Err("Codex's settings already have a \"pluto\" server Pluto did not add, so Pluto left them alone. Use the manual setup instead.".into());
+        }
+        let mut out = String::new();
+        // Never replace a notify program the user set up themselves.
+        if !has_top_level(&text, "notify") {
+            out.push_str(&format!(
+                "{NOTIFY_START}\n{}{NOTIFY_END}\n",
+                notify(command)
+            ));
+        }
+        out.push_str(&text);
+        if !out.is_empty() && !out.ends_with("\n\n") {
+            out.push('\n');
+        }
+        out.push_str(&format!(
+            "{TABLE_START}\n{}{TABLE_END}\n",
+            table(command, args)
+        ));
+        Ok(out)
+    }
+
+    /// The file without Pluto's lines, or `None` when it had none.
+    pub fn remove(existing: &str) -> Option<String> {
+        let (text, a) = cut(existing, TABLE_START, TABLE_END);
+        let (text, b) = cut(&text, NOTIFY_START, NOTIFY_END);
+        (a || b).then(|| text.trim_end().to_owned() + "\n")
+    }
+
+    pub fn is_set(existing: &str, command: &str) -> bool {
+        let want = format!("command = {}", string(command));
+        let mut inside = false;
+        existing.lines().any(|l| {
+            if l.trim() == TABLE_START {
+                inside = true;
+            } else if l.trim() == TABLE_END {
+                inside = false;
+            }
+            inside && l.trim() == want
+        })
+    }
+
+    /// Whether Pluto's `notify` is in place (the pet reacts when Codex finishes).
+    pub fn has_notify(existing: &str) -> bool {
+        existing.lines().any(|l| l.trim() == NOTIFY_START)
+    }
+}
+
+/// Cursor's `hooks.json`: when the agent stops, the pet cheers (H-2). (event, reaction).
+pub const CURSOR_HOOKS: &[(&str, &str)] = &[("stop", "agent_done")];
+
+fn is_ours_for(hook: &Value, assistant: &str) -> bool {
+    hook.get("command")
+        .and_then(Value::as_str)
+        .is_some_and(|c| c.contains("--react ") && c.contains(&format!("--assistant {assistant}")))
+}
+
+/// Cursor's hooks file with Pluto's hook added (an old Pluto hook replaced), everything else kept.
+pub fn add_cursor_hooks(existing: Option<&str>, program: &str) -> Result<String, String> {
+    let without =
+        remove_cursor_hooks(existing)?.unwrap_or_else(|| existing.unwrap_or("").to_owned());
+    let mut root = parse(Some(&without))?;
+    root.entry("version").or_insert(Value::from(1));
+    let hooks = root
+        .entry("hooks")
+        .or_insert_with(|| Value::Object(Map::new()));
+    let Value::Object(hooks) = hooks else {
+        return Err(UNREADABLE.into());
+    };
+    for (event, reaction) in CURSOR_HOOKS {
+        let list = hooks
+            .entry(*event)
+            .or_insert_with(|| Value::Array(Vec::new()));
+        let Value::Array(list) = list else {
+            return Err(UNREADABLE.into());
+        };
+        list.push(serde_json::json!({ "command": format!("\"{program}\" --react {reaction} --assistant cursor") }));
+    }
+    Ok(print(root))
+}
+
+/// Cursor's hooks file without Pluto's hook, or `None` when it had none.
+pub fn remove_cursor_hooks(existing: Option<&str>) -> Result<Option<String>, String> {
+    let mut root = parse(existing)?;
+    let Some(Value::Object(hooks)) = root.get_mut("hooks") else {
+        return Ok(None);
+    };
+    let mut found = false;
+    for list in hooks.values_mut() {
+        let Value::Array(items) = list else { continue };
+        let before = items.len();
+        items.retain(|h| !is_ours_for(h, "cursor"));
+        found |= items.len() != before;
+    }
+    hooks.retain(|_, list| list.as_array().is_none_or(|a| !a.is_empty()));
+    Ok(found.then(|| print(root)))
+}
+
+/// The first line of Pluto's OpenCode plugin; a file that starts otherwise is never touched.
+pub const OPENCODE_PLUGIN_MARK: &str =
+    "// Added by Pluto: the pet cheers when an OpenCode session finishes.";
+
+/// OpenCode plugin (H-3): on `session.idle`, runs Pluto's reaction with the session's folder.
+pub fn opencode_plugin(program: &str) -> String {
+    let prog = serde_json::to_string(program).unwrap_or_default();
+    format!(
+        "{OPENCODE_PLUGIN_MARK}\n// Disconnect OpenCode in Pluto to remove it.\nconst PLUTO = {prog};\n\nexport const PlutoPet = async ({{ $, directory }}) => ({{\n  event: async ({{ event }}) => {{\n    if (event.type !== \"session.idle\") return;\n    try {{\n      await $`${{PLUTO}} --react agent_done --assistant opencode`.env({{ ...process.env, PLUTO_CWD: directory ?? \"\" }}).quiet().nothrow();\n    }} catch {{}}\n  }},\n}});\n"
+    )
 }
 
 /// Claude Code's hooks for the pet (developer reactions): when it stops, the pet cheers; when it
@@ -194,6 +427,93 @@ mod tests {
         ["--mcp-bridge", "--assistant", "claude-code"]
             .map(String::from)
             .to_vec()
+    }
+
+    #[test]
+    fn codex_gets_its_table_at_the_end_and_notify_before_any_table_and_both_come_out_again() {
+        let before = "model = \"o3\"\n\n[mcp_servers.github]\ncommand = \"gh\"\n";
+        let prog = "C:\\Program Files\\Pluto\\pluto.exe";
+        let after = add(Some(before), Format::CodexToml, prog, &args()).unwrap();
+        // Top-level keys stay above every table; Pluto's table comes last; Windows paths need no escaping.
+        let notify_at = after.find("notify = ").unwrap();
+        let first_table = after.find("[mcp_servers.github]").unwrap();
+        assert!(notify_at < first_table);
+        assert!(after.find("model = \"o3\"").unwrap() < first_table);
+        assert!(after.trim_end().ends_with("# <<< pluto"));
+        assert!(after.contains("command = 'C:\\Program Files\\Pluto\\pluto.exe'"));
+        assert!(after.contains("args = ['--mcp-bridge', '--assistant', 'claude-code']"));
+        assert!(after.contains("'--react', 'agent_done', '--assistant', 'codex'"));
+        assert!(is_set(Some(&after), Format::CodexToml, prog));
+        assert!(codex::has_notify(&after));
+        // Again: replaced, not doubled.
+        let again = add(Some(&after), Format::CodexToml, prog, &args()).unwrap();
+        assert_eq!(again.matches("[mcp_servers.pluto]").count(), 1);
+        assert_eq!(again.matches("notify = ").count(), 1);
+        // Out again: the file as it was.
+        assert_eq!(
+            remove(Some(&again), Format::CodexToml).unwrap().as_deref(),
+            Some(before)
+        );
+        assert_eq!(remove(Some(before), Format::CodexToml).unwrap(), None);
+    }
+
+    #[test]
+    fn codex_keeps_the_users_own_notify_and_refuses_a_pluto_table_it_did_not_add() {
+        let own = "notify = [\"python3\", \"/home/me/notify.py\"]\n";
+        let after = add(Some(own), Format::CodexToml, "pluto", &args()).unwrap();
+        assert_eq!(after.matches("notify = ").count(), 1);
+        assert!(after.starts_with(own));
+        assert!(!codex::has_notify(&after));
+        assert!(add(
+            Some("[mcp_servers.pluto]\ncommand = \"x\"\n"),
+            Format::CodexToml,
+            "pluto",
+            &args()
+        )
+        .is_err());
+        assert_eq!(codex::string("it's"), "\"it's\"");
+        assert!(manual(Format::CodexToml, "pluto", &args()).starts_with("[mcp_servers.pluto]"));
+    }
+
+    #[test]
+    fn opencode_keeps_the_program_as_the_first_word_of_its_command() {
+        let after = add(
+            Some(r#"{"theme":"opencode","mcp":{"x":{"type":"remote","url":"u"}}}"#),
+            Format::OpenCode,
+            "/opt/pluto",
+            &args(),
+        )
+        .unwrap();
+        let v: Value = serde_json::from_str(&after).unwrap();
+        assert_eq!(v["mcp"]["x"]["url"], "u");
+        assert_eq!(v["mcp"]["pluto"]["type"], "local");
+        assert_eq!(v["mcp"]["pluto"]["command"][0], "/opt/pluto");
+        assert_eq!(v["mcp"]["pluto"]["command"][1], "--mcp-bridge");
+        assert!(is_set(Some(&after), Format::OpenCode, "/opt/pluto"));
+        let plugin = opencode_plugin("C:\\Pluto\\pluto.exe");
+        assert!(plugin.starts_with(OPENCODE_PLUGIN_MARK));
+        assert!(plugin.contains(r#"const PLUTO = "C:\\Pluto\\pluto.exe";"#));
+        assert!(plugin.contains("session.idle"));
+    }
+
+    #[test]
+    fn cursor_hooks_are_added_once_and_removed_leaving_the_users_own() {
+        let before = r#"{"version":1,"hooks":{"stop":[{"command":"./mine.sh"}],"beforeShellExecution":[{"command":"./check.sh"}]}}"#;
+        let after = add_cursor_hooks(Some(before), "/opt/pluto").unwrap();
+        let again = add_cursor_hooks(Some(&after), "/opt/pluto").unwrap();
+        let v: Value = serde_json::from_str(&again).unwrap();
+        let stop = v["hooks"]["stop"].as_array().unwrap();
+        assert_eq!(stop.len(), 2);
+        assert_eq!(
+            stop[1]["command"],
+            "\"/opt/pluto\" --react agent_done --assistant cursor"
+        );
+        let back: Value =
+            serde_json::from_str(&remove_cursor_hooks(Some(&again)).unwrap().unwrap()).unwrap();
+        assert_eq!(back, serde_json::from_str::<Value>(before).unwrap());
+        assert_eq!(remove_cursor_hooks(Some(before)).unwrap(), None);
+        let fresh: Value = serde_json::from_str(&add_cursor_hooks(None, "p").unwrap()).unwrap();
+        assert_eq!(fresh["version"], 1);
     }
 
     #[test]

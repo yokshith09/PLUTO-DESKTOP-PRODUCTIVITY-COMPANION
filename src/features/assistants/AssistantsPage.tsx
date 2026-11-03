@@ -15,7 +15,7 @@ import { PageHeader, Panel } from "@/features/shell/PageHeader";
 
 /** What assistants can do, in plain words. */
 export const CAN = [
-  { icon: PartyPopper, text: "Make your pet cheer, wave or look worried when they finish, need you, or get stuck." },
+  { icon: PartyPopper, text: "Make your pet cheer, wave or look worried when they finish, need you, or get stuck, and say which chat or folder it was." },
   { icon: MessageCircle, text: "Show you a short message on the pet." },
   { icon: ListChecks, text: "See today's plan and your tasks, and plan your day or week with you." },
   { icon: BookOpen, text: "Find and read your notes when you ask about them." },
@@ -24,6 +24,26 @@ export const CAN = [
   { icon: MessageCircle, text: "Ask you a quick question on the pet, with buttons, while you are in another app." },
   { icon: Eye, text: "See if you are in a focus session, so they don't disturb you." },
 ] as const;
+/** Planned next (owner 2026-11-03, A-1..A-8). Shown so you know what is ahead; none of it works yet. */
+export const SOON = [
+  { title: "Which tool it wants", text: "“DESKTOP-PET wants to run Bash”." },
+  { title: "How many are waiting", text: "A small “2” on the pet; hover to see which chats." },
+  { title: "A different sound", text: "“Needs you” sounds different from “done”." },
+  { title: "Finished while you were away", text: "Told once, when you come back." },
+  { title: "Still working", text: "“DESKTOP-PET has been working 25 min”." },
+  { title: "Chats in your projects", text: "A project’s Activity lists the chats that finished in its folder." },
+  { title: "Your day with assistants", text: "An evening line: chats finished, per project." },
+  { title: "Click to go there", text: "Click the bubble to bring that chat’s window forward." },
+] as const;
+
+/** What the pet does on its own for each assistant, once connected (the rest only when it asks). */
+export const PET_REACTS: Record<string, readonly string[]> = {
+  claude: ["Done", "Needs you", "Names the chat"],
+  codex: ["Done", "Names the chat"],
+  cursor: ["Done", "Names the folder"],
+  opencode: ["Done", "Names the folder"],
+};
+
 export const COMING = { icon: Lock, text: "Turn assistants off, change tracking, shortcuts or start-up. Those stay with you." } as const;
 export const NEVER = { icon: Lock, text: "Your diary. Assistants can never see it." } as const;
 
@@ -42,7 +62,7 @@ const DEV_PREF = "assistants.devPreview";
 const parseDev = (raw: unknown) => raw === true;
 
 /** Who made a request, mapped to the assistant tile it belongs to. */
-const OWNER: Record<string, string> = { "Claude Code": "claude", Claude: "claude", "VS Code": "vscode", Cursor: "cursor" };
+const OWNER: Record<string, string> = { "Claude Code": "claude", Claude: "claude", "VS Code": "vscode", Cursor: "cursor", Codex: "codex", OpenCode: "opencode", Windsurf: "windsurf" };
 
 export function AssistantsPage() {
   const [enabled, setEnabled] = useSetting("mcp.enabled");
@@ -131,6 +151,10 @@ function AssistantTile({ a, on, onSettings }: { a: AssistantInfo; on: boolean; o
         </div>
         <Button size="icon-sm" variant="ghost" aria-label={`${a.name} settings`} onClick={onSettings}><Settings2 className="size-4" /></Button>
       </div>
+      <ul aria-label={`${a.name} pet reactions`} className="flex flex-wrap gap-1.5">
+        {(PET_REACTS[a.id] ?? []).map((r) => <li key={r} className="rounded-md border px-1.5 py-0.5 text-[11px] text-foreground"><span aria-hidden className="text-primary">✓ </span>{r}</li>)}
+        {!PET_REACTS[a.id] && <li className="rounded-md border border-dashed px-1.5 py-0.5 text-[11px] text-muted-foreground">Pet reacts when it asks</li>}
+      </ul>
       {a.connected
         ? <p className="flex h-8 items-center gap-1.5 text-[13px] font-medium text-primary"><Check className="size-4" />{on ? "Connected" : "Connected (assistants are off)"}</p>
         : !a.installed
@@ -167,6 +191,18 @@ function Capabilities() {
           </li>
         ))}
       </ul>
+      <section aria-label="Coming" className="mt-4 border-t pt-4">
+        <h3 className="flex items-center gap-2 text-[13px] font-semibold">Coming <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">Not working yet</span></h3>
+        <p className="mt-0.5 text-[12px] text-muted-foreground">Planned next. They show here so you know what is ahead; none of them is switched on.</p>
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+          {SOON.map((c) => (
+            <li key={c.title} className="rounded-lg border border-dashed px-3 py-2">
+              <p className="text-[12.5px] font-medium">{c.title}</p>
+              <p className="text-[12px] text-muted-foreground">{c.text}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
       <div className="mt-4 grid gap-2 border-t pt-4 sm:grid-cols-2">
         <Note icon={COMING.icon} label="Not allowed" text={COMING.text} />
         <Note icon={NEVER.icon} label="Never" text={NEVER.text} />
@@ -342,6 +378,18 @@ function Calls({ title, calls, empty, undo = false }: { title: string; calls: As
   );
 }
 
+type ManualJson = { mcpServers?: { pluto?: { command?: string } }; servers?: { pluto?: { command?: string } }; mcp?: { pluto?: { command?: string[] } } };
+/** The program Pluto starts, read from a manual setup text: JSON for most, TOML for Codex. */
+export function programOf(manual: string): string {
+  try {
+    const v = JSON.parse(manual) as ManualJson;
+    return v.mcpServers?.pluto?.command ?? v.servers?.pluto?.command ?? v.mcp?.pluto?.command?.[0] ?? "pluto";
+  } catch {
+    const m = /command\s*=\s*(?:'([^']*)'|"((?:[^"\\]|\\.)*)")/.exec(manual);
+    return m?.[1] ?? m?.[2]?.replace(/\\(.)/g, "$1") ?? "pluto";
+  }
+}
+
 const OTHER_MANUAL = (exe: string) => JSON.stringify({ mcpServers: { pluto: { command: exe, args: ["--mcp-bridge", "--assistant", "my-assistant"] } } }, null, 2);
 
 function AssistantEditor({ id, a, onClose }: { id: string | null; a: AssistantInfo | null; onClose: () => void }) {
@@ -349,8 +397,7 @@ function AssistantEditor({ id, a, onClose }: { id: string | null; a: AssistantIn
   const calls = useActivity(true, id !== null).filter((c) => a && OWNER[c.assistant] === a.id).slice(0, 5);
   const [manualOpen, setManualOpen] = useState(false);
   const name = a?.name ?? "Another assistant";
-  const exe = a?.places[0] ? (JSON.parse(a.places[0].manual) as { mcpServers?: { pluto: { command: string } }; servers?: { pluto: { command: string } } }) : null;
-  const command = exe?.mcpServers?.pluto.command ?? exe?.servers?.pluto.command ?? "pluto";
+  const command = a?.places[0] ? programOf(a.places[0].manual) : "pluto";
   const copy = async (text: string) => {
     try { await navigator.clipboard.writeText(text); notify.success("Setup copied"); } catch { notify.error("Could not copy"); }
   };

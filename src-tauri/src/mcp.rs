@@ -82,14 +82,16 @@ fn token_now() -> String {
 
 /// Sends one reaction to the running Pluto. Never fails the caller: a hook or a build must not
 /// break because Pluto is closed or assistants are off.
-async fn react_now(assistant: &str, reaction: &str) {
+async fn react_now(assistant: &str, reaction: &str, extra: Option<String>) {
     let token = token_now();
     if token.is_empty() {
         return;
     }
     // A Claude Code hook pipes its chat's details in: say which chat (folder, first request)
     // and whether it is asking for permission (owner 2026-11-03).
-    let (reaction, place) = match hook_input() {
+    // Codex hands its turn's details over as a last argument and OpenCode's plugin sets
+    // PLUTO_CWD; Claude Code and Cursor pipe JSON in (H-1..H-3).
+    let (reaction, place) = match extra.or_else(hook_input) {
         Some(input) => from_hook(reaction, &input),
         None => (reaction, None),
     };
@@ -102,11 +104,13 @@ async fn react_now(assistant: &str, reaction: &str) {
 /// for a permission becomes `agent_permission`; the place is the folder and the first request.
 fn from_hook<'a>(reaction: &'a str, input: &str) -> (&'a str, Option<String>) {
     let ctx = hookctx::parse(input);
-    let request = ctx
-        .transcript
-        .as_deref()
-        .and_then(transcript_head)
-        .and_then(|t| hookctx::first_request(&t));
+    // Codex says the request itself; Claude Code only names a transcript to read it from.
+    let request = ctx.request.clone().or_else(|| {
+        ctx.transcript
+            .as_deref()
+            .and_then(transcript_head)
+            .and_then(|t| hookctx::first_request(&t))
+    });
     let reaction = if ctx.permission && reaction == "agent_needs_you" {
         "agent_permission"
     } else {
@@ -144,6 +148,16 @@ fn transcript_head(path: &Path) -> Option<String> {
     Some(String::from_utf8_lossy(&buf).into_owned())
 }
 
+/// Details a tool gives on the command line: Codex's `notify` adds the turn as one JSON argument
+/// at the end; OpenCode's plugin puts the session's folder in `PLUTO_CWD`.
+fn react_extra(args: &[String], cwd: Option<String>) -> Option<String> {
+    if let Some(last) = args.last().filter(|a| a.trim_start().starts_with('{')) {
+        return Some(last.clone());
+    }
+    cwd.filter(|c| !c.trim().is_empty())
+        .map(|c| serde_json::json!({ "cwd": c }).to_string())
+}
+
 /// What the command line asks for, read before Tauri starts.
 #[derive(Debug, PartialEq, Eq)]
 enum Cli {
@@ -164,6 +178,7 @@ fn cli(args: &[String]) -> Option<Cli> {
 pub fn bridge_main(args: &[String]) -> Option<i32> {
     let what = cli(args)?;
     let assistant = assistant_from(args);
+    let extra = react_extra(args, std::env::var("PLUTO_CWD").ok());
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -181,7 +196,7 @@ pub fn bridge_main(args: &[String]) -> Option<i32> {
                 i32::from(link::bridge(pipe, &token, &assistant, stdio).await.is_err())
             }
             Cli::React(reaction) => {
-                react_now(&assistant, &reaction).await;
+                react_now(&assistant, &reaction, extra).await;
                 0
             }
         }
@@ -649,8 +664,11 @@ impl Place {
 /// The assistants Pluto can set up, by id: (name, what it covers).
 const ASSISTANTS: &[(&str, &str)] = &[
     ("claude", "Claude"),
-    ("vscode", "VS Code"),
+    ("codex", "Codex"),
     ("cursor", "Cursor"),
+    ("vscode", "VS Code"),
+    ("opencode", "OpenCode"),
+    ("windsurf", "Windsurf"),
 ];
 
 /// Where each assistant keeps its settings under these folders (home, and the OS's config folder:
@@ -689,8 +707,61 @@ fn places_in(id: &str, home: &Path, config: &Path, local: Option<&Path>) -> Vec<
             id: "cursor",
             needs_file: false,
         }],
+        // Codex (CLI and app) share one `config.toml` in CODEX_HOME (default ~/.codex).
+        "codex" => {
+            let dir = std::env::var_os("CODEX_HOME")
+                .filter(|d| !d.is_empty())
+                .map(PathBuf::from)
+                .unwrap_or_else(|| home.join(".codex"));
+            vec![Place {
+                label: "Codex",
+                path: dir.join("config.toml"),
+                format: Format::CodexToml,
+                id: "codex",
+                needs_file: false,
+            }]
+        }
+        "opencode" => vec![Place {
+            label: "OpenCode",
+            path: opencode_dir(home).join("opencode.json"),
+            format: Format::OpenCode,
+            id: "opencode",
+            needs_file: false,
+        }],
+        // Windsurf's settings moved when it joined Devin: write the editor's file and, where it
+        // exists, the Devin one too (Windows: %APPDATA%\devin; elsewhere ~/.config/devin).
+        "windsurf" => {
+            let mut list = vec![Place {
+                label: "Windsurf",
+                path: home
+                    .join(".codeium")
+                    .join("windsurf")
+                    .join("mcp_config.json"),
+                format: Format::McpServers,
+                id: "windsurf",
+                needs_file: false,
+            }];
+            let devin = if cfg!(windows) {
+                config.join("devin")
+            } else {
+                home.join(".config").join("devin")
+            };
+            list.push(Place {
+                label: "Windsurf (Devin)",
+                path: devin.join("mcp_config.json"),
+                format: Format::McpServers,
+                id: "windsurf",
+                needs_file: false,
+            });
+            list
+        }
         _ => Vec::new(),
     }
+}
+
+/// OpenCode's config folder: `~/.config/opencode` on every system.
+fn opencode_dir(home: &Path) -> PathBuf {
+    home.join(".config").join("opencode")
 }
 
 /// The Claude app's settings folders: the usual one, plus on Windows the folder of a Store or
@@ -807,6 +878,59 @@ fn remove_claude_hooks(file: &Path) -> Result<(), String> {
     }
 }
 
+/// Cursor's hooks file (the pet cheers when the agent stops), when Cursor's folder exists.
+fn cursor_hooks_file(home: &Path) -> Option<PathBuf> {
+    let dir = home.join(".cursor");
+    dir.is_dir().then(|| dir.join("hooks.json"))
+}
+
+fn add_cursor_hooks(file: &Path, program: &str) -> Result<(), String> {
+    let text = setup::add_cursor_hooks(read_text(file).as_deref(), program)
+        .map_err(|why| format!("Cursor hooks: {why}"))?;
+    write_safely(file, &text).map_err(|e| format!("Cursor hooks: Pluto could not save them ({e})."))
+}
+
+fn remove_cursor_hooks(file: &Path) -> Result<(), String> {
+    let Some(text) = read_text(file) else {
+        return Ok(());
+    };
+    match setup::remove_cursor_hooks(Some(&text)).map_err(|why| format!("Cursor hooks: {why}"))? {
+        Some(text) => write_safely(file, &text)
+            .map_err(|e| format!("Cursor hooks: Pluto could not save them ({e}).")),
+        None => Ok(()),
+    }
+}
+
+/// Where Pluto's OpenCode plugin goes (OpenCode loads every file in this folder at start).
+fn opencode_plugin_file(home: &Path) -> Option<PathBuf> {
+    let dir = opencode_dir(home);
+    dir.is_dir()
+        .then(|| dir.join("plugins").join("pluto-pet.js"))
+}
+
+fn add_opencode_plugin(file: &Path, program: &str) -> Result<(), String> {
+    // A file with that name that Pluto did not write is never overwritten.
+    if let Some(old) = read_text(file) {
+        if !old.starts_with(setup::OPENCODE_PLUGIN_MARK) {
+            return Err("OpenCode plugin: a file named pluto-pet.js is already there and Pluto did not write it, so Pluto left it alone.".into());
+        }
+    }
+    if let Some(dir) = file.parent() {
+        std::fs::create_dir_all(dir)
+            .map_err(|e| format!("OpenCode plugin: Pluto could not make the folder ({e})."))?;
+    }
+    write_safely(file, &setup::opencode_plugin(program))
+        .map_err(|e| format!("OpenCode plugin: Pluto could not save it ({e})."))
+}
+
+fn remove_opencode_plugin(file: &Path) -> Result<(), String> {
+    if read_text(file).is_some_and(|t| t.starts_with(setup::OPENCODE_PLUGIN_MARK)) {
+        std::fs::remove_file(file)
+            .map_err(|e| format!("OpenCode plugin: Pluto could not remove it ({e})."))?;
+    }
+    Ok(())
+}
+
 /// Takes Pluto out of every place it is in.
 fn disconnect_places(places: &[Place]) -> Result<(), String> {
     for place in places {
@@ -903,6 +1027,20 @@ pub async fn mcp_connect(
             done.push("Claude Code hooks");
         }
     }
+    // The pet's "done" for tools that have a hook of their own (H-1..H-3). Codex's lives in the
+    // same file as its server entry (`notify`), so there is nothing more to add for it.
+    if id == "cursor" {
+        if let Some(file) = os_folders().and_then(|(home, _)| cursor_hooks_file(&home)) {
+            add_cursor_hooks(&file, &program)?;
+            done.push("Cursor hooks");
+        }
+    }
+    if id == "opencode" {
+        if let Some(file) = os_folders().and_then(|(home, _)| opencode_plugin_file(&home)) {
+            add_opencode_plugin(&file, &program)?;
+            done.push("OpenCode plugin");
+        }
+    }
     settings
         .set("mcp.enabled", serde_json::Value::Bool(true))
         .await
@@ -917,6 +1055,16 @@ pub fn mcp_disconnect(id: String) -> Result<(), String> {
     if id == "claude" {
         if let Some(file) = os_folders().and_then(|(home, _)| claude_hooks_file(&home)) {
             remove_claude_hooks(&file)?;
+        }
+    }
+    if id == "cursor" {
+        if let Some(file) = os_folders().and_then(|(home, _)| cursor_hooks_file(&home)) {
+            remove_cursor_hooks(&file)?;
+        }
+    }
+    if id == "opencode" {
+        if let Some(file) = os_folders().and_then(|(home, _)| opencode_plugin_file(&home)) {
+            remove_opencode_plugin(&file)?;
         }
     }
     Ok(())
@@ -1304,6 +1452,129 @@ mod tests {
             .git_commit
             .contains("\"C:/Pluto/pluto.exe\" --react git_commit"));
         assert!(lines.build.contains("build_failed"));
+    }
+
+    #[test]
+    fn codex_opencode_and_windsurf_connect_in_their_own_files_and_come_out_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path().to_path_buf();
+        let config = dir.path().join("AppData");
+        // Nothing installed yet: not found.
+        for id in ["codex", "opencode", "windsurf"] {
+            assert!(
+                !places_in(id, &home, &config, None)
+                    .iter()
+                    .any(Place::installed),
+                "{id}"
+            );
+        }
+        std::fs::create_dir_all(home.join(".codex")).unwrap();
+        std::fs::write(home.join(".codex").join("config.toml"), "model = \"o3\"\n").unwrap();
+        std::fs::create_dir_all(home.join(".config").join("opencode")).unwrap();
+        std::fs::create_dir_all(home.join(".codeium").join("windsurf")).unwrap();
+
+        let program = "/opt/pluto";
+        for id in ["codex", "opencode", "windsurf"] {
+            let places = places_in(id, &home, &config, None);
+            let done = connect_places(&places, program).unwrap();
+            assert!(!done.is_empty(), "{id}");
+            assert!(describe(id, id, &places, program).connected, "{id}");
+        }
+        let codex = std::fs::read_to_string(home.join(".codex").join("config.toml")).unwrap();
+        assert!(
+            codex.contains("model = \"o3\"")
+                && codex.contains("[mcp_servers.pluto]")
+                && codex.contains("notify = ")
+        );
+        let opencode: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(home.join(".config").join("opencode").join("opencode.json"))
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(opencode["mcp"]["pluto"]["command"][0], program);
+        // Windsurf's editor file is written; the Devin one only where its folder exists.
+        assert!(home
+            .join(".codeium")
+            .join("windsurf")
+            .join("mcp_config.json")
+            .is_file());
+
+        for id in ["codex", "opencode", "windsurf"] {
+            disconnect_places(&places_in(id, &home, &config, None)).unwrap();
+            assert!(
+                !describe(id, id, &places_in(id, &home, &config, None), program).connected,
+                "{id}"
+            );
+        }
+        assert_eq!(
+            std::fs::read_to_string(home.join(".codex").join("config.toml"))
+                .unwrap()
+                .trim(),
+            "model = \"o3\""
+        );
+    }
+
+    #[test]
+    fn cursor_hooks_and_the_opencode_plugin_go_in_and_out_and_never_overwrite_a_foreign_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let home = dir.path();
+        assert_eq!(cursor_hooks_file(home), None);
+        assert_eq!(opencode_plugin_file(home), None);
+        std::fs::create_dir_all(home.join(".cursor")).unwrap();
+        let hooks = cursor_hooks_file(home).unwrap();
+        add_cursor_hooks(&hooks, "/opt/pluto").unwrap();
+        assert!(read_text(&hooks)
+            .unwrap()
+            .contains("--react agent_done --assistant cursor"));
+        remove_cursor_hooks(&hooks).unwrap();
+        assert!(!read_text(&hooks).unwrap().contains("--react"));
+
+        std::fs::create_dir_all(home.join(".config").join("opencode")).unwrap();
+        let plugin = opencode_plugin_file(home).unwrap();
+        add_opencode_plugin(&plugin, "/opt/pluto").unwrap();
+        assert!(read_text(&plugin).unwrap().contains("session.idle"));
+        add_opencode_plugin(&plugin, "/opt/pluto2").unwrap();
+        assert!(read_text(&plugin).unwrap().contains("/opt/pluto2"));
+        remove_opencode_plugin(&plugin).unwrap();
+        assert!(!plugin.exists());
+        // Somebody else's file with the same name stays as it is.
+        std::fs::write(&plugin, "export const Mine = async () => ({})\n").unwrap();
+        assert!(add_opencode_plugin(&plugin, "/opt/pluto").is_err());
+        remove_opencode_plugin(&plugin).unwrap();
+        assert_eq!(
+            read_text(&plugin).unwrap(),
+            "export const Mine = async () => ({})\n"
+        );
+    }
+
+    #[test]
+    fn codex_and_opencode_say_where_a_reaction_came_from() {
+        let json = r#"{"type":"agent-turn-complete","cwd":"/work/pluto","input-messages":["Fix the tray"]}"#;
+        let args: Vec<String> = [
+            "pluto",
+            "--react",
+            "agent_done",
+            "--assistant",
+            "codex",
+            json,
+        ]
+        .map(String::from)
+        .to_vec();
+        assert_eq!(react_extra(&args, None).as_deref(), Some(json));
+        let (reaction, place) = from_hook("agent_done", &react_extra(&args, None).unwrap());
+        assert_eq!(reaction, "agent_done");
+        assert_eq!(place.as_deref(), Some("pluto · “Fix the tray”"));
+        // OpenCode: the folder comes in the environment, with the folder name only.
+        let plain: Vec<String> = ["pluto", "--react", "agent_done", "--assistant", "opencode"]
+            .map(String::from)
+            .to_vec();
+        let from_env = react_extra(&plain, Some("/home/me/site".into())).unwrap();
+        assert_eq!(
+            from_hook("agent_done", &from_env).1.as_deref(),
+            Some("site")
+        );
+        assert_eq!(react_extra(&plain, None), None);
+        assert_eq!(react_extra(&plain, Some("  ".into())), None);
     }
 
     #[test]

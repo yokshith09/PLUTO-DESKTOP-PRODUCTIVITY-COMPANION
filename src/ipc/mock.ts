@@ -317,11 +317,20 @@ export function createMock() {
       { label: "Claude Code", path: "C:\\Users\\you\\.claude.json", installed: true, connected: false, manual: manual("mcpServers", "claude-code") },
       { label: "Claude app", path: "C:\\Users\\you\\AppData\\Roaming\\Claude\\claude_desktop_config.json", installed: true, connected: false, manual: manual("mcpServers", "claude-desktop") },
     ] },
-    { id: "vscode", name: "VS Code", installed: true, connected: false, places: [
-      { label: "VS Code", path: "C:\\Users\\you\\AppData\\Roaming\\Code\\User\\mcp.json", installed: true, connected: false, manual: manual("servers", "vscode", true) },
+    { id: "codex", name: "Codex", installed: true, connected: false, places: [
+      { label: "Codex", path: "C:\\Users\\you\\.codex\\config.toml", installed: true, connected: false, manual: `[mcp_servers.pluto]\ncommand = '${exe}'\nargs = ['--mcp-bridge', '--assistant', 'codex']\n` },
     ] },
     { id: "cursor", name: "Cursor", installed: false, connected: false, places: [
       { label: "Cursor", path: "C:\\Users\\you\\.cursor\\mcp.json", installed: false, connected: false, manual: manual("mcpServers", "cursor") },
+    ] },
+    { id: "vscode", name: "VS Code", installed: true, connected: false, places: [
+      { label: "VS Code", path: "C:\\Users\\you\\AppData\\Roaming\\Code\\User\\mcp.json", installed: true, connected: false, manual: manual("servers", "vscode", true) },
+    ] },
+    { id: "opencode", name: "OpenCode", installed: false, connected: false, places: [
+      { label: "OpenCode", path: "C:\\Users\\you\\.config\\opencode\\opencode.json", installed: false, connected: false, manual: JSON.stringify({ mcp: { pluto: { type: "local", command: [exe, "--mcp-bridge", "--assistant", "opencode"], enabled: true } } }, null, 2) },
+    ] },
+    { id: "windsurf", name: "Windsurf", installed: false, connected: false, places: [
+      { label: "Windsurf", path: "C:\\Users\\you\\.codeium\\windsurf\\mcp_config.json", installed: false, connected: false, manual: manual("mcpServers", "windsurf") },
     ] },
   ];
 

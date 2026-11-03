@@ -363,6 +363,9 @@ mod link_tests {
         assert_eq!(link::display_name("claude-code"), "Claude Code");
         assert_eq!(link::display_name("my-agent"), "My Agent");
         assert_eq!(link::display_name("cursor"), "Cursor");
+        assert_eq!(link::display_name("opencode"), "OpenCode");
+        assert_eq!(link::display_name("codex"), "Codex");
+        assert_eq!(link::display_name("windsurf"), "Windsurf");
     }
 
     /// Assistant ⇄ bridge (stdio) ⇄ pipe ⇄ Pluto, all in memory: the whole path an assistant uses.

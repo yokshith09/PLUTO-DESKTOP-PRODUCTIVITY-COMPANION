@@ -17,6 +17,8 @@ pub struct HookInput {
     pub transcript: Option<PathBuf>,
     /// The Notification asks for a permission (rather than for a reply).
     pub permission: bool,
+    /// The request itself, when the tool says it (Codex's `input-messages`), shortened.
+    pub request: Option<String>,
 }
 
 /// Reads a hook's stdin JSON; anything unreadable gives an empty context.
@@ -30,7 +32,15 @@ pub fn parse(input: &str) -> HookInput {
             .map(str::trim)
             .filter(|x| !x.is_empty())
     };
-    let folder = s("cwd").and_then(|c| {
+    // Claude Code and Codex say `cwd`; Cursor lists `workspace_roots`.
+    let root = v
+        .get("workspace_roots")
+        .and_then(Value::as_array)
+        .and_then(|r| r.first())
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|x| !x.is_empty());
+    let folder = s("cwd").or(root).and_then(|c| {
         c.trim_end_matches(['/', '\\'])
             .rsplit(['/', '\\'])
             .next()
@@ -41,6 +51,15 @@ pub fn parse(input: &str) -> HookInput {
         folder,
         transcript: s("transcript_path").map(PathBuf::from),
         permission: s("message").is_some_and(|m| m.to_lowercase().contains("permission")),
+        request: v
+            .get("input-messages")
+            .and_then(Value::as_array)
+            .and_then(|m| {
+                m.iter()
+                    .filter_map(Value::as_str)
+                    .find(|t| !t.trim().is_empty())
+            })
+            .map(shorten),
     }
 }
 
@@ -73,17 +92,27 @@ pub fn first_request(transcript_jsonl: &str) -> Option<String> {
         else {
             continue;
         };
-        let one: String = text.split_whitespace().collect::<Vec<_>>().join(" ");
-        return Some(if one.chars().count() > TOPIC_CHARS {
-            format!(
-                "{}…",
-                one.chars().take(TOPIC_CHARS).collect::<String>().trim_end()
-            )
-        } else {
-            one
-        });
+        return Some(shorten(text));
     }
     None
+}
+
+/// One line, at most [`TOPIC_CHARS`] characters and an ellipsis.
+fn shorten(text: &str) -> String {
+    let one: String = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if one.chars().count() > TOPIC_CHARS {
+        format!(
+            "{}…",
+            one.chars().take(TOPIC_CHARS).collect::<String>().trim_end()
+        )
+    } else {
+        one
+    }
+}
+
+/// Just a folder (OpenCode's plugin passes the session's folder in `PLUTO_CWD`).
+pub fn from_folder(path: &str) -> HookInput {
+    parse(&serde_json::json!({ "cwd": path }).to_string())
 }
 
 /// Where the chat is, for the pet line: `DESKTOP-PET · “fix the tray menu”`.
@@ -157,6 +186,23 @@ mod tests {
         assert_eq!(idle.folder.as_deref(), Some("staysync"));
         assert!(!idle.permission);
         assert_eq!(parse("not json"), HookInput::default());
+    }
+
+    #[test]
+    fn cursor_and_codex_inputs_name_their_folder_and_codex_its_request() {
+        let cursor = parse(
+            r#"{"conversation_id":"c","status":"completed","hook_event_name":"stop","workspace_roots":["/Users/me/projects/staysync"]}"#,
+        );
+        assert_eq!(cursor.folder.as_deref(), Some("staysync"));
+        let codex = parse(
+            r#"{"type":"agent-turn-complete","cwd":"C:\\code\\pluto","input-messages":["","Rename the tray menu items and add a test for each"],"last-assistant-message":"Done"}"#,
+        );
+        assert_eq!(codex.folder.as_deref(), Some("pluto"));
+        assert_eq!(
+            codex.request.as_deref(),
+            Some("Rename the tray menu items and a…")
+        );
+        assert_eq!(from_folder("/home/me/site").folder.as_deref(), Some("site"));
     }
 
     #[test]

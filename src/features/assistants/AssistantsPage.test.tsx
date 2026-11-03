@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ipc, type AssistantInfo } from "@/ipc";
-import { AssistantsPage } from "./AssistantsPage";
+import { AssistantsPage, PET_REACTS, SOON, programOf } from "./AssistantsPage";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -13,6 +13,11 @@ const claude = (connected: boolean): AssistantInfo => ({
     { label: "Claude app", path: "/home/you/Claude/claude_desktop_config.json", installed: true, connected, manual: '{"mcpServers":{"pluto":{"command":"pluto","args":["--mcp-bridge","--assistant","claude-desktop"]}}}' },
   ],
 });
+const codex: AssistantInfo = {
+  id: "codex", name: "Codex", installed: true, connected: false,
+  places: [{ label: "Codex", path: "/home/you/.codex/config.toml", installed: true, connected: false, manual: "[mcp_servers.pluto]\ncommand = 'C:\\Program Files\\Pluto\\pluto.exe'\nargs = ['--mcp-bridge', '--assistant', 'codex']\n" }],
+};
+const windsurf: AssistantInfo = { id: "windsurf", name: "Windsurf", installed: false, connected: false, places: [{ label: "Windsurf", path: "/home/you/.codeium/windsurf/mcp_config.json", installed: false, connected: false, manual: "{}" }] };
 const cursor: AssistantInfo = { id: "cursor", name: "Cursor", installed: false, connected: false, places: [{ label: "Cursor", path: "/home/you/.cursor/mcp.json", installed: false, connected: false, manual: "{}" }] };
 
 function renderPage({ enabled = false, connected = false, dev = false } = {}) {
@@ -20,7 +25,7 @@ function renderPage({ enabled = false, connected = false, dev = false } = {}) {
   vi.spyOn(ipc, "settingSet").mockResolvedValue(null);
   vi.spyOn(ipc, "prefsGet").mockResolvedValue(dev as never);
   const prefsSet = vi.spyOn(ipc, "prefsSet").mockResolvedValue(null);
-  vi.spyOn(ipc, "mcpAssistants").mockResolvedValue([claude(connected), cursor]);
+  vi.spyOn(ipc, "mcpAssistants").mockResolvedValue([claude(connected), codex, cursor, windsurf]);
   const connect = vi.spyOn(ipc, "mcpConnect").mockResolvedValue(["Claude Code", "Claude app"]);
   const disconnect = vi.spyOn(ipc, "mcpDisconnect").mockResolvedValue(null);
   const activity = vi.spyOn(ipc, "mcpActivity").mockResolvedValue([
@@ -65,6 +70,41 @@ describe("Assistants page", () => {
     await waitFor(() => expect(within(dialog).getByRole("region", { name: "Recent requests" }).textContent).toContain("Read today's plan."));
     fireEvent.click(within(dialog).getByRole("button", { name: "Disconnect" }));
     await waitFor(() => expect(disconnect).toHaveBeenCalledWith("claude"));
+  });
+
+  it("lists Codex and Windsurf, shows what the pet does for each, and has no ChatGPT or DeepSeek tile (owner 2026-11-03)", async () => {
+    renderPage();
+    const tile = await screen.findByRole("listitem", { name: "Codex" });
+    expect(tile.textContent).toContain("Codex");
+    const reacts = within(tile).getByRole("list", { name: "Codex pet reactions" });
+    expect(within(reacts).getAllByRole("listitem").map((l) => l.textContent)).toEqual(PET_REACTS.codex?.map((r) => `✓ ${r}`));
+    expect(within(await screen.findByRole("listitem", { name: "Windsurf" })).getByText("Pet reacts when it asks")).toBeTruthy();
+    expect(screen.queryByRole("listitem", { name: "ChatGPT" })).toBeNull();
+    expect(screen.queryByRole("listitem", { name: "DeepSeek" })).toBeNull();
+    expect(screen.queryByText(/DeepSeek/)).toBeNull();
+  });
+
+  it("Codex's settings open with its TOML setup and name the program from it", async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Codex settings" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Show manual setup" }));
+    expect(within(dialog).getByLabelText("Codex setup").textContent).toContain("[mcp_servers.pluto]");
+    expect(programOf("[mcp_servers.pluto]\ncommand = 'C:\\Pluto\\pluto.exe'\n")).toBe("C:\\Pluto\\pluto.exe");
+    expect(programOf('command = "C:\\\\Pluto\\\\pluto.exe"')).toBe("C:\\Pluto\\pluto.exe");
+    expect(programOf('{"mcp":{"pluto":{"type":"local","command":["/opt/pluto","--mcp-bridge"]}}}')).toBe("/opt/pluto");
+    expect(programOf('{"servers":{"pluto":{"command":"/x"}}}')).toBe("/x");
+    expect(programOf("nothing here")).toBe("pluto");
+  });
+
+  it("Coming lists the planned ideas and says none of them works yet", async () => {
+    renderPage();
+    const coming = await screen.findByRole("region", { name: "Coming" });
+    expect(within(coming).getByText("Not working yet")).toBeTruthy();
+    expect(within(coming).getAllByRole("listitem")).toHaveLength(SOON.length);
+    expect(SOON).toHaveLength(8);
+    expect(within(coming).getByText("Which tool it wants")).toBeTruthy();
+    expect(within(coming).getByText("Click to go there")).toBeTruthy();
   });
 
   it("says plainly what assistants can do and that the diary is never shared", async () => {
