@@ -54,7 +54,7 @@
   --input: oklch(0.86 0.006 270);
   --ring: oklch(0.56 0.16 48);
   --success: oklch(0.52 0.13 150);
-  --violet: oklch(0.52 0.18 285);
+  --violet: oklch(0.52 0.2 345); /* pink, so it never looks like a violet accent */
   --sidebar: oklch(0.955 0.004 270);
   /* note tint: lightness/chroma of the fill and of the edge */
   --nl: 0.975;
@@ -84,7 +84,7 @@
   --input: oklch(1 0 0 / 17%);
   --ring: oklch(0.76 0.15 62);
   --success: oklch(0.75 0.14 155);
-  --violet: oklch(0.72 0.14 285);
+  --violet: oklch(0.74 0.15 345);
   --sidebar: oklch(0.155 0.005 270);
   --nl: 0.215;
   --nc: 0.02;

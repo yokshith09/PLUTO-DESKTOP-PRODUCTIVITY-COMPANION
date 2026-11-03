@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { ChevronDown, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PageHeader, Panel } from "@/features/shell/PageHeader";
 import { BEAR_POSES, Bear, type BearPose } from "@/features/shell/Bear";
 import { BACK_TURN_SHAKE, playEmote, type EmoteRun } from "@/pet/emotes";
@@ -83,17 +85,29 @@ export function CharacterPage({ onOpenProfile }: { onOpenProfile?: () => void } 
             </div>
             <p className="text-xs text-muted-foreground">Pick a moment to preview it</p>
           </div>
-          <div className="grid w-full grid-cols-2 gap-1.5 xl:grid-cols-3" role="group" aria-label="Preview pose">
-            {BEAR_POSES.map((p) => (
-              <Button
-                key={p} size="sm" variant={p === pose ? "default" : "outline"} aria-pressed={p === pose} className="justify-start truncate"
-                onClick={() => { setPose(p); setReplay((n) => n + 1); }}
-              >
-                {POSE_LABELS[p]}
-              </Button>
-            ))}
-            <Button size="sm" variant="secondary" className="justify-start truncate" onClick={playBackTurn}>Play back-turn shake</Button>
-          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <button type="button" className="group flex w-full items-center gap-3 rounded-xl border bg-background/40 px-3.5 py-2.5 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:border-primary/50">
+                <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Play className="size-4" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[11px] text-muted-foreground">Preview a moment</span>
+                  <span className="block truncate text-[13px] font-semibold">{POSE_LABELS[pose]}</span>
+                </span>
+                <ChevronDown aria-hidden className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="center" className="w-[min(30rem,calc(100vw-2rem))] p-3">
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" role="group" aria-label="Preview pose">
+                {BEAR_POSES.map((p) => (
+                  <Button key={p} size="sm" variant={p === pose ? "default" : "outline"} aria-pressed={p === pose} className="justify-start truncate"
+                    onClick={() => { setPose(p); setReplay((n) => n + 1); }}>
+                    {POSE_LABELS[p]}
+                  </Button>
+                ))}
+                <Button size="sm" variant="secondary" className="justify-start truncate" onClick={playBackTurn}>Play back-turn shake</Button>
+              </div>
+            </PopoverContent>
+          </Popover>
             </>
           )}
         </Panel>

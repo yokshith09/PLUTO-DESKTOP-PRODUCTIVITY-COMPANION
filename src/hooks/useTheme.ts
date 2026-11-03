@@ -1,16 +1,21 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ipc, type Settings, type SettingsKey } from "@/ipc";
+import { DEFAULT_COLOUR, applyColour, isColour } from "@/lib/colours";
 import { keys, useSettings } from "./usePluto";
 
 const FONT_SCALE = { S: 0.9, M: 1, L: 1.15 } as const;
 
-/** Applies `general.theme` and `general.font_size` to <html>. */
+/** Applies `general.theme`, `general.colour` and `general.font_size` to <html>. */
 export function useTheme() {
   const qc = useQueryClient();
   const { data } = useSettings();
   const pref = data?.["general.theme"] ?? "dark";
   const size = data?.["general.font_size"] ?? "M";
+  const colour = isColour(data?.["general.colour"]) ? data["general.colour"] : DEFAULT_COLOUR;
+
+  // Before the first paint, and in every window (main, pet, notes), so the pet's card matches the app.
+  useLayoutEffect(() => applyColour(colour), [colour]);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");

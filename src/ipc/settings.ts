@@ -2,6 +2,7 @@
 // TODO: auto-generate from Rust types with ts-rs
 
 export type ThemeOption = "light" | "dark" | "system";
+export type ColourOption = "periwinkle" | "indigo" | "ultraviolet" | "amethyst" | "copper";
 export type FontSize = "S" | "M" | "L";
 export type PetSize = "S" | "M" | "L";
 
@@ -9,6 +10,8 @@ export interface Settings {
   "general.autostart": boolean;
   "general.theme": ThemeOption;
   "general.font_size": FontSize;
+  /** The accent colour of the app (U-10). */
+  "general.colour": ColourOption;
   "pet.visible": boolean;
   "pet.size": PetSize;
   "pet.opacity": number;

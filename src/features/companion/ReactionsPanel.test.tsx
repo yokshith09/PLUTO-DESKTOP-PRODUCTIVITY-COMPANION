@@ -26,6 +26,8 @@ describe("Reactions (J3)", () => {
     const m = prefs({});
     const user = userEvent.setup();
     wrap(<ReactionsPanel />);
+    // Folded until you open it.
+    await user.click(await screen.findByRole("button", { name: /^Reactions/ }));
     const row = await screen.findByRole("group", { name: "A task is done" });
     expect(within(row).getByPlaceholderText("Done! {left} left today")).toBeTruthy();
     await user.selectOptions(within(row).getByLabelText("Pose for: A task is done"), "party");
@@ -39,6 +41,8 @@ describe("Reactions (J3)", () => {
     const m = prefs({});
     const user = userEvent.setup();
     wrap(<ReactionsPanel />);
+    expect(screen.queryByRole("group", { name: "A task is deleted" })).toBeNull();
+    await user.click(await screen.findByRole("button", { name: /^Reactions/ }));
     const row = await screen.findByRole("group", { name: "A task is deleted" });
     await user.click(within(row).getByRole("switch"));
     await waitFor(() => expect(m.get("ui.reactions")).toMatchObject({ "task-deleted": { enabled: false } }));

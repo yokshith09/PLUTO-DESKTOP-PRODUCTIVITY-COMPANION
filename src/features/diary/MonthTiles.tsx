@@ -11,10 +11,10 @@ import { level, monthCounts, monthTotals, streaks, yearTotals, type Level } from
 /** How strongly a written day's tile is tinted: a line or two, a paragraph, a page, a lot. */
 const TINT: Record<Level, string> = {
   0: "",
-  1: "from-foreground/[0.07] to-foreground/[0.02]",
-  2: "from-foreground/[0.12] to-foreground/[0.04]",
-  3: "from-foreground/[0.18] to-foreground/[0.06]",
-  4: "from-foreground/[0.26] to-foreground/[0.09]",
+  1: "from-primary/[0.10] to-primary/[0.03]",
+  2: "from-primary/[0.18] to-primary/[0.05]",
+  3: "from-primary/[0.28] to-primary/[0.08]",
+  4: "from-primary/[0.40] to-primary/[0.12]",
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -81,7 +81,7 @@ export function MonthTiles({ month, onMonth, infos, onOpen }: {
 
   return (
     <section aria-label="Diary month" className="overflow-hidden rounded-2xl border bg-card">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b bg-gradient-to-b from-primary/[0.06] to-transparent px-4 py-3">
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon-sm" aria-label="Previous month" onClick={() => step(-1)}><ChevronLeft /></Button>
           <h2 aria-live="polite" className="min-w-36 text-center text-[17px] font-semibold tracking-tight">{title}</h2>
@@ -91,7 +91,7 @@ export function MonthTiles({ month, onMonth, infos, onOpen }: {
           <b className="font-semibold tabular-nums text-foreground">{totals.entries}</b> {totals.entries === 1 ? "entry" : "entries"} on <b className="font-semibold tabular-nums text-foreground">{totals.days}</b> {totals.days === 1 ? "day" : "days"} this month
         </p>
         <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground" title="Days in a row with an entry">
-          <Flame aria-hidden className={cn("size-4", "text-muted-foreground")} />
+          <Flame aria-hidden className={cn("size-4", run.current > 0 ? "text-primary" : "text-muted-foreground")} />
           <span><b className="font-semibold tabular-nums text-foreground">{run.current}</b> in a row · longest <b className="font-semibold tabular-nums text-foreground">{run.longest}</b></span>
         </p>
         <Button size="sm" className="ml-auto" onClick={(e) => onOpen(today, originOf(e.currentTarget))}><PenLine />{hasToday ? "Open today" : "Write today"}</Button>
@@ -110,8 +110,8 @@ export function MonthTiles({ month, onMonth, infos, onOpen }: {
                 <button type="button" disabled={m > thisMonth} onClick={() => go(m)} aria-current={m === month ? "true" : undefined}
                   aria-label={`${name} ${year}, ${plural(n, "day")} written`}
                   className={cn("group relative flex h-8 w-full flex-col items-center justify-end overflow-hidden rounded-md border px-0.5 pb-0.5 text-[10px] leading-none outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30",
-                    m === month ? "border-foreground/25 bg-muted font-semibold text-foreground" : "border-transparent text-muted-foreground hover:bg-muted")}>
-                  <i aria-hidden className="mb-0.5 w-full max-w-5 rounded-[2px] bg-foreground/45" style={{ height: n === 0 ? 2 : 3 + Math.round((n / maxCount) * 11), opacity: n === 0 ? 0.25 : 1 }} />
+                    m === month ? "border-primary/60 bg-primary/10 font-semibold text-foreground" : "border-transparent text-muted-foreground hover:bg-muted")}>
+                  <i aria-hidden className="mb-0.5 w-full max-w-5 rounded-[2px] bg-primary/70" style={{ height: n === 0 ? 2 : 3 + Math.round((n / maxCount) * 11), opacity: n === 0 ? 0.25 : 1 }} />
                   {name}
                 </button>
               </li>
@@ -137,17 +137,17 @@ export function MonthTiles({ month, onMonth, infos, onOpen }: {
                 className={cn(
                   "group relative flex min-h-[5.75rem] flex-col overflow-hidden rounded-xl border p-2 text-left outline-none transition-all focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-30",
                   lit
-                    ? cn("bg-gradient-to-br border-foreground/20 shadow-sm hover:-translate-y-0.5 hover:border-foreground/45 hover:shadow-md", TINT[level(info)])
+                    ? cn("bg-gradient-to-br border-primary/40 shadow-sm hover:-translate-y-0.5 hover:border-primary/80 hover:shadow-md", TINT[level(info)])
                     : "border-dashed border-border/70 text-muted-foreground hover:border-solid hover:bg-muted/50",
-                  isToday && "ring-2 ring-foreground/60 ring-offset-1 ring-offset-card",
+                  isToday && "ring-2 ring-primary/70 ring-offset-1 ring-offset-card",
                 )}>
                 <span className="flex items-start justify-between gap-1">
-                  <span className={cn("text-[15px] font-semibold tabular-nums leading-none", lit ? "text-foreground" : "text-muted-foreground/80")}>{Number(day.slice(8))}</span>
+                  <span className={cn("text-[15px] font-semibold tabular-nums leading-none", lit ? "text-primary" : "text-muted-foreground/80")}>{Number(day.slice(8))}</span>
                   {lit ? (
                     <span aria-hidden className="flex gap-0.5 pt-0.5">
-                      {Array.from({ length: Math.min(info.entries, 4) }, (_, k) => <i key={k} className="size-1.5 rounded-full bg-foreground/55" />)}
+                      {Array.from({ length: Math.min(info.entries, 4) }, (_, k) => <i key={k} className="size-1.5 rounded-full bg-primary" />)}
                     </span>
-                  ) : isToday ? <span aria-hidden className="text-[10px] font-medium text-foreground">Today</span> : null}
+                  ) : isToday ? <span aria-hidden className="text-[10px] font-medium text-primary">Today</span> : null}
                 </span>
                 {lit && (
                   <>

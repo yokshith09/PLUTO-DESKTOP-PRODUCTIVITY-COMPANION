@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { errorMessage, ipc } from "@/ipc";
 import { GLOBAL_SHORTCUTS } from "./shortcuts";
 import { ShortcutRow } from "./ShortcutRow";
+import { ColourPicker } from "./ColourPicker";
 import { useSetting } from "@/hooks/useTheme";
 
 /** The main projects Pluto ships with and their licenses (About › Open-source software). */
@@ -26,6 +27,7 @@ const LICENSES: [string, string][] = [
 
 export function SettingsPage({ initialTab = "main", onOpenCharacter }: { initialTab?: "main" | "profile"; onOpenCharacter?: () => void } = {}) {
   const [theme, setTheme] = useSetting("general.theme");
+  const [colour, setColour] = useSetting("general.colour");
   const [font, setFont] = useSetting("general.font_size");
   const [autostart, setAutostart] = useSetting("general.autostart");
   const [openGlobal] = useSetting("shortcuts.global_open");
@@ -62,6 +64,7 @@ export function SettingsPage({ initialTab = "main", onOpenCharacter }: { initial
             <ToggleGroupItem value="dark">Dark</ToggleGroupItem>
           </ToggleGroup>
         </Row>
+        <ColourPicker value={colour} onChange={(c) => void setColour(c)} />
         <Row label="Text size">
           <ToggleGroup type="single" value={font ?? "M"} onValueChange={(v) => v && void setFont(v as "S" | "M" | "L")} aria-label="Text size">
             <ToggleGroupItem value="S">Small</ToggleGroupItem>

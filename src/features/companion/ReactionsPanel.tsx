@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { BEAR_POSES } from "@/features/shell/Bear";
-import { Panel } from "@/features/shell/PageHeader";
+import { Fold } from "@/features/shell/Fold";
 import { ipc } from "@/ipc";
 import { REACTION_INFO, REACTION_KEYS, parseReactionSettings, type ReactionKey, type ReactionSetting, type ReactionSettings } from "@/pet/reactionSettings";
 
@@ -24,11 +24,13 @@ export function ReactionsPanel() {
   const reset = (key: ReactionKey) => {
     void save(Object.fromEntries(Object.entries(data).filter(([k]) => k !== key)) as ReactionSettings);
   };
+  const on = REACTION_KEYS.filter((k) => data[k]?.enabled !== false).length;
+  const edited = REACTION_KEYS.filter((k) => { const d = data[k]; return !!d && (!d.enabled || d.text !== "" || d.pose !== ""); }).length;
   return (
-    <section aria-label="Reactions" className="mt-6">
-      <h2 className="text-[15px] font-semibold">Reactions</h2>
-      <p className="mt-0.5 text-xs text-muted-foreground">What it does when something happens. Turn one off, pick another pose, or write your own words with {"{title}"} or {"{left}"}.</p>
-      <Panel className="mt-3 divide-y">
+    <Fold title="Reactions" icon={<Zap className="size-4" />}
+      summary={`${on} of ${REACTION_KEYS.length} on${edited ? ` · ${edited} changed` : ""} · what the pet does when something happens`}>
+      <p className="px-4 pt-3 text-xs text-muted-foreground">Turn one off, pick another pose, or write your own words with {"{title}"} or {"{left}"}.</p>
+      <div className="mt-2 divide-y">
         {REACTION_KEYS.map((key) => {
           const info = REACTION_INFO[key];
           const s = { ...DEFAULT, ...data[key] };
@@ -58,7 +60,7 @@ export function ReactionsPanel() {
             </div>
           );
         })}
-      </Panel>
-    </section>
+      </div>
+    </Fold>
   );
 }

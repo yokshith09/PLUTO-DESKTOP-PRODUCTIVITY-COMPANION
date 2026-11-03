@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
+/// The colours the app can wear (U-10, owner 2026-11-03: at most five, Periwinkle by default).
+pub const COLOURS: [&str; 5] = ["periwinkle", "indigo", "ultraviolet", "amethyst", "copper"];
+
 /// How many apps the "do not track" list can hold, and the longest name in it.
 pub const EXCLUDE_APPS_MAX: usize = 200;
 pub const EXCLUDE_APP_LEN_MAX: usize = 100;
@@ -22,6 +25,9 @@ pub enum SettingsKey {
     GeneralTheme,
     #[serde(rename = "general.font_size")]
     GeneralFontSize,
+    /// The accent colour of the whole app (U-10): periwinkle, indigo, ultraviolet, amethyst or copper.
+    #[serde(rename = "general.colour")]
+    GeneralColour,
 
     // pet
     #[serde(rename = "pet.visible")]
@@ -128,6 +134,7 @@ impl SettingsKey {
             Self::GeneralAutostart => "general.autostart",
             Self::GeneralTheme => "general.theme",
             Self::GeneralFontSize => "general.font_size",
+            Self::GeneralColour => "general.colour",
             Self::PetVisible => "pet.visible",
             Self::PetSize => "pet.size",
             Self::PetOpacity => "pet.opacity",
@@ -157,6 +164,7 @@ impl SettingsKey {
             "general.autostart" => Some(Self::GeneralAutostart),
             "general.theme" => Some(Self::GeneralTheme),
             "general.font_size" => Some(Self::GeneralFontSize),
+            "general.colour" => Some(Self::GeneralColour),
             "pet.visible" => Some(Self::PetVisible),
             "pet.size" => Some(Self::PetSize),
             "pet.opacity" => Some(Self::PetOpacity),
@@ -187,6 +195,7 @@ impl SettingsKey {
             Self::GeneralAutostart => json!(false),
             Self::GeneralTheme => json!("system"),
             Self::GeneralFontSize => json!("M"),
+            Self::GeneralColour => json!("periwinkle"),
             Self::PetVisible => json!(true),
             Self::PetSize => json!("M"),
             Self::PetOpacity => json!(100),
@@ -257,6 +266,17 @@ impl SettingsKey {
                     return Err(AppError::validation(
                         self.as_str(),
                         "must be 'S', 'M', or 'L'",
+                    ));
+                }
+            }
+            Self::GeneralColour => {
+                let s = value
+                    .as_str()
+                    .ok_or_else(|| AppError::validation(self.as_str(), "must be a string"))?;
+                if !COLOURS.contains(&s) {
+                    return Err(AppError::validation(
+                        self.as_str(),
+                        "must be 'periwinkle', 'indigo', 'ultraviolet', 'amethyst' or 'copper'",
                     ));
                 }
             }
@@ -351,6 +371,7 @@ pub fn all_defaults() -> BTreeMap<String, Value> {
         SettingsKey::GeneralAutostart,
         SettingsKey::GeneralTheme,
         SettingsKey::GeneralFontSize,
+        SettingsKey::GeneralColour,
         SettingsKey::PetVisible,
         SettingsKey::PetSize,
         SettingsKey::PetOpacity,
@@ -418,7 +439,12 @@ mod tests {
     #[test]
     fn all_defaults_exist() {
         let defaults = all_defaults();
-        assert_eq!(defaults.len(), 23);
+        assert_eq!(defaults.len(), 24);
+        assert_eq!(
+            defaults["general.colour"],
+            json!("periwinkle"),
+            "Periwinkle is the default colour"
+        );
         assert_eq!(defaults["mcp.focus_guard"], json!(false));
         assert_eq!(
             defaults["mcp.enabled"],
@@ -497,6 +523,19 @@ mod tests {
         assert!(SettingsKey::ShortcutsGlobalOpen
             .validate(&json!(123))
             .is_err());
+    }
+
+    #[test]
+    fn the_colour_is_one_of_five_names() {
+        let k = SettingsKey::GeneralColour;
+        for c in COLOURS {
+            assert!(k.validate(&json!(c)).is_ok(), "{c}");
+        }
+        assert_eq!(COLOURS.len(), 5);
+        assert!(k.validate(&json!("red")).is_err());
+        assert!(k.validate(&json!("#8866ff")).is_err());
+        assert!(k.validate(&json!(3)).is_err());
+        assert!(SettingsKey::parse("general.colour").is_some());
     }
 
     #[test]

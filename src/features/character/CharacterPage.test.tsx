@@ -23,9 +23,11 @@ function renderPage() {
 }
 
 describe("Character page preview (F1/F2)", () => {
-  it("starts as the bear, with its pose buttons", async () => {
+  it("starts as the bear, with its moments behind one button", async () => {
     renderPage();
-    expect(screen.getByRole("group", { name: "Preview pose" })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Preview pose" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Preview a moment/ }));
+    expect(await screen.findByRole("group", { name: "Preview pose" })).toBeTruthy();
     expect(screen.queryByRole("group", { name: "Preview animation" })).toBeNull();
   });
 
@@ -54,7 +56,7 @@ describe("Character page preview (F1/F2)", () => {
     const group = await screen.findByRole("group", { name: "Preview animation" });
     expect(group.querySelectorAll("button")).toHaveLength(3);
     fireEvent.click(screen.getByRole("button", { name: "Preview Pluto the bear" }));
-    expect(await screen.findByRole("group", { name: "Preview pose" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /Preview a moment/ })).toBeTruthy();
   });
 
   it("has no music option for now", async () => {

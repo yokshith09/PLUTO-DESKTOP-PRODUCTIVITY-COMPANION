@@ -164,7 +164,7 @@ export function createMock() {
   const find = (id: unknown) => notes.find((x) => x.id === id) ?? fail("NOT_FOUND", "That note no longer exists.");
 
   const defaultSettings = (): Record<string, unknown> => ({
-    "general.autostart": false, "general.theme": "dark", "general.font_size": "M",
+    "general.autostart": false, "general.theme": "dark", "general.colour": "periwinkle", "general.font_size": "M",
     "pet.visible": true, "pet.size": "M", "pet.opacity": 100, "pet.always_on_top": true, "pet.typing": false, "pet.hover_card": true, "pet.hide_fullscreen": true, "pet.media": false, "pet.pack": null, "mcp.enabled": false, "mcp.focus_guard": false,
     "shortcuts.global_open": null, "shortcuts.global_new_note": null, "shortcuts.global_new_task": null, "shortcuts.global_pet": null,
     "tracking.apps": true, "tracking.exclude_apps": [], "tracking.sites": false, "tracking.safari": false,

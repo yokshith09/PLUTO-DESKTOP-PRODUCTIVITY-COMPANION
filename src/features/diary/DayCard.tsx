@@ -112,10 +112,10 @@ export function DayCard({ day, from, onClose, onDay, onChanged, pickup, onPickup
     <Dialog open={day !== null} onOpenChange={(o) => { if (!o) { void flush(); onClose(); } }}>
       <DialogContent showClose={false} className="flex max-h-[calc(100vh-2rem)] w-[min(44rem,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-visible border-0 bg-transparent p-0 shadow-none [perspective:1500px] sm:max-w-none data-[state=open]:animate-none">
         <div key={day ?? ""} style={flip} className={cn("flex max-h-[calc(100vh-2rem)] min-h-0 flex-col overflow-hidden rounded-2xl border bg-popover shadow-2xl shadow-black/40", from ? "diary-flip" : "diary-turn")}>
-          <div className="flex items-center gap-3 border-b bg-muted/30 px-4 pb-3 pt-4">
+          <div className="flex items-center gap-3 border-b bg-gradient-to-b from-primary/[0.09] to-transparent px-4 pb-3 pt-4">
             {date && (
               <div aria-hidden className="grid w-14 shrink-0 overflow-hidden rounded-xl border bg-card text-center shadow-sm">
-                <span className="bg-muted px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{date.toLocaleDateString([], { month: "short" })}</span>
+                <span className="bg-primary px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary-foreground">{date.toLocaleDateString([], { month: "short" })}</span>
                 <span className="py-1.5 text-2xl font-semibold leading-none tabular-nums">{date.getDate()}</span>
               </div>
             )}
@@ -124,7 +124,7 @@ export function DayCard({ day, from, onClose, onDay, onChanged, pickup, onPickup
               <DialogDescription className="text-xs text-muted-foreground">
                 {date ? `${date.getFullYear()} · ${real === 0 ? "No entries yet" : real === 1 ? "1 entry" : `${real} entries`}` : ""}
               </DialogDescription>
-              {total > 0 && <span className="mt-1 inline-block rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">{total} words today</span>}
+              {total > 0 && <span className="mt-1 inline-block rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-primary">{total} words today</span>}
             </div>
             <Button variant="ghost" size="icon-sm" aria-label="Previous day" onClick={() => shift(-1)}><ChevronLeft /></Button>
             <Button variant="ghost" size="icon-sm" aria-label="Next day" disabled={!day || day >= today} onClick={() => shift(1)}><ChevronRight /></Button>
@@ -137,10 +137,10 @@ export function DayCard({ day, from, onClose, onDay, onChanged, pickup, onPickup
                 const todos = pickup ? detectTodos(e.text, new Date()) : [];
                 return (
                   <li key={e.id} className="relative">
-                    <i aria-hidden className="absolute -left-6 top-4 size-3.5 rounded-full border-2 border-foreground/50 bg-popover" />
-                    <section aria-label={`Entry ${i + 1}`} className="rounded-xl border border-l-[3px] border-l-foreground/30 bg-card p-3 shadow-sm">
+                    <i aria-hidden className="absolute -left-6 top-4 size-3.5 rounded-full border-2 border-primary bg-popover" />
+                    <section aria-label={`Entry ${i + 1}`} className="rounded-xl border border-l-[3px] border-l-primary/60 bg-card p-3 shadow-sm">
                       <div className="mb-1.5 flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="rounded-md bg-muted px-1.5 py-0.5 font-medium text-foreground">Entry {i + 1}</span>
+                        <span className="rounded-md bg-primary/10 px-1.5 py-0.5 font-medium text-primary">Entry {i + 1}</span>
                         <span>{timeOf(e.at)}</span>
                         <span className="ml-auto tabular-nums">{words(e.text)} words</span>
                         {(entries.length > 1 || e.text.trim()) && (
@@ -163,7 +163,7 @@ export function DayCard({ day, from, onClose, onDay, onChanged, pickup, onPickup
                           {todos.map((t) => (
                             <li key={t.line} className="flex items-center gap-2 text-[13px]">
                               <span className="min-w-0 flex-1 truncate underline decoration-primary/60 decoration-dotted underline-offset-4">{t.title}{t.due ? ` · ${t.due}` : ""}</span>
-                              {made[`${e.id}:${t.text}`] ? <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[11px] text-foreground"><Check aria-hidden className="size-3" />Task made</span>
+                              {made[`${e.id}:${t.text}`] ? <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary"><Check aria-hidden className="size-3" />Task made</span>
                                 : <Button size="sm" variant="outline" onClick={() => void makeTask(`${e.id}:${t.text}`, t.title, t.due)}>Make task</Button>}
                             </li>
                           ))}
