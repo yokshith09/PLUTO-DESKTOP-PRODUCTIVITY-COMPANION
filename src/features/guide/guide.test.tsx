@@ -7,7 +7,7 @@ import { LearnCard } from "./LearnCard";
 import { ROLES, parseRole, parseStudentPack, studentPackOn } from "./roles";
 import { Tour } from "./Tour";
 import { STEPS, TOUR_ORDER, stepsFor } from "./tourSteps";
-import { YourProfile } from "./YourProfile";
+import { HelpSection, YourProfile } from "./YourProfile";
 import { GuideSection } from "./GuideSection";
 import { CREDIT, GUIDE } from "./content";
 
@@ -163,7 +163,7 @@ describe("Settings → Your profile", () => {
     const store: Record<string, unknown> = { "ui.role": "general", "ui.tour": "done", "ui.learn": { answers: { pet: 0 }, dismissed: true } };
     vi.spyOn(ipc, "prefsGet").mockImplementation(async (k: string) => (store[k] ?? null) as never);
     vi.spyOn(ipc, "prefsSet").mockImplementation(async (k: string, v: unknown) => { store[k] = v; return null as never; });
-    render(wrap(<YourProfile />));
+    render(wrap(<><YourProfile /><HelpSection /></>));
     const group = await screen.findByRole("radiogroup", { name: "What describes you best" });
     expect(within(group).getByRole("radio", { name: /Something else/ }).getAttribute("aria-checked")).toBe("true");
     fireEvent.click(within(group).getByRole("radio", { name: /^Developer/ }));

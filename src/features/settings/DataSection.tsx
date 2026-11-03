@@ -1,3 +1,4 @@
+import { AutoDeleteSettings } from "./AutoDeleteSettings";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { notify } from "@/lib/notify";
@@ -49,6 +50,7 @@ export function DataSection() {
   return (
     <>
       <Section title="Your data">
+        <AutoDeleteSettings bare />
         <Row label="Stored on this computer" hint={paths?.database ?? ""}>
           <Button variant="outline" size="sm" onClick={() => void ipc.folderOpen("data").catch((e: unknown) => notify.error(errorMessage(e)))}>Open folder</Button>
         </Row>

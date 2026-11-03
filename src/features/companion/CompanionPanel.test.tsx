@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ipc } from "@/ipc";
 import { ymd } from "@/lib/dates";
-import { CompanionPanel } from "./CompanionPanel";
+import { CompanionPanel, PetSection, YouSection } from "./CompanionPanel";
 import { useDailyGreeting } from "./useCompanion";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -31,7 +31,7 @@ describe("About you and your pet (FR-93)", () => {
   it("saves your name and birthday (no year)", async () => {
     const m = prefs({ "ui.companion": { born: "2026-01-01", userName: "", userBirthday: null, greet: true, greetedOn: null } });
     const user = userEvent.setup();
-    wrap(<CompanionPanel />);
+    wrap(<YouSection />);
     const name = await screen.findByLabelText("Your first name");
     await user.type(name, "Asha");
     await user.tab();
@@ -43,7 +43,7 @@ describe("About you and your pet (FR-93)", () => {
   it("saves the pet's name, counts days together and lists what comes later", async () => {
     const m = prefs({ "ui.companion": { born: "2026-01-01", userName: "", userBirthday: null, greet: true, greetedOn: null } });
     const user = userEvent.setup();
-    wrap(<CompanionPanel />);
+    wrap(<PetSection />);
     await user.type(await screen.findByLabelText("Pet’s name"), "Biscuit");
     await user.tab();
     await waitFor(() => expect(m.get("ui.companion")).toMatchObject({ petName: "Biscuit" }));
@@ -55,9 +55,27 @@ describe("About you and your pet (FR-93)", () => {
   it("the hello can be turned off", async () => {
     const m = prefs({ "ui.companion": { born: "2026-01-01", userName: "", userBirthday: null, greet: true, greetedOn: null } });
     const user = userEvent.setup();
-    wrap(<CompanionPanel />);
+    wrap(<PetSection />);
     await user.click(await screen.findByRole("switch", { name: "Say hello once a day" }));
     await waitFor(() => expect(m.get("ui.companion")).toMatchObject({ greet: false }));
+  });
+});
+
+describe("Character and Profile link to each other (U-2)", () => {
+  it("the Character summary opens Profile, and Profile's pet section opens Character", async () => {
+    prefs({ "ui.companion": { born: "2026-01-01", petName: "Mochi", userName: "", userBirthday: null, greet: true, greetedOn: null } });
+    const user = userEvent.setup();
+    const toProfile = vi.fn();
+    wrap(<CompanionPanel onOpenProfile={toProfile} />);
+    expect(await screen.findByText(/^Mochi is /)).toBeTruthy();
+    expect(screen.queryByLabelText("Pet’s name")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Open Profile" }));
+    expect(toProfile).toHaveBeenCalledOnce();
+    cleanup();
+    const toCharacter = vi.fn();
+    wrap(<PetSection onOpenCharacter={toCharacter} />);
+    await user.click(await screen.findByRole("button", { name: "Open Character" }));
+    expect(toCharacter).toHaveBeenCalledOnce();
   });
 });
 

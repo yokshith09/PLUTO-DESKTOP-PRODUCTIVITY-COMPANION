@@ -445,3 +445,4 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-03: U-1 done in code. Next U-2.
 
 - 2026-11-03: assistant ideas A-1..A-5 listed for the owner; U-2 approved.
+- 2026-11-03: U-2 done in code (Unverified in the real window).

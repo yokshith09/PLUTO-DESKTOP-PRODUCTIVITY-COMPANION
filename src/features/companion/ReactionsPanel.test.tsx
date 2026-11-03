@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { ipc } from "@/ipc";
-import { CompanionPanel } from "./CompanionPanel";
+import { PetSection } from "./CompanionPanel";
 import { ReactionsPanel } from "./ReactionsPanel";
 
 beforeAll(() => {
@@ -54,8 +54,8 @@ describe("Say hello now (J3)", () => {
     const bridge = await import("@/ipc");
     vi.spyOn(bridge, "petSay").mockImplementation(async (m) => { said.push(m as never); });
     const user = userEvent.setup();
-    wrap(<CompanionPanel />);
-    await user.click(await screen.findByRole("button", { name: /Say hello now/ }));
+    wrap(<PetSection />);
+    await user.click(await screen.findByRole("button", { name: "Say it now" }));
     await waitFor(() => expect(said).toHaveLength(1));
     expect(said[0]?.text).toMatch(/I'm Mochi, your assistant\./);
   });

@@ -38,7 +38,7 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
   );
 }
 
-export function CharacterPage() {
+export function CharacterPage({ onOpenProfile }: { onOpenProfile?: () => void } = {}) {
   const { data: packs = [] } = useQuery({ queryKey: ["pets", "library"], queryFn: ipc.petsList });
   const [activePack] = useSetting("pet.pack");
   // The big preview follows the character in use (owner 2026-10-27); clicking another card previews
@@ -135,7 +135,7 @@ export function CharacterPage() {
         <WardrobePanel mirror={shownPack ? <PackMirror pack={shownPack} /> : <Bear pose="idle" wear={worn} animated className="size-36" />} />
         <div className="flex flex-col gap-4">
           {/* Takes up whatever height the Wardrobe beside it needs. */}
-          <div className="flex flex-1 flex-col [&>section]:flex [&>section]:flex-1 [&>section]:flex-col [&>section>section]:flex-1 [&>section>section]:content-center"><CompanionPanel /></div>
+          <CompanionPanel onOpenProfile={onOpenProfile} />
           <NudgeSettings />
         </div>
         <div className="lg:col-span-2"><ReactionsPanel /></div>

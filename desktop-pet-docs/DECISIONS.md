@@ -653,3 +653,4 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 
 - 2026-11-03 (owner): pet lines for Claude Code name the chat (folder + start of the first request) and tell a permission request (`agent_permission`) from waiting for a reply. Reaction line protocol gains an optional percent-encoded place word (old lines still work).
 - 2026-11-03 (owner): U-2 approved: name/birthday/pet details move from Character to Settings › Profile (Character links there); nudges stay on Character; Settings always opens on Main settings.
+- 2026-11-03: U-2 built. The Character page keeps a one-line summary of the pet (name and age) with Open Profile so nothing feels lost; the hello button is "Say it now" beside its switch; auto-delete rules moved inside "Your data" instead of a section of their own.

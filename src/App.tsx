@@ -38,6 +38,8 @@ const PAGES: readonly Page[] = ["today", "tasks", "time", "notes", "projects", "
 
 function Screen() {
   const [page, setPageState] = useState<Page>("today");
+  /** Settings opens on Main settings; the Character page's link opens Profile (U-2). */
+  const [settingsTab, setSettingsTab] = useState<"main" | "profile">("main");
   const [labelId, setLabelId] = useState<string | null>(null);
   const [sort, setSort] = useState<NoteSort>("last_edited");
   const [layout, setLayoutState] = useState<NotesLayout>("grid");
@@ -76,6 +78,7 @@ function Screen() {
   }, []);
   const setPage = (p: Page) => {
     setPageState(p);
+    setSettingsTab("main");
     setTaskFocus(null);
     void ipc.prefsSet("ui.last_view", p);
   };
@@ -174,8 +177,8 @@ function Screen() {
               <TodayOverviewPage onShowTasks={(focus) => { setPage("tasks"); setTaskFocus(focus); }} onNavigate={setPage} />
             )}
             {page === "bin" && <BinPage />}
-            {page === "character" && <CharacterPage />}
-            {page === "settings" && <SettingsPage />}
+            {page === "character" && <CharacterPage onOpenProfile={() => { setPage("settings"); setSettingsTab("profile"); }} />}
+            {page === "settings" && <SettingsPage key={settingsTab} initialTab={settingsTab} onOpenCharacter={() => setPage("character")} />}
             {page === "tasks" && <TasksPage focus={taskFocus} onClearFocus={() => setTaskFocus(null)} />}
             {page === "meetings" && <MeetingsPage newTick={newMeeting} />}
             {page === "projects" && <ProjectsPage />}

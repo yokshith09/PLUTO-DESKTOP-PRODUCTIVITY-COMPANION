@@ -1,10 +1,10 @@
+import { cn } from "@/lib/utils";
 import { PageHeader } from "@/features/shell/PageHeader";
 import { mod } from "@/lib/platform";
-import { YourProfile } from "@/features/guide/YourProfile";
-import { GuideSection } from "@/features/guide/GuideSection";
+import { HelpSection, YourProfile } from "@/features/guide/YourProfile";
+import { PetSection } from "@/features/companion/CompanionPanel";
 import { CREDIT } from "@/features/guide/content";
 import { DataSection } from "./DataSection";
-import { AutoDeleteSettings } from "./AutoDeleteSettings";
 import { Row, Section } from "./parts";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -24,7 +24,7 @@ const LICENSES: [string, string][] = [
   ["dnd kit", "MIT"], ["react-markdown / remark-gfm", "MIT"], ["class-variance-authority", "Apache-2.0"], ["clsx, tailwind-merge", "MIT"],
 ];
 
-export function SettingsPage() {
+export function SettingsPage({ initialTab = "main", onOpenCharacter }: { initialTab?: "main" | "profile"; onOpenCharacter?: () => void } = {}) {
   const [theme, setTheme] = useSetting("general.theme");
   const [font, setFont] = useSetting("general.font_size");
   const [autostart, setAutostart] = useSetting("general.autostart");
@@ -33,10 +33,28 @@ export function SettingsPage() {
   const [petGlobal] = useSetting("shortcuts.global_pet");
   const globals: Record<string, string | null | undefined> = { "shortcuts.global_open": openGlobal, "shortcuts.global_new_note": noteGlobal, "shortcuts.global_pet": petGlobal };
   const [confirmReset, setConfirmReset] = useState(false);
+  // U-2 (owner 2026-11-03): two tabs; Settings opens on Main settings unless sent to Profile.
+  const [tab, setTab] = useState<"main" | "profile">(initialTab);
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader title="Settings" />
-      <Section title="General">
+      <div role="tablist" aria-label="Settings" className="flex gap-1 border-b">
+        {([["main", "Main settings"], ["profile", "Profile"]] as const).map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+            className={cn("-mb-px border-b-2 px-3.5 py-2.5 text-[13.5px] outline-none focus-visible:ring-2 focus-visible:ring-ring", tab === id ? "border-primary font-semibold text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {tab === "profile" ? (
+        <div role="tabpanel" aria-label="Profile" className="space-y-6">
+          <YourProfile />
+          <PetSection onOpenCharacter={onOpenCharacter} />
+          <HelpSection />
+        </div>
+      ) : (
+      <div role="tabpanel" aria-label="Main settings" className="space-y-6">
+      <Section title="Appearance and start">
         <Row label="Theme" hint="System follows your operating system.">
           <ToggleGroup type="single" value={theme ?? "dark"} onValueChange={(v) => v && void setTheme(v as "system" | "light" | "dark")} aria-label="Theme">
             <ToggleGroupItem value="system">System</ToggleGroupItem>
@@ -55,8 +73,6 @@ export function SettingsPage() {
           <Switch checked={autostart ?? false} onCheckedChange={(v) => void setAutostart(v)} aria-label="Open Pluto at login" />
         </Row>
       </Section>
-      <YourProfile />
-      <GuideSection />
       <Section title="Keyboard shortcuts">
         {GLOBAL_SHORTCUTS.map((g) => (
           <ShortcutRow
@@ -73,7 +89,6 @@ export function SettingsPage() {
           <Row key={keys} label={what ?? ""}><span className="rounded-md border bg-muted px-2 py-0.5 font-mono text-[12px]">{keys}</span></Row>
         ))}
       </Section>
-      <AutoDeleteSettings />
       <DataSection />
       <Section title="Advanced">
         {/* Log rows removed (FR-47, owner V2-07): logging stays on for bug reports, it is just not shown. */}
@@ -87,22 +102,18 @@ export function SettingsPage() {
             <Button size="sm" variant="secondary" onClick={() => setConfirmReset(true)}>Reset settings…</Button>
           )}
         </Row>
-      </Section>
-      <Section title="About">
-        <Row label="Pluto" hint={`Version ${__APP_VERSION__} · Your notes, tasks and reminders are stored only on this computer.`}>
-          <span />
-        </Row>
-        <Row label={CREDIT} hint="Pluto: small companion, big universe. Made with care for people who want a calm place to plan their day.">
-          <span />
-        </Row>
         <details className="py-3.5 text-[13px]">
-          <summary className="cursor-pointer font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">Open-source software</summary>
-          <p className="mt-2 text-xs text-muted-foreground">Pluto is built on these projects, used under their licenses:</p>
+          <summary className="cursor-pointer font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">About Pluto <span className="font-normal text-muted-foreground">· version {__APP_VERSION__}</span></summary>
+          <p className="mt-2 text-xs text-muted-foreground">Your notes, tasks and reminders are stored only on this computer.</p>
+          <p className="mt-2 text-xs text-muted-foreground">{CREDIT}. Pluto: small companion, big universe. Made with care for people who want a calm place to plan their day.</p>
+          <p className="mt-3 text-xs text-muted-foreground">Pluto is built on these projects, used under their licenses:</p>
           <ul className="mt-2 grid gap-x-6 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2">
             {LICENSES.map(([name, license]) => <li key={name}><span className="text-foreground">{name}</span> · {license}</li>)}
           </ul>
         </details>
       </Section>
+      </div>
+      )}
     </div>
   );
 }

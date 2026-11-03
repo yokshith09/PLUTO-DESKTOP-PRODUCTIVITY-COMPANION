@@ -355,11 +355,32 @@ describe("Notes screen (against the in-memory shell)", () => {
     await waitFor(() => expect((sites as HTMLButtonElement).disabled).toBe(true));
   });
 
+  it("Settings opens on Main; Profile holds you, your pet and help; Character links to Profile and back (U-2)", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await goTo(user, /^Settings/);
+    const main = await screen.findByRole("tabpanel", { name: "Main settings" });
+    expect(within(main).getByText("Appearance and start")).toBeTruthy();
+    expect(screen.queryByLabelText("Pet’s name")).toBeNull();
+    await user.click(screen.getByRole("tab", { name: "Profile" }));
+    const profile = await screen.findByRole("tabpanel", { name: "Profile" });
+    expect(within(profile).getByLabelText("Your first name")).toBeTruthy();
+    expect(within(profile).getByLabelText("Pet’s name")).toBeTruthy();
+    expect(within(profile).getByRole("button", { name: "Replay the tour" })).toBeTruthy();
+    await user.click(within(profile).getByRole("button", { name: "Open Character" }));
+    await user.click(await screen.findByRole("button", { name: "Open Profile" }));
+    expect((await screen.findByRole("tab", { name: "Profile" })).getAttribute("aria-selected")).toBe("true");
+    // Leaving and coming back opens Main again.
+    await goTo(user, /^Today/);
+    await goTo(user, /^Settings/);
+    expect((await screen.findByRole("tab", { name: "Main settings" })).getAttribute("aria-selected")).toBe("true");
+  });
+
   it("Settings holds no pet or tracking settings; they live on Character, Time and Today", async () => {
     const user = userEvent.setup();
     render(<App />);
     await goTo(user, /^Settings/);
-    await screen.findByRole("heading", { name: "General" });
+    expect((await screen.findByRole("tab", { name: "Main settings" })).getAttribute("aria-selected")).toBe("true");
     expect(screen.queryByRole("switch", { name: "Type along with me" })).toBeNull();
     expect(screen.queryByRole("switch", { name: "Track app usage" })).toBeNull();
     await goTo(user, /^Character/);

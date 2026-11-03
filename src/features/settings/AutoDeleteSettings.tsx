@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { errorMessage, ipc, type RetentionRules } from "@/ipc";
@@ -12,7 +12,7 @@ const select = "h-8 rounded-md border border-input bg-card px-2 text-[13px] outl
  * Auto-delete (FR-46). Only time history and completed tasks; notes, meetings, reminders and
  * open tasks are never touched. A stricter rule shows what it would do before it is saved.
  */
-export function AutoDeleteSettings() {
+export function AutoDeleteSettings({ bare = false }: { bare?: boolean } = {}) {
   const { rules, save } = useAutoDeleteRules();
   const [pending, setPending] = useState<{ next: RetentionRules; text: string } | null>(null);
 
@@ -33,8 +33,9 @@ export function AutoDeleteSettings() {
     if (c) notify.info("Auto-delete is on", { description: previewText(c).replace(" will be deleted", " deleted").replace(" will move", " moved") });
   };
 
+  const Wrap = ({ children }: { children: React.ReactNode }) => (bare ? <Fragment>{children}</Fragment> : <Section title="Auto-delete">{children}</Section>);
   return (
-    <Section title="Auto-delete">
+    <Wrap>
       <Row label="App and website time" hint="Delete time history older than this. Notes, meetings, reminders and open tasks are never touched.">
         <select aria-label="Delete time history after" className={select} value={rules.time_days} onChange={(e) => void change({ ...rules, time_days: Number(e.target.value) })}>
           {AGES.map((a) => <option key={a.days} value={a.days}>{a.label}</option>)}
@@ -55,6 +56,6 @@ export function AutoDeleteSettings() {
           </div>
         </DialogContent>
       </Dialog>
-    </Section>
+    </Wrap>
   );
 }

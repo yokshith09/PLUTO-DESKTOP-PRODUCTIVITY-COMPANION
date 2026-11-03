@@ -1,23 +1,29 @@
 import { Button } from "@/components/ui/button";
-import { Section } from "@/features/settings/parts";
+import { Row, Section } from "@/features/settings/parts";
+import { YouSection } from "@/features/companion/CompanionPanel";
+import { GUIDE } from "./content";
+import { useStudentPack } from "@/features/student/useStudent";
 import { cn } from "@/lib/utils";
 import { LEARN_PREF, parseLearn } from "./learn";
 import { ROLES, ROLE_INFO, ROLE_PREF, STUDENT_PACK_FEATURES, STUDENT_PACK_PREF, parseRole, parseStudentPack, studentPackOn, type Role } from "./roles";
 import { TOUR_PREF, parseTour } from "./tourSteps";
 import { usePref } from "./usePref";
 
-/** Settings → Your profile: who you are (it only changes order and emphasis), and the tour and quiz again. */
+/** Settings › Profile › You: name, birthday, who you are (only changes order and emphasis), student pack. */
 export function YourProfile() {
   const role = usePref(ROLE_PREF, parseRole);
-  const tour = usePref(TOUR_PREF, parseTour);
-  const learn = usePref(LEARN_PREF, parseLearn);
   const pack = usePref(STUDENT_PACK_PREF, parseStudentPack);
   const current: Role = role.value ?? "general";
   const packOn = studentPackOn(current, pack.value);
 
   return (
-    <Section title="Your profile">
+    <Section title="You">
+      <YouSection />
       <div className="space-y-4 py-4">
+        <div>
+          <p className="text-[13px] font-medium">What describes you best</p>
+          <p className="text-xs text-muted-foreground">This only changes what the tour and the quiz show first. It only sets the student pack default below and never turns on tracking.</p>
+        </div>
         <div role="radiogroup" aria-label="What describes you best" className="grid gap-2 sm:grid-cols-2">
           {ROLES.map((r) => (
             <button
@@ -29,7 +35,6 @@ export function YourProfile() {
             </button>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground">This only changes what the tour and the quiz show first. It only sets the student pack default below and never turns on tracking.</p>
 
         <label className="flex items-start gap-3 rounded-lg border p-3 text-[13px]">
           <input type="checkbox" className="mt-0.5 size-4" checked={packOn} onChange={(e) => void pack.set(e.target.checked)} />
@@ -38,12 +43,35 @@ export function YourProfile() {
             <span className="block text-xs text-muted-foreground">{STUDENT_PACK_FEATURES.join(", ")}. On by default for students, off for everyone else. Every other feature is on for everyone.</span>
           </span>
         </label>
-
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => void tour.set("pending")}>Replay the tour</Button>
-          <Button variant="outline" size="sm" onClick={() => void learn.set({ answers: {}, dismissed: false })}>Restart the quiz</Button>
-        </div>
       </div>
+    </Section>
+  );
+}
+
+/** Settings › Profile › Help: the tour, the quiz and the guide in one place. */
+export function HelpSection() {
+  const tour = usePref(TOUR_PREF, parseTour);
+  const learn = usePref(LEARN_PREF, parseLearn);
+  const student = useStudentPack();
+  return (
+    <Section title="Help">
+      <Row label="Tour" hint="The short walk-through from the first start.">
+        <Button variant="outline" size="sm" onClick={() => void tour.set("pending")}>Replay the tour</Button>
+      </Row>
+      <Row label="Learn Pluto quiz" hint="A few questions about what Pluto can do, on the Today page.">
+        <Button variant="outline" size="sm" onClick={() => void learn.set({ answers: {}, dismissed: false })}>Restart the quiz</Button>
+      </Row>
+      <details className="py-3.5 text-[13px]">
+        <summary className="cursor-pointer font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">Guide</summary>
+        <div className="mt-2 divide-y">
+          {GUIDE.filter((g) => student || !g.studentOnly).map((g) => (
+            <details key={g.id} className="py-2.5">
+              <summary className="cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring">{g.title}</summary>
+              <p className="mt-2 text-muted-foreground">{g.body}</p>
+            </details>
+          ))}
+        </div>
+      </details>
     </Section>
   );
 }
