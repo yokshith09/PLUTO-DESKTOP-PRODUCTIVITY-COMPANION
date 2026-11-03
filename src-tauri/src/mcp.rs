@@ -188,18 +188,62 @@ pub fn bridge_main(args: &[String]) -> Option<i32> {
     }))
 }
 
+/// How often, and how far apart, a hook tries the pipe again while Pluto is between two
+/// connections (owner 2026-11-03: with three chats the pet stopped saying "done" after a while).
+const OPEN_TRIES: u32 = 20;
+const OPEN_GAP: std::time::Duration = std::time::Duration::from_millis(50);
+
+/// Whether a failed open is worth another try: every pipe instance busy, or the moment between
+/// one connection and the next instance. Anything else (Pluto closed, no access) is final.
+fn worth_retrying(e: &std::io::Error) -> bool {
+    // ERROR_PIPE_BUSY = 231 on Windows.
+    e.raw_os_error() == Some(231)
+        || matches!(
+            e.kind(),
+            std::io::ErrorKind::NotFound | std::io::ErrorKind::WouldBlock
+        )
+}
+
+/// Opens with `open`, trying again for a short while on [`worth_retrying`] errors.
+async fn open_with_retry<T, F, Fut>(mut open: F, tries: u32, gap: std::time::Duration) -> Option<T>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = std::io::Result<T>>,
+{
+    for attempt in 1..=tries.max(1) {
+        match open().await {
+            Ok(pipe) => return Some(pipe),
+            Err(e) if attempt < tries && worth_retrying(&e) => tokio::time::sleep(gap).await,
+            Err(_) => return None,
+        }
+    }
+    None
+}
+
 #[cfg(windows)]
 async fn connect() -> Option<tokio::net::windows::named_pipe::NamedPipeClient> {
-    tokio::net::windows::named_pipe::ClientOptions::new()
-        .open(pipe_name())
-        .ok()
+    let name = pipe_name();
+    open_with_retry(
+        || async { tokio::net::windows::named_pipe::ClientOptions::new().open(&name) },
+        OPEN_TRIES,
+        OPEN_GAP,
+    )
+    .await
 }
 
 #[cfg(unix)]
 async fn connect() -> Option<tokio::net::UnixStream> {
-    tokio::net::UnixStream::connect(data_dir()?.join(SOCKET_FILE))
-        .await
-        .ok()
+    let path = data_dir()?.join(SOCKET_FILE);
+    // A missing socket means Pluto is not running: no point waiting.
+    if !path.exists() {
+        return None;
+    }
+    open_with_retry(
+        || tokio::net::UnixStream::connect(&path),
+        OPEN_TRIES,
+        OPEN_GAP,
+    )
+    .await
 }
 
 #[cfg(not(any(windows, unix)))]
@@ -491,11 +535,14 @@ fn listen_now<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp, data_dir: &Path) {
     });
     let limits = Arc::new(Limits::default());
     let dir = data_dir.to_owned();
-    let task = tauri::async_runtime::spawn(async move {
-        if let Err(e) = listen(&dir, token, host, limits).await {
-            tracing::warn!(error = %e, "MCP: the private pipe stopped");
-        }
-    });
+    let task = tauri::async_runtime::spawn(keep_listening(
+        move || {
+            let (dir, token, host, limits) =
+                (dir.clone(), token.clone(), host.clone(), limits.clone());
+            async move { listen(&dir, token, host, limits).await }
+        },
+        std::time::Duration::from_millis(250),
+    ));
     *mcp.listener.lock().unwrap_or_else(PoisonError::into_inner) = Some(task);
 }
 
@@ -940,6 +987,27 @@ pub fn mcp_activity(mcp: State<'_, Mcp>) -> Vec<Call> {
     mcp.activity.recent()
 }
 
+/// Runs `listen` for the life of the app: if the pipe ever stops (it used to, for good, after one
+/// bad connection), it is opened again after a short wait instead of the pet going quiet until a
+/// restart. Stopped only by aborting the task (assistants turned off).
+async fn keep_listening<F, Fut>(mut listen: F, first_wait: std::time::Duration)
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = std::io::Result<()>>,
+{
+    let mut wait = first_wait;
+    loop {
+        match listen().await {
+            Ok(()) => return,
+            Err(e) => {
+                tracing::warn!(error = %e, "MCP: the private pipe stopped; opening it again");
+                tokio::time::sleep(wait).await;
+                wait = (wait * 2).min(std::time::Duration::from_secs(10));
+            }
+        }
+    }
+}
+
 #[cfg(windows)]
 async fn listen(
     _dir: &Path,
@@ -954,12 +1022,17 @@ async fn listen(
         .reject_remote_clients(true)
         .create(&name)?;
     loop {
-        server.connect().await?;
+        // A hook that opened the pipe and closed it before Pluto got to it (ERROR_NO_DATA) only
+        // loses that one connection; the next instance keeps listening.
+        let connected = server.connect().await;
         let client = server;
         server = ServerOptions::new()
             .reject_remote_clients(true)
             .create(&name)?;
-        serve_one(client, token.clone(), host.clone(), limits.clone());
+        match connected {
+            Ok(()) => serve_one(client, token.clone(), host.clone(), limits.clone()),
+            Err(e) => tracing::debug!(error = %e, "MCP: a connection closed before it started"),
+        }
     }
 }
 
@@ -975,8 +1048,14 @@ async fn listen(
     let listener = tokio::net::UnixListener::bind(&path)?;
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
     loop {
-        let (stream, _) = listener.accept().await?;
-        serve_one(stream, token.clone(), host.clone(), limits.clone());
+        match listener.accept().await {
+            Ok((stream, _)) => serve_one(stream, token.clone(), host.clone(), limits.clone()),
+            // Too many open files and the like pass; one bad accept must not end the pipe.
+            Err(e) => {
+                tracing::debug!(error = %e, "MCP: a connection failed");
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            }
+        }
     }
 }
 
@@ -1000,6 +1079,74 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn a_hook_tries_the_pipe_again_while_pluto_is_between_connections() {
+        let tries = std::sync::atomic::AtomicU32::new(0);
+        let got = open_with_retry(
+            || {
+                let n = tries.fetch_add(1, Ordering::SeqCst);
+                async move {
+                    if n < 2 {
+                        Err(std::io::Error::from_raw_os_error(231))
+                    } else {
+                        Ok("pipe")
+                    }
+                }
+            },
+            5,
+            std::time::Duration::from_millis(1),
+        )
+        .await;
+        assert_eq!(got, Some("pipe"));
+        assert_eq!(tries.load(Ordering::SeqCst), 3);
+        // Pluto closed or no access: give up at once.
+        tries.store(0, Ordering::SeqCst);
+        let none: Option<&str> = open_with_retry(
+            || {
+                tries.fetch_add(1, Ordering::SeqCst);
+                async { Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied)) }
+            },
+            5,
+            std::time::Duration::from_millis(1),
+        )
+        .await;
+        assert_eq!(none, None);
+        assert_eq!(tries.load(Ordering::SeqCst), 1);
+        // Never more than the tries given.
+        tries.store(0, Ordering::SeqCst);
+        let _: Option<&str> = open_with_retry(
+            || {
+                tries.fetch_add(1, Ordering::SeqCst);
+                async { Err(std::io::Error::from(std::io::ErrorKind::NotFound)) }
+            },
+            4,
+            std::time::Duration::from_millis(1),
+        )
+        .await;
+        assert_eq!(tries.load(Ordering::SeqCst), 4);
+    }
+
+    #[tokio::test]
+    async fn the_pipe_opens_again_when_it_stops_instead_of_going_quiet_until_a_restart() {
+        let runs = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let r = runs.clone();
+        keep_listening(
+            move || {
+                let n = r.fetch_add(1, Ordering::SeqCst);
+                async move {
+                    if n < 3 {
+                        Err(std::io::Error::other("pipe broke"))
+                    } else {
+                        Ok(())
+                    }
+                }
+            },
+            std::time::Duration::from_millis(1),
+        )
+        .await;
+        assert_eq!(runs.load(Ordering::SeqCst), 4);
+    }
 
     fn args(list: &[&str]) -> Vec<String> {
         list.iter().map(|s| s.to_string()).collect()

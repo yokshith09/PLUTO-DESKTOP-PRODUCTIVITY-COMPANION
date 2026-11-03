@@ -5,6 +5,9 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+### Fixed
+- **The pet stopped saying "Claude Code is done" after a while** (owner 2026-11-03). On Windows, one hook that opened Pluto's private pipe and closed it before Pluto picked it up (likely with several chats finishing close together) ended the pipe for good: every later hook, git reaction and new assistant connection was dropped silently until Pluto restarted. Now a bad connection loses only itself, the pipe reopens by itself if it ever stops, and a hook tries again for up to a second while Pluto is between two connections. Not related to nudges or their limits. Unverified on Windows (clippy and tests for the Windows target pass).
+
 ### Changed
 - **U-2 Settings in two tabs** (owner-approved preview): Settings opens on **Main settings** (Appearance and start, Keyboard shortcuts, Your data with auto-delete at the top, Advanced with About Pluto and licences) and has a **Profile** tab (You: name, birthday, what describes you best, Student pack; Your pet: pet’s name, age and days together, the daily hello with Say it now, Open Character; Help: replay the tour, restart the quiz, the guide). The name, birthday and pet details moved off the Character page, which now shows a one-line summary with **Open Profile**; looks, reactions and nudges stay on Character. Leaving Settings and coming back opens Main again. Nothing stored changed.
 

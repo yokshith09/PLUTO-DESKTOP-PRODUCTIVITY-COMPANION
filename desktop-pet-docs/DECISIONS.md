@@ -653,5 +653,6 @@ Owner: course label, exam countdown and weekly report are on for Student and off
 
 - 2026-11-03 (owner): pet lines for Claude Code name the chat (folder + start of the first request) and tell a permission request (`agent_permission`) from waiting for a reply. Reaction line protocol gains an optional percent-encoded place word (old lines still work).
 - 2026-11-03 (owner): U-2 approved: name/birthday/pet details move from Character to Settings › Profile (Character links there); nudges stay on Character; Settings always opens on Main settings.
+- 2026-11-03: The MCP pipe is kept alive: a failed connection is dropped and listening goes on; if the listener still stops it reopens (250 ms, doubling to 10 s); hook clients retry busy/not-found for up to 1 s (20 × 50 ms). Owner will send a reference for U-3; it waits.
 - 2026-11-03 (owner): FS-1 and TT-1 go after the UI polish; U-3 starts now. New U-9: Character page cleaner, reactions folded behind one button (preview first).
 - 2026-11-03: U-2 built. The Character page keeps a one-line summary of the pet (name and age) with Open Profile so nothing feels lost; the hello button is "Say it now" beside its switch; auto-delete rules moved inside "Your data" instead of a section of their own.
