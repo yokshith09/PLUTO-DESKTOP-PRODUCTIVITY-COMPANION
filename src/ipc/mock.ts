@@ -26,7 +26,8 @@ export function createMock() {
     { id: "l1", name: "product" }, { id: "l2", name: "ideas" }, { id: "l3", name: "work" },
     { id: "l4", name: "home" }, { id: "l5", name: "pet" },
   ];
-  const diary = { password: null as string | null, recovery: "ABCD-EFGH-JKLM-NPQR-STUV-WXYZ-2345-6789", open: false, entries: new Map<string, string>() };
+  const flatten = (e: { text: string }[]) => (e.length === 1 ? (e[0]?.text ?? "") : e.map((x) => x.text.trimEnd()).join("\n\n"));
+  const diary = { password: null as string | null, recovery: "ABCD-EFGH-JKLM-NPQR-STUV-WXYZ-2345-6789", open: false, entries: new Map<string, { id: string; at: number; text: string }[]>() };
   const courses: { id: string; name: string }[] = [];
   const exams: { id: string; course_id: string | null; title: string; on_date: string }[] = [];
   const taskCourse = new Map<string, string>();
@@ -308,6 +309,20 @@ export function createMock() {
 
   const exe = "C:\\Program Files\\Pluto\\pluto.exe";
   const manual = (key: string, id: string, vs = false) => JSON.stringify({ [key]: { pluto: { ...(vs ? { type: "stdio" } : {}), command: exe, args: ["--mcp-bridge", "--assistant", id] } } }, null, 2);
+  // Browser preview only: `?demo=diary` opens the diary with a year of entries to look at.
+  if (typeof location !== "undefined" && location.search.includes("demo=diary")) {
+    diary.password = "demo pass"; diary.open = true;
+    const lines = ["Long day at the lab, the results finally made sense.", "Walked by the river after dinner; rain on the way home.", "Called Mom. Planning the trip for December.", "Finished the sync spec and sent it to Mara.", "Slow morning, good coffee, read for an hour."];
+    let seed = 7;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+    for (let back = 0; back < 330; back++) {
+      if (rnd() > 0.55 && back > 3) continue;
+      const d = new Date(); d.setDate(d.getDate() - back);
+      const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const n = rnd() > 0.82 ? 2 : 1;
+      diary.entries.set(day, Array.from({ length: n }, (_, i) => ({ id: `e${i}`, at: d.getTime() - i * 3_600_000, text: Array.from({ length: 1 + Math.floor(rnd() * 12) }, () => lines[Math.floor(rnd() * lines.length)]).join(" ") })));
+    }
+  }
   const mcpCalls = [
     { atMs: now() - 120_000, assistant: "Claude Code", tool: "task_add", ok: true, detail: "Added the task \"Call the bank\".", changed: true, undoId: 1 as number | null, undone: false },
     { atMs: now() - 60_000, assistant: "Claude Code", tool: "react", ok: true, detail: "The pet showed agent_done.", changed: false, undoId: null as number | null, undone: false },
@@ -496,18 +511,33 @@ export function createMock() {
     },
     diary_lock: () => { diary.open = false; return null; },
     diary_days: () => { if (!diary.open) fail("INVALID_TRANSITION", "The diary is locked."); return [...diary.entries.keys()].sort().reverse(); },
-    diary_get: (a) => { if (!diary.open) fail("INVALID_TRANSITION", "The diary is locked."); return diary.entries.get(String(a.day)) ?? ""; },
+    diary_get: (a) => { if (!diary.open) fail("INVALID_TRANSITION", "The diary is locked."); return flatten(diary.entries.get(String(a.day)) ?? []); },
     diary_search: (a) => {
       if (!diary.open) fail("INVALID_TRANSITION", "The diary is locked.");
       const q = String(a.query).trim().toLowerCase();
       if (!q) return [];
-      return [...diary.entries].filter(([, t]) => t.toLowerCase().includes(q)).sort((x, y) => y[0].localeCompare(x[0])).map(([day, t]) => ({ day, snippet: t.replace(/\n/g, " ").slice(0, 60) }));
+      return [...diary.entries].map(([day, e]) => [day, flatten(e)] as const).filter(([, t]) => t.toLowerCase().includes(q)).sort((x, y) => y[0].localeCompare(x[0])).map(([day, t]) => ({ day, snippet: t.replace(/\n/g, " ").slice(0, 60) }));
     },
     diary_save: (a) => {
       if (!diary.open) fail("INVALID_TRANSITION", "The diary is locked.");
       const t = String(a.text);
-      if (t.trim()) diary.entries.set(String(a.day), t); else diary.entries.delete(String(a.day));
+      if (t.trim()) diary.entries.set(String(a.day), [{ id: "e1", at: 0, text: t }]); else diary.entries.delete(String(a.day));
       return null;
+    },
+    diary_entries: (a) => { if (!diary.open) fail("INVALID_TRANSITION", "The diary is locked."); return (diary.entries.get(String(a.day)) ?? []).map((e) => ({ ...e })); },
+    diary_entries_save: (a) => {
+      if (!diary.open) fail("INVALID_TRANSITION", "The diary is locked.");
+      const list = (a.entries as { id: string; at: number; text: string }[]).filter((e) => e.text.trim());
+      if (list.length > 30) fail("VALIDATION", "A day can hold 30 entries.");
+      if (list.length) diary.entries.set(String(a.day), list.map((e) => ({ ...e }))); else diary.entries.delete(String(a.day));
+      return null;
+    },
+    diary_overview: () => {
+      if (!diary.open) fail("INVALID_TRANSITION", "The diary is locked.");
+      return [...diary.entries].sort((x, y) => y[0].localeCompare(x[0])).map(([day, e]) => ({
+        day, entries: e.length, words: e.reduce((n, x) => n + x.text.trim().split(/\s+/).filter(Boolean).length, 0),
+        snippet: (e[0]?.text ?? "").replace(/\s+/g, " ").slice(0, 90),
+      }));
     },
     diary_erase: () => { diary.password = null; diary.open = false; diary.entries.clear(); return null; },
     courses_list: () => [...courses].sort((x, y) => x.name.localeCompare(y.name)),

@@ -323,6 +323,25 @@ pub async fn diary_save(day: String, text: String, core: State<'_, Core>) -> Res
 }
 
 #[tauri::command]
+pub async fn diary_entries(day: String, core: State<'_, Core>) -> Result<Vec<diary::DiaryEntry>> {
+    diary::entries_get(&core.db, &core.diary, &day).await
+}
+
+#[tauri::command]
+pub async fn diary_entries_save(
+    day: String,
+    entries: Vec<diary::DiaryEntry>,
+    core: State<'_, Core>,
+) -> Result<()> {
+    diary::entries_save(&core.db, &core.diary, &*core.clock, &day, entries).await
+}
+
+#[tauri::command]
+pub async fn diary_overview(core: State<'_, Core>) -> Result<Vec<diary::DayInfo>> {
+    diary::overview(&core.db, &core.diary).await
+}
+
+#[tauri::command]
 pub async fn diary_erase(core: State<'_, Core>) -> Result<()> {
     diary::erase(&core.db, &core.diary).await
 }

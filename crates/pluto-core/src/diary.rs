@@ -321,9 +321,8 @@ pub async fn days(db: &Database, diary: &Diary) -> Result<Vec<String>> {
     .await
 }
 
-pub async fn day_get(db: &Database, diary: &Diary, day: &str) -> Result<String> {
-    let key = need_key(diary)?;
-    check_day(day)?;
+/// One day's stored row, opened: the text as stored and when it was last saved.
+async fn open_day(db: &Database, key: &Key, day: &str) -> Result<Option<(String, i64)>> {
     let day = day.to_owned();
     let row = db
         .read({
@@ -331,19 +330,211 @@ pub async fn day_get(db: &Database, diary: &Diary, day: &str) -> Result<String> 
             move |conn| {
                 Ok(conn
                     .query_row(
-                        "SELECT nonce, data FROM diary_entries WHERE day = ?1",
+                        "SELECT nonce, data, updated_at FROM diary_entries WHERE day = ?1",
                         [&day],
-                        |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+                        |r| {
+                            Ok((
+                                r.get::<_, String>(0)?,
+                                r.get::<_, String>(1)?,
+                                r.get::<_, i64>(2)?,
+                            ))
+                        },
                     )
                     .optional()?)
             }
         })
         .await?;
-    match row {
-        None => Ok(String::new()),
-        Some((nonce, data)) => String::from_utf8(open(&key, day.as_bytes(), &nonce, &data)?)
-            .map_err(|_| AppError::internal("The diary data is damaged.")),
+    row.map(|(nonce, data, at)| {
+        String::from_utf8(open(key, day.as_bytes(), &nonce, &data)?)
+            .map(|t| (t, at))
+            .map_err(|_| AppError::internal("The diary data is damaged."))
+    })
+    .transpose()
+}
+
+/// The whole day as one text: a plain entry as it is, several entries one after another.
+pub async fn day_get(db: &Database, diary: &Diary, day: &str) -> Result<String> {
+    let key = need_key(diary)?;
+    check_day(day)?;
+    Ok(match open_day(db, &key, day).await? {
+        None => String::new(),
+        Some((text, at)) => flatten(&parse_blob(&text, at)),
+    })
+}
+
+// ---- several entries in one day (owner 2026-11-03: "2 entries as separate notes in 1 day") -----
+//
+// A day is still one encrypted row, so nothing in the database changes. New days hold a marker
+// line and a JSON list of entries; a day written by an older Pluto is plain text and reads as one
+// entry. Both are sealed with the day as associated data, exactly as before.
+
+const MARK: &str = "PLUTO-DIARY-2\n";
+pub const ENTRIES_MAX: usize = 30;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct DiaryEntry {
+    /// Made by the screen; unique within the day.
+    pub id: String,
+    /// When it was started (milliseconds); 0 for a day written before entries existed.
+    #[cfg_attr(feature = "ts", ts(type = "number"))]
+    pub at: i64,
+    pub text: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Doc {
+    entries: Vec<DiaryEntry>,
+}
+
+/// The entries a stored text holds. Anything that is not this format is one plain entry.
+fn parse_blob(text: &str, saved_at: i64) -> Vec<DiaryEntry> {
+    if let Some(rest) = text.strip_prefix(MARK) {
+        if let Ok(doc) = serde_json::from_str::<Doc>(rest) {
+            return doc.entries;
+        }
     }
+    vec![DiaryEntry {
+        id: "e1".into(),
+        at: saved_at,
+        text: text.to_owned(),
+    }]
+}
+
+fn flatten(entries: &[DiaryEntry]) -> String {
+    match entries {
+        [one] => one.text.clone(),
+        many => many
+            .iter()
+            .map(|e| e.text.trim_end())
+            .collect::<Vec<_>>()
+            .join("\n\n"),
+    }
+}
+
+fn word_count(text: &str) -> u32 {
+    u32::try_from(text.split_whitespace().count()).unwrap_or(u32::MAX)
+}
+
+/// A day's entries, oldest first. Empty when the day has none.
+pub async fn entries_get(db: &Database, diary: &Diary, day: &str) -> Result<Vec<DiaryEntry>> {
+    let key = need_key(diary)?;
+    check_day(day)?;
+    Ok(match open_day(db, &key, day).await? {
+        None => Vec::new(),
+        Some((text, at)) => parse_blob(&text, at),
+    })
+}
+
+/// Save a day's entries. Blank entries are dropped; with none left the day is removed.
+pub async fn entries_save(
+    db: &Database,
+    diary: &Diary,
+    clock: &dyn Clock,
+    day: &str,
+    entries: Vec<DiaryEntry>,
+) -> Result<()> {
+    let key = need_key(diary)?;
+    check_day(day)?;
+    let entries: Vec<DiaryEntry> = entries
+        .into_iter()
+        .filter(|e| !e.text.trim().is_empty())
+        .collect();
+    if entries.len() > ENTRIES_MAX {
+        return Err(AppError::validation(
+            "entries",
+            format!("A day can hold {ENTRIES_MAX} entries."),
+        ));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for e in &entries {
+        if e.id.is_empty() || e.id.len() > 40 || !seen.insert(e.id.clone()) {
+            return Err(AppError::validation(
+                "entries",
+                "Each entry needs its own id.",
+            ));
+        }
+    }
+    if entries.is_empty() {
+        return day_save(db, diary, clock, day, "").await;
+    }
+    let text = format!(
+        "{MARK}{}",
+        serde_json::to_string(&Doc { entries })
+            .map_err(|_| AppError::internal("Pluto could not save the diary entry."))?
+    );
+    if text.len() > TEXT_MAX {
+        return Err(AppError::validation("text", "That day is too long."));
+    }
+    let (day, now) = (day.to_owned(), clock.now_ms());
+    let (nonce, data) = seal(&key, day.as_bytes(), text.as_bytes())?;
+    db.write(move |tx| {
+        tx.execute(
+            "INSERT INTO diary_entries (day, nonce, data, updated_at) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(day) DO UPDATE SET nonce = excluded.nonce, data = excluded.data, updated_at = excluded.updated_at",
+            params![day, nonce, data, now],
+        )?;
+        Ok(((), vec![]))
+    })
+    .await
+}
+
+/// What the calendar needs about one day: how many entries, how many words, and a first line.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct DayInfo {
+    pub day: String,
+    pub entries: u32,
+    pub words: u32,
+    pub snippet: String,
+}
+
+const OVERVIEW_MAX: i64 = 5000;
+const OVERVIEW_SNIPPET: usize = 90;
+
+/// Every day with an entry, newest first, for the calendar. Days are opened one at a time in
+/// memory, only while the diary is unlocked; nothing is stored.
+pub async fn overview(db: &Database, diary: &Diary) -> Result<Vec<DayInfo>> {
+    let key = need_key(diary)?;
+    let rows = db
+        .read(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT day, nonce, data, updated_at FROM diary_entries ORDER BY day DESC LIMIT ?1",
+            )?;
+            let rows = stmt
+                .query_map([OVERVIEW_MAX], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, i64>(3)?,
+                    ))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .await?;
+    let mut out = Vec::with_capacity(rows.len());
+    for (day, nonce, data, at) in rows {
+        let text = String::from_utf8(open(&key, day.as_bytes(), &nonce, &data)?)
+            .map_err(|_| AppError::internal("The diary data is damaged."))?;
+        let entries = parse_blob(&text, at);
+        let first = entries
+            .first()
+            .map(|e| e.text.split_whitespace().collect::<Vec<_>>().join(" "))
+            .unwrap_or_default();
+        let mut snippet: String = first.chars().take(OVERVIEW_SNIPPET).collect();
+        if first.chars().count() > OVERVIEW_SNIPPET {
+            snippet.push('…');
+        }
+        out.push(DayInfo {
+            day,
+            entries: u32::try_from(entries.len()).unwrap_or(u32::MAX),
+            words: entries.iter().map(|e| word_count(&e.text)).sum(),
+            snippet,
+        });
+    }
+    Ok(out)
 }
 
 /// Save a day's text. Empty text removes the entry.
@@ -401,14 +592,16 @@ pub async fn search(db: &Database, diary: &Diary, query: &str) -> Result<Vec<Dia
     }
     let rows = db
         .read(|conn| {
-            let mut stmt =
-                conn.prepare("SELECT day, nonce, data FROM diary_entries ORDER BY day DESC")?;
+            let mut stmt = conn.prepare(
+                "SELECT day, nonce, data, updated_at FROM diary_entries ORDER BY day DESC",
+            )?;
             let rows = stmt
                 .query_map([], |r| {
                     Ok((
                         r.get::<_, String>(0)?,
                         r.get::<_, String>(1)?,
                         r.get::<_, String>(2)?,
+                        r.get::<_, i64>(3)?,
                     ))
                 })?
                 .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -416,9 +609,10 @@ pub async fn search(db: &Database, diary: &Diary, query: &str) -> Result<Vec<Dia
         })
         .await?;
     let mut hits = Vec::new();
-    for (day, nonce, data) in rows {
-        let text = String::from_utf8(open(&key, day.as_bytes(), &nonce, &data)?)
+    for (day, nonce, data, at) in rows {
+        let stored = String::from_utf8(open(&key, day.as_bytes(), &nonce, &data)?)
             .map_err(|_| AppError::internal("The diary data is damaged."))?;
+        let text = flatten(&parse_blob(&stored, at));
         let lower = text.to_lowercase();
         let Some(at) = lower.find(&needle) else {
             continue;
@@ -576,6 +770,103 @@ mod tests {
         }
         let hay = String::from_utf8_lossy(&bytes);
         assert!(!hay.contains("lab report") && !hay.contains("second day"));
+    }
+
+    #[tokio::test]
+    async fn a_day_holds_several_entries_old_days_read_as_one_and_search_and_overview_see_all() {
+        let (dir, db, clock, diary) = setup_db();
+        setup(&db, &diary, &clock, "correct horse").await.unwrap();
+        // A day written before entries existed reads as one entry.
+        day_save(&db, &diary, &clock, "2026-10-20", "An older plain day")
+            .await
+            .unwrap();
+        let old = entries_get(&db, &diary, "2026-10-20").await.unwrap();
+        assert_eq!(old.len(), 1);
+        assert_eq!(old[0].text, "An older plain day");
+        // Two entries on one day, with a blank one dropped.
+        let mk = |id: &str, at: i64, text: &str| DiaryEntry {
+            id: id.into(),
+            at,
+            text: text.into(),
+        };
+        entries_save(
+            &db,
+            &diary,
+            &clock,
+            "2026-11-03",
+            vec![
+                mk("a", 10, "Morning: the lab went well"),
+                mk("b", 20, "   "),
+                mk("c", 30, "Evening: rain, long walk"),
+            ],
+        )
+        .await
+        .unwrap();
+        let got = entries_get(&db, &diary, "2026-11-03").await.unwrap();
+        assert_eq!(
+            got.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
+            ["a", "c"]
+        );
+        assert_eq!(
+            day_get(&db, &diary, "2026-11-03").await.unwrap(),
+            "Morning: the lab went well\n\nEvening: rain, long walk"
+        );
+        // Search looks inside every entry and never at the storage format.
+        assert_eq!(
+            search(&db, &diary, "long walk").await.unwrap()[0].day,
+            "2026-11-03"
+        );
+        assert!(search(&db, &diary, "PLUTO-DIARY").await.unwrap().is_empty());
+        assert!(search(&db, &diary, "entries").await.unwrap().is_empty());
+        // The calendar gets counts, words and a first line, newest first.
+        let o = overview(&db, &diary).await.unwrap();
+        assert_eq!(
+            o.iter().map(|d| d.day.as_str()).collect::<Vec<_>>(),
+            ["2026-11-03", "2026-10-20"]
+        );
+        assert_eq!((o[0].entries, o[0].words), (2, 9));
+        assert_eq!(o[0].snippet, "Morning: the lab went well");
+        assert_eq!((o[1].entries, o[1].words), (1, 4));
+        // Nothing readable reaches the database file.
+        let mut bytes = Vec::new();
+        for entry in std::fs::read_dir(dir.path()).unwrap().flatten() {
+            if entry.file_name().to_string_lossy().starts_with("pluto.db") {
+                bytes.extend(std::fs::read(entry.path()).unwrap());
+            }
+        }
+        let hay = String::from_utf8_lossy(&bytes);
+        assert!(!hay.contains("long walk") && !hay.contains("PLUTO-DIARY"));
+        // Rules: unique ids, at most ENTRIES_MAX, none left removes the day, locked reads nothing.
+        assert!(entries_save(
+            &db,
+            &diary,
+            &clock,
+            "2026-11-03",
+            vec![mk("x", 1, "a"), mk("x", 2, "b")]
+        )
+        .await
+        .is_err());
+        let many: Vec<DiaryEntry> = (0..=ENTRIES_MAX)
+            .map(|i| mk(&format!("e{i}"), 0, "x"))
+            .collect();
+        assert!(entries_save(&db, &diary, &clock, "2026-11-03", many)
+            .await
+            .is_err());
+        entries_save(&db, &diary, &clock, "2026-11-03", vec![mk("a", 1, " ")])
+            .await
+            .unwrap();
+        assert!(entries_get(&db, &diary, "2026-11-03")
+            .await
+            .unwrap()
+            .is_empty());
+        lock(&diary);
+        assert!(entries_get(&db, &diary, "2026-10-20").await.is_err());
+        assert!(overview(&db, &diary).await.is_err());
+        assert!(
+            entries_save(&db, &diary, &clock, "2026-10-20", vec![mk("a", 1, "x")])
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]

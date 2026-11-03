@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookHeart, Check, ChevronLeft, ChevronRight, Copy, KeyRound, Lock, ListPlus } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { BookHeart, Copy, KeyRound, Lock } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { ConfirmAction } from "@/components/ConfirmAction";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,13 +9,15 @@ import { usePref } from "@/features/guide/usePref";
 import { PageHeader } from "@/features/shell/PageHeader";
 import { errorMessage, ipc } from "@/ipc";
 import { onCommand } from "@/ipc/transport";
-import { dayLabel, parseYmd, ymd } from "@/lib/dates";
+import { parseYmd, ymd } from "@/lib/dates";
 import { notify } from "@/lib/notify";
-import { detectTodos, titleOf } from "./detect";
+import { DayCard } from "./DayCard";
+import { DiaryCalendar } from "./DiaryCalendar";
 
 export const IDLE_LOCK_MS = 5 * 60_000;
 export const PICKUP_PREF = "diary.pickup";
 const STATUS = ["diary", "status"] as const;
+const OVERVIEW = ["diary", "overview"] as const;
 
 function PasswordForm({ configured, onDone }: { configured: boolean; onDone: (recoveryKey?: string) => void }) {
   const [pw, setPw] = useState("");
@@ -74,94 +76,58 @@ function RecoveryKeyCard({ recoveryKey, onDone }: { recoveryKey: string; onDone:
   );
 }
 
-function Editor({ onLock }: { onLock: () => void }) {
-  const [day, setDay] = useState(() => ymd(new Date()));
-  const [text, setText] = useState("");
-  const [loaded, setLoaded] = useState(false);
-  const [saved, setSaved] = useState<"idle" | "saving" | "saved">("idle");
-  const [made, setMade] = useState<Record<string, string>>({});
+const RECENT = 8;
+
+function Journal({ onLock }: { onLock: () => void }) {
+  const qc = useQueryClient();
+  const today = ymd(new Date());
+  const [year, setYear] = useState(() => Number(today.slice(0, 4)));
+  const [open, setOpen] = useState<string | null>(null);
+  const [all, setAll] = useState(false);
   const pickup = usePref<boolean>(PICKUP_PREF, (r) => r === true);
-  const days = useQuery({ queryKey: ["diary", "days", saved], queryFn: () => ipc.diaryDays() });
+  const overview = useQuery({ queryKey: OVERVIEW, queryFn: () => ipc.diaryOverview() });
+  const infos = overview.data ?? [];
   const [query, setQuery] = useState("");
   const results = useQuery({ queryKey: ["diary", "search", query.trim()], queryFn: () => ipc.diarySearch(query), enabled: query.trim().length > 0 });
-  const area = useRef<HTMLTextAreaElement>(null);
-  const pending = useRef<{ day: string; text: string } | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
-
-  const flush = useCallback(async () => {
-    clearTimeout(timer.current);
-    const p = pending.current;
-    if (!p) return;
-    pending.current = null;
-    setSaved("saving");
-    try { await ipc.diarySave(p.day, p.text); setSaved("saved"); } catch (e) { notify.error(errorMessage(e)); }
-  }, []);
-
-  useEffect(() => {
-    let live = true;
-    setLoaded(false); setMade({});
-    void flush().then(() => ipc.diaryGet(day)).then((t) => { if (live) { setText(t); setLoaded(true); setSaved("idle"); } }).catch((e) => notify.error(errorMessage(e)));
-    return () => { live = false; };
-  }, [day, flush]);
-  useEffect(() => () => { void flush(); }, [flush]);
-
-  const edit = (t: string) => {
-    setText(t);
-    pending.current = { day, text: t };
-    setSaved("idle");
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => void flush(), 400);
-  };
-  const shift = (n: number) => { const d = parseYmd(day); d.setDate(d.getDate() + n); setDay(ymd(d)); };
-  const today = ymd(new Date());
-
-  const makeTask = async (key: string, title: string, due: string | null) => {
-    try {
-      const t = await ipc.taskQuickAdd(title);
-      if (due) await ipc.taskUpdate(t.id, { title: t.title, description: t.description, project: t.project, priority: t.priority, planned_date: t.planned_date, due_date: due, note_id: t.note_id });
-      setMade((m) => ({ ...m, [key]: t.title }));
-      notify.success(`Task added: “${t.title}”`);
-    } catch (e) { notify.error(errorMessage(e)); }
-  };
-  const fromSelection = () => {
-    const el = area.current;
-    const sel = el ? text.slice(el.selectionStart, el.selectionEnd).trim() : "";
-    if (!sel) return notify.info("Select some text first");
-    void makeTask(`sel:${sel}`, titleOf(sel) || sel.slice(0, 300), detectTodos(sel, new Date())[0]?.due ?? null);
-  };
-  const todos = pickup.value ? detectTodos(text, new Date()) : [];
+  const changed = useCallback(() => void qc.invalidateQueries({ queryKey: OVERVIEW }), [qc]);
+  // Opening a day in another year moves the calendar there too.
+  const show = (day: string) => { setOpen(day); setYear(Number(day.slice(0, 4))); };
+  const recent = all ? infos : infos.slice(0, RECENT);
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1fr_14rem]">
-      <section aria-label="Diary entry" className="min-w-0">
-        <div className="mb-3 flex items-center gap-1">
-          <Button variant="ghost" size="icon" aria-label="Previous day" onClick={() => shift(-1)}><ChevronLeft /></Button>
-          <h2 className="min-w-0 flex-1 text-center text-lg font-semibold tracking-tight">{dayLabel(parseYmd(day))}</h2>
-          <Button variant="ghost" size="icon" aria-label="Next day" disabled={day >= today} onClick={() => shift(1)}><ChevronRight /></Button>
-        </div>
-        <textarea
-          ref={area} value={text} disabled={!loaded} onChange={(e) => edit(e.target.value)} aria-label="Diary text" placeholder="How was your day?" maxLength={200_000}
-          className="min-h-[22rem] w-full resize-y rounded-xl border bg-card px-6 py-5 text-[15px] leading-[1.7] outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        />
-        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          <span aria-live="polite">{saved === "saving" ? "Saving…" : saved === "saved" ? "Saved" : ""}</span>
-          <span>{text.trim() ? text.trim().split(/\s+/).length : 0} words</span>
-          <Button variant="ghost" size="sm" className="ml-auto" onClick={fromSelection}><ListPlus />Make task from selection</Button>
-        </div>
-        {todos.length > 0 && (
-          <ul aria-label="Things that look like to-dos" className="mt-3 space-y-1 rounded-xl border bg-card p-3">
-            {todos.map((t) => (
-              <li key={t.line} className="flex items-center gap-2 text-[13px]">
-                <span className="min-w-0 flex-1 truncate underline decoration-primary/60 decoration-dotted underline-offset-4">{t.title}{t.due ? ` · ${t.due}` : ""}</span>
-                {made[`line:${t.text}`] ? <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary"><Check aria-hidden className="size-3" />Task made</span>
-                  : <Button size="sm" variant="outline" onClick={() => void makeTask(`line:${t.text}`, t.title, t.due)}>Make task</Button>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+    <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[minmax(0,1fr)_14rem]">
+      <div className="min-w-0 space-y-5">
+        <DiaryCalendar year={year} onYear={setYear} infos={infos} onOpen={show} />
+
+        <section aria-label="Recent days">
+          <h2 className="mb-2 text-[13px] font-semibold text-muted-foreground">Recent days</h2>
+          {infos.length === 0 ? (
+            <p className="rounded-xl border border-dashed p-6 text-center text-[13px] text-muted-foreground">Nothing yet. Press “Write today” to start; each day you write turns one square on.</p>
+          ) : (
+            <>
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {recent.map((d) => (
+                  <li key={d.day}>
+                    <button type="button" onClick={() => show(d.day)} aria-label={`Open ${d.day}`}
+                      className="flex h-full w-full flex-col gap-1 rounded-xl border bg-card p-3 text-left outline-none transition-colors hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring">
+                      <span className="flex items-center gap-2 text-[13px] font-semibold">
+                        {parseYmd(d.day).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
+                        <span className="ml-auto rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">{d.entries} {d.entries === 1 ? "entry" : "entries"}</span>
+                      </span>
+                      <span className="line-clamp-2 min-h-[2.6em] text-[13px] text-muted-foreground">{d.snippet}</span>
+                      <span className="text-[11px] tabular-nums text-muted-foreground">{d.words} words</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {infos.length > RECENT && <Button variant="ghost" size="sm" className="mt-2" onClick={() => setAll((v) => !v)}>{all ? "Show fewer" : `Show all ${infos.length} days`}</Button>}
+            </>
+          )}
+        </section>
+      </div>
+
       <aside className="space-y-4">
-        <Button variant="outline" size="sm" className="w-full" onClick={() => void flush().then(onLock)}><Lock />Lock now</Button>
+        <Button variant="outline" size="sm" className="w-full" onClick={onLock}><Lock />Lock now</Button>
         <label className="flex items-start gap-2 text-xs text-muted-foreground">
           <Switch checked={pickup.value === true} onCheckedChange={(v) => void pickup.set(v)} aria-label="Spot things to do" />
           <span><span className="block font-medium text-foreground">Spot things to do</span>Underlines lines like “I need to submit… by Friday”. Off by default; it all happens on this computer.</span>
@@ -170,24 +136,17 @@ function Editor({ onLock }: { onLock: () => void }) {
           <label htmlFor="diary-search" className="mb-1 block text-xs font-medium text-muted-foreground">Search the diary</label>
           <Input id="diary-search" type="search" value={query} maxLength={100} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Escape" && setQuery("")} placeholder="Words from an entry" className="h-8" />
           {query.trim() && (
-            <ul aria-label="Search results" className="mt-2 max-h-60 space-y-1 overflow-auto">
+            <ul aria-label="Search results" className="mt-2 max-h-72 space-y-1 overflow-auto">
               {(results.data ?? []).map((h) => (
-                <li key={h.day}><button type="button" onClick={() => setDay(h.day)} className="w-full rounded px-2 py-1 text-left text-xs outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"><span className="block font-medium tabular-nums">{h.day}</span><span className="block text-muted-foreground">{h.snippet}</span></button></li>
+                <li key={h.day}><button type="button" onClick={() => show(h.day)} className="w-full rounded px-2 py-1 text-left text-xs outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"><span className="block font-medium tabular-nums">{h.day}</span><span className="block text-muted-foreground">{h.snippet}</span></button></li>
               ))}
               {results.data && results.data.length === 0 && <li className="px-2 text-xs text-muted-foreground">No entry has those words.</li>}
             </ul>
           )}
         </div>
-        <div>
-          <h3 className="mb-1 text-xs font-medium text-muted-foreground">Earlier entries</h3>
-          <ul className="max-h-72 space-y-0.5 overflow-auto">
-            {(days.data ?? []).slice(0, 60).map((d) => (
-              <li key={d}><button type="button" aria-current={d === day ? "date" : undefined} onClick={() => setDay(d)} className={`w-full rounded px-2 py-1 text-left text-xs outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring ${d === day ? "bg-accent font-medium" : ""}`}>{d}</button></li>
-            ))}
-            {(days.data ?? []).length === 0 && <li className="px-2 text-xs text-muted-foreground">Nothing yet.</li>}
-          </ul>
-        </div>
       </aside>
+
+      <DayCard day={open} onClose={() => setOpen(null)} onDay={show} onChanged={changed} pickup={pickup.value === true} onPickup={(v) => void pickup.set(v)} />
     </div>
   );
 }
@@ -215,7 +174,7 @@ export function DiaryPage() {
   return (
     <div>
       <PageHeader title="Diary" description="Private. Locked with your password." actions={<BookHeart aria-hidden className="size-5 text-primary" />} />
-      {status.data && (newKey ? <RecoveryKeyCard recoveryKey={newKey} onDone={() => setNewKey(null)} /> : unlocked ? <Editor onLock={() => void lock()} /> : <PasswordForm configured={status.data.configured} onDone={(k) => k && setNewKey(k)} />)}
+      {status.data && (newKey ? <RecoveryKeyCard recoveryKey={newKey} onDone={() => setNewKey(null)} /> : unlocked ? <Journal onLock={() => void lock()} /> : <PasswordForm configured={status.data.configured} onDone={(k) => k && setNewKey(k)} />)}
     </div>
   );
 }

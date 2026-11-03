@@ -3,7 +3,7 @@ import { call } from "./transport";
 import type {
   UsageSummary, TimeRange, TrackingStatus, OpenTab, PetPack, BinNote, DailyLog, Reminder, ReminderInput, ReminderPatch, Label, LabelCount, Note, NoteInput, NotePatch, NoteSort, NoteSummary, Task, TaskEdit, TaskEvent, TaskFilters, TaskRow,
   TaskStatus, TaskView, WorkUpdate, LinkInput, TaskPlan, RepeatDay, FocusSession, FocusStart, RetentionRules, RetentionCounts, Meeting, MeetingFilters, MeetingInput, MeetingSummary,
-  Course, CourseLinks, DiaryHit, DiaryStatus, Exam, WeeklyReport, AssistantCall, BinMeeting,
+  Course, CourseLinks, DayInfo, DiaryEntry, DiaryHit, DiaryStatus, Exam, WeeklyReport, AssistantCall, BinMeeting,
 } from "./types";
 import type { Settings, SettingsKey } from "./settings";
 
@@ -80,6 +80,11 @@ export const ipc = {
   diaryGet: (day: string) => call<string>("diary_get", { day }),
   diarySearch: (query: string) => call<DiaryHit[]>("diary_search", { query }),
   diarySave: (day: string, text: string) => call<unknown>("diary_save", { day, text }),
+  /** A day's entries, oldest first (a day from before entries existed is one entry). */
+  diaryEntries: (day: string) => call<DiaryEntry[]>("diary_entries", { day }),
+  diaryEntriesSave: (day: string, entries: DiaryEntry[]) => call<unknown>("diary_entries_save", { day, entries }),
+  /** Every day with an entry, newest first, for the calendar. */
+  diaryOverview: () => call<DayInfo[]>("diary_overview"),
   diaryErase: () => call<unknown>("diary_erase"),
   coursesList: () => call<Course[]>("courses_list"),
   courseCreate: (name: string) => call<Course>("course_create", { name }),

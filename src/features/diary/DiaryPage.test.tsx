@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { ipc } from "@/ipc";
+import { ymd } from "@/lib/dates";
 import { DiaryPage } from "./DiaryPage";
 
 beforeAll(() => {
@@ -13,6 +14,14 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const wrap = () => <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><DiaryPage /></QueryClientProvider>;
 const type = (name: string, value: string) => fireEvent.change(screen.getByLabelText(name), { target: { value } });
+const today = ymd(new Date());
+/** Opens today's card from the calendar and returns the first entry's box, ready to type in. */
+async function writeToday() {
+  fireEvent.click(await screen.findByRole("button", { name: /^(Write today|Open today)$/ }));
+  const box = (await screen.findByRole("textbox", { name: "Entry 1 text" })) as HTMLTextAreaElement;
+  await waitFor(() => expect(box.disabled).toBe(false));
+  return box;
+}
 
 describe("the diary page", () => {
   it("asks for a password first, promises a recovery key, and wants the password typed twice", async () => {
@@ -32,7 +41,9 @@ describe("the diary page", () => {
     expect((screen.getByRole("button", { name: "Open my diary" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole("checkbox"));
     fireEvent.click(screen.getByRole("button", { name: "Open my diary" }));
-    expect(await screen.findByRole("textbox", { name: "Diary text" })).toBeTruthy();
+    // The calendar opens first, and says how to begin.
+    expect(await screen.findByRole("region", { name: "Your year" })).toBeTruthy();
+    expect(screen.getByText(/Press “Write today” to start/)).toBeTruthy();
   });
 
   it("a forgotten password is replaced with the recovery key", async () => {
@@ -48,7 +59,7 @@ describe("the diary page", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("not the right recovery key");
     type("Recovery key", key.toLowerCase());
     fireEvent.click(screen.getByRole("button", { name: "Recover diary" }));
-    expect(await screen.findByRole("textbox", { name: "Diary text" })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "Your year" })).toBeTruthy();
     await ipc.diaryLock();
     await ipc.diaryUnlock("fresh pass1");
   });
@@ -57,11 +68,12 @@ describe("the diary page", () => {
     await ipc.diaryErase();
     await ipc.diarySetup("secret pass");
     render(wrap());
-    const area = (await screen.findByRole("textbox", { name: "Diary text" })) as HTMLTextAreaElement;
-    await waitFor(() => expect(area.disabled).toBe(false));
+    const area = await writeToday();
     fireEvent.change(area, { target: { value: "Dear diary, today was calm." } });
     await waitFor(() => expect(screen.getByText("Saved")).toBeTruthy(), { timeout: 3000 });
     expect(await ipc.diaryDays()).toHaveLength(1);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 
     fireEvent.click(screen.getByRole("button", { name: /Lock now/ }));
     expect(await screen.findByText("Unlock your diary")).toBeTruthy();
@@ -72,8 +84,82 @@ describe("the diary page", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("not the right password");
     type("Password", "secret pass");
     fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
-    const again = (await screen.findByRole("textbox", { name: "Diary text" })) as HTMLTextAreaElement;
+    // Today's square is on now, and the day has the words in it.
+    expect(await screen.findByRole("button", { name: /1 entry, 5 words/ })).toBeTruthy();
+    const again = await writeToday();
     await waitFor(() => expect(again.value).toBe("Dear diary, today was calm."));
+  });
+
+  it("a day holds two entries as separate notes, and the calendar and the recent days show both", async () => {
+    await ipc.diaryErase();
+    await ipc.diarySetup("secret pass");
+    render(wrap());
+    const first = await writeToday();
+    fireEvent.change(first, { target: { value: "Morning: the lab went well." } });
+    fireEvent.click(screen.getByRole("button", { name: "Add another entry" }));
+    const second = (await screen.findByRole("textbox", { name: "Entry 2 text" })) as HTMLTextAreaElement;
+    // The new entry is where the cursor goes.
+    await waitFor(() => expect(document.activeElement).toBe(second));
+    fireEvent.change(second, { target: { value: "Evening: rain, a long walk." } });
+    await waitFor(() => expect(screen.getByText("Saved")).toBeTruthy(), { timeout: 3000 });
+    const saved = await ipc.diaryEntries(today);
+    expect(saved.map((e) => e.text)).toEqual(["Morning: the lab went well.", "Evening: rain, a long walk."]);
+    expect(screen.getByText(/· 2 entries$/)).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // The square says 2 entries and the recent card says it too; one click opens the day again.
+    expect(await screen.findByRole("button", { name: /2 entries, 10 words/ })).toBeTruthy();
+    const recent = within(screen.getByRole("region", { name: "Recent days" }));
+    expect(recent.getByText("2 entries")).toBeTruthy();
+    fireEvent.click(recent.getByRole("button", { name: `Open ${today}` }));
+    expect(await screen.findByRole("textbox", { name: "Entry 2 text" })).toBeTruthy();
+  });
+
+  it("deleting an entry asks first and keeps the other one", async () => {
+    await ipc.diaryErase();
+    await ipc.diarySetup("secret pass");
+    await ipc.diaryEntriesSave(today, [{ id: "a", at: 1, text: "Keep me" }, { id: "b", at: 2, text: "Remove me" }]);
+    render(wrap());
+    await writeToday();
+    fireEvent.click(await screen.findByRole("button", { name: "Delete entry 2" }));
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    expect((await ipc.diaryEntries(today))).toHaveLength(2);
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+    await waitFor(async () => expect((await ipc.diaryEntries(today)).map((e) => e.text)).toEqual(["Keep me"]));
+  });
+
+  it("a click on an earlier square opens that day, and the arrows walk to its neighbours", async () => {
+    await ipc.diaryErase();
+    await ipc.diarySetup("secret pass");
+    const d = new Date(); d.setDate(d.getDate() - 2);
+    const two = ymd(d);
+    await ipc.diarySave(two, "Met Rao at the chemistry lab");
+    render(wrap());
+    const square = await screen.findByRole("button", { name: /1 entry, 6 words/ });
+    fireEvent.click(square);
+    const box = (await screen.findByRole("textbox", { name: "Entry 1 text" })) as HTMLTextAreaElement;
+    await waitFor(() => expect(box.value).toBe("Met Rao at the chemistry lab"));
+    fireEvent.click(screen.getByRole("button", { name: "Next day" }));
+    await waitFor(async () => expect((screen.getByRole("textbox", { name: "Entry 1 text" }) as HTMLTextAreaElement).value).toBe(""));
+    // A day ahead of today is not reachable.
+    fireEvent.click(screen.getByRole("button", { name: "Next day" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next day" }));
+    expect((screen.getByRole("button", { name: "Next day" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("the year shows its totals and the streak, and Previous year moves back", async () => {
+    await ipc.diaryErase();
+    await ipc.diarySetup("secret pass");
+    const day = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return ymd(d); };
+    for (const n of [0, 1, 2, 5]) await ipc.diarySave(day(n), "A few words here");
+    render(wrap());
+    const year = await screen.findByRole("region", { name: "Your year" });
+    await waitFor(() => expect(within(year).getByText(/in a row/).textContent).toContain("3 in a row · longest 3"));
+    expect(within(year).getByText(/entries on/).textContent).toContain("4 entries on 4 days");
+    fireEvent.click(within(year).getByRole("button", { name: "Previous year" }));
+    expect(within(year).getByRole("heading").textContent).toBe(String(Number(today.slice(0, 4)) - 1));
+    expect(within(year).getByText(/entries on/).textContent).toContain("0 entries on 0 days");
+    expect((within(year).getByRole("button", { name: "Next year" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("underlines to-dos only when asked, and Make task adds the task with the date read from the words", async () => {
@@ -82,13 +168,12 @@ describe("the diary page", () => {
     const add = vi.spyOn(ipc, "taskQuickAdd");
     const update = vi.spyOn(ipc, "taskUpdate");
     render(wrap());
-    const area = (await screen.findByRole("textbox", { name: "Diary text" })) as HTMLTextAreaElement;
-    await waitFor(() => expect(area.disabled).toBe(false));
+    const area = await writeToday();
     fireEvent.change(area, { target: { value: "Long day.\nI need to submit the lab report tomorrow." } });
-    expect(screen.queryByRole("list", { name: "Things that look like to-dos" })).toBeNull();
+    expect(screen.queryByRole("list", { name: /Things that look like to-dos/ })).toBeNull();
 
     fireEvent.click(screen.getByRole("switch", { name: "Spot things to do" }));
-    const list = await screen.findByRole("list", { name: "Things that look like to-dos" });
+    const list = await screen.findByRole("list", { name: "Things that look like to-dos in entry 1" });
     expect(within(list).getByText(/Submit the lab report/)).toBeTruthy();
     fireEvent.click(within(list).getByRole("button", { name: "Make task" }));
     await waitFor(() => expect(add).toHaveBeenCalledWith("Submit the lab report"));
@@ -109,11 +194,11 @@ describe("the diary page", () => {
     expect(await screen.findByText("Set a password for your diary")).toBeTruthy();
   });
 
-  it("searches the entries while open and goes to the day of a result", async () => {
+  it("searches every entry while open and opens the day of a result", async () => {
     await ipc.diaryErase();
     await ipc.diarySetup("secret pass");
     await ipc.diarySave("2026-10-20", "Met Rao at the chemistry lab");
-    await ipc.diarySave("2026-10-21", "Long walk by the river");
+    await ipc.diaryEntriesSave("2026-10-21", [{ id: "a", at: 1, text: "Long walk by the river" }, { id: "b", at: 2, text: "Evening: zebra crossing story" }]);
     render(wrap());
     const box = await screen.findByRole("searchbox", { name: "Search the diary" });
     fireEvent.change(box, { target: { value: "CHEMISTRY" } });
@@ -121,9 +206,14 @@ describe("the diary page", () => {
     expect(await within(list).findByText("2026-10-20")).toBeTruthy();
     expect(within(list).queryByText("2026-10-21")).toBeNull();
     fireEvent.click(within(list).getByRole("button", { name: /2026-10-20/ }));
-    const area = (await screen.findByRole("textbox", { name: "Diary text" })) as HTMLTextAreaElement;
+    const area = (await screen.findByRole("textbox", { name: "Entry 1 text" })) as HTMLTextAreaElement;
     await waitFor(() => expect(area.value).toBe("Met Rao at the chemistry lab"));
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // The second entry of a day is found too.
     fireEvent.change(box, { target: { value: "zebra" } });
+    expect(await within(await screen.findByRole("list", { name: "Search results" })).findByText("2026-10-21")).toBeTruthy();
+    fireEvent.change(box, { target: { value: "nothingmatches" } });
     expect(await screen.findByText("No entry has those words.")).toBeTruthy();
   });
 });
