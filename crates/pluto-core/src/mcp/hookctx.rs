@@ -21,6 +21,8 @@ pub struct HookInput {
     pub request: Option<String>,
     /// The assistant's last message, when the tool hands it over (Codex's `last-assistant-message`).
     pub last_message: Option<String>,
+    /// The tool a permission is asked for ("Bash", "Edit"), from the message or `tool_name`.
+    pub tool: Option<String>,
 }
 
 /// Reads a hook's stdin JSON; anything unreadable gives an empty context.
@@ -54,6 +56,9 @@ pub fn parse(input: &str) -> HookInput {
         transcript: s("transcript_path").map(PathBuf::from),
         permission: s("message").is_some_and(|m| m.to_lowercase().contains("permission")),
         last_message: s("last-assistant-message").map(str::to_owned),
+        tool: s("tool_name")
+            .and_then(tool_name)
+            .or_else(|| s("message").and_then(tool_in_message)),
         request: v
             .get("input-messages")
             .and_then(Value::as_array)
@@ -64,6 +69,29 @@ pub fn parse(input: &str) -> HookInput {
             })
             .map(shorten),
     }
+}
+
+/// A tool's name made fit to show: `mcp__server__do_it` is shown as `do_it`; only letters, digits
+/// and `_ . : -` stay, at most 32 characters.
+fn tool_name(raw: &str) -> Option<String> {
+    let last = raw.trim().rsplit("__").next().unwrap_or("");
+    let t: String = last
+        .chars()
+        .filter(|c| c.is_alphanumeric() || "_.:-".contains(*c))
+        .take(32)
+        .collect();
+    (!t.is_empty()).then_some(t)
+}
+
+/// "Claude needs your permission to use Bash" names the tool after "permission to use".
+fn tool_in_message(message: &str) -> Option<String> {
+    let lower = message.to_lowercase();
+    let at = lower.find("permission to use ")? + "permission to use ".len();
+    message
+        .get(at..)?
+        .split_whitespace()
+        .next()
+        .and_then(tool_name)
 }
 
 /// How much of the first request is shown.
@@ -173,6 +201,17 @@ pub fn place(input: &HookInput, request: Option<&str>) -> Option<String> {
     }
 }
 
+/// The place of a permission request: the tool first (`to use Bash · DESKTOP-PET · “fix…”`), so
+/// the line reads "claude wants your permission · to use Bash · DESKTOP-PET" (A-6, owner-approved).
+pub fn permission_place(input: &HookInput, request: Option<&str>) -> Option<String> {
+    let rest = place(input, request);
+    match (input.tool.as_deref(), rest) {
+        (Some(t), Some(r)) => Some(format!("to use {t} · {r}")),
+        (Some(t), None) => Some(format!("to use {t}")),
+        (None, r) => r,
+    }
+}
+
 /// The longest place text sent or shown.
 pub const PLACE_MAX: usize = 80;
 
@@ -220,6 +259,35 @@ pub fn decode(w: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_permission_names_the_tool_from_the_message_or_the_tool_name_field() {
+        let h = parse(
+            r#"{"cwd":"/w/DESKTOP-PET","message":"Claude needs your permission to use Bash"}"#,
+        );
+        assert!(h.permission);
+        assert_eq!(h.tool.as_deref(), Some("Bash"));
+        assert_eq!(
+            permission_place(&h, Some("fix tray")).as_deref(),
+            Some("to use Bash · DESKTOP-PET · “fix tray”")
+        );
+        // Codex's hook says the tool in a field, and an MCP tool shows its short name.
+        let c = parse(r#"{"cwd":"/w/app","tool_name":"mcp__pluto__pluto_react"}"#);
+        assert_eq!(c.tool.as_deref(), Some("pluto_react"));
+        assert_eq!(
+            permission_place(&c, None).as_deref(),
+            Some("to use pluto_react · app")
+        );
+        // Nothing to name: the place is the same as before. A reply request names no tool.
+        let r = parse(r#"{"cwd":"/w/app","message":"Claude is waiting for your input"}"#);
+        assert_eq!(r.tool, None);
+        assert_eq!(permission_place(&r, None), place(&r, None));
+        // Odd characters are dropped and the name is cut short.
+        let odd = parse("{\"tool_name\":\"Ba\\u001b[31msh <script>\"}");
+        assert_eq!(odd.tool.as_deref(), Some("Ba31mshscript"));
+        let long = parse(&format!(r#"{{"tool_name":"{}"}}"#, "x".repeat(80)));
+        assert_eq!(long.tool.map(|t| t.chars().count()), Some(32));
+    }
 
     #[test]
     fn a_hook_input_names_the_folder_and_spots_a_permission_request() {

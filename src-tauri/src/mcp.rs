@@ -120,7 +120,12 @@ fn from_hook<'a>(reaction: &'a str, input: &str) -> (&'a str, Option<String>) {
     } else {
         reaction
     };
-    (reaction, hookctx::place(&ctx, request.as_deref()))
+    let place = if reaction == "agent_permission" {
+        hookctx::permission_place(&ctx, request.as_deref())
+    } else {
+        hookctx::place(&ctx, request.as_deref())
+    };
+    (reaction, place)
 }
 
 /// Whether the assistant's last message, from the hook or the end of its transcript, asks you something.
@@ -1398,8 +1403,22 @@ mod tests {
             from_hook("agent_needs_you", &input),
             (
                 "agent_permission",
-                Some("DESKTOP-PET · “Add Tab Tantrum”".to_owned())
+                Some("to use Bash · DESKTOP-PET · “Add Tab Tantrum”".to_owned())
             )
+        );
+        // Codex's approval hook says the tool in a field and arrives as a permission already.
+        let codex = serde_json::json!({ "cwd": "/w/app", "tool_name": "shell" }).to_string();
+        assert_eq!(
+            from_hook("agent_permission", &codex),
+            ("agent_permission", Some("to use shell · app".to_owned()))
+        );
+        // A reply request, not a permission, names no tool.
+        let reply =
+            serde_json::json!({ "cwd": "/w/app", "message": "Claude is waiting for your input" })
+                .to_string();
+        assert_eq!(
+            from_hook("agent_needs_you", &reply),
+            ("agent_needs_you", Some("app".to_owned()))
         );
         let done =
             serde_json::json!({ "cwd": "/home/me/staysync", "transcript_path": "/missing.jsonl" })

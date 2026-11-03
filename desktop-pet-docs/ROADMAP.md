@@ -454,3 +454,4 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-03: U-10 colour themes planned (five choices, Periwinkle default); previews shown, Diary in Periwinkle approved to build with the theme. Nothing built yet.
 - 2026-11-03: U-9 and U-10 done in code (committed before the owner's review of the Settings colour row; changes welcome).
 - 2026-11-03: Character page: duplicate preview removed.
+- 2026-11-03: A-6 done in code. Study screens (5 ideas) and the A-1 badge previewed; waiting for the owner's pick.
