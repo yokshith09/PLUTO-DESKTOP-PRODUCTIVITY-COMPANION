@@ -113,10 +113,25 @@ fn from_hook<'a>(reaction: &'a str, input: &str) -> (&'a str, Option<String>) {
     });
     let reaction = if ctx.permission && reaction == "agent_needs_you" {
         "agent_permission"
+    } else if reaction == "agent_done" && ends_with_question(&ctx) {
+        // A tool with no "waiting for you" hook still tells us when it ends by asking something
+        // (owner 2026-11-03: needs-you for every assistant).
+        "agent_needs_you"
     } else {
         reaction
     };
     (reaction, hookctx::place(&ctx, request.as_deref()))
+}
+
+/// Whether the assistant's last message, from the hook or the end of its transcript, asks you something.
+fn ends_with_question(ctx: &hookctx::HookInput) -> bool {
+    let last = ctx.last_message.clone().or_else(|| {
+        ctx.transcript
+            .as_deref()
+            .and_then(transcript_tail)
+            .and_then(|t| hookctx::last_assistant_text(&t))
+    });
+    last.is_some_and(|t| hookctx::asks_question(&t))
 }
 
 /// What a hook wrote to our stdin, if anything (never waits on a terminal, at most 1 s).
@@ -146,6 +161,27 @@ fn transcript_head(path: &Path) -> Option<String> {
         .read_to_end(&mut buf)
         .ok()?;
     Some(String::from_utf8_lossy(&buf).into_owned())
+}
+
+/// The end of a chat's transcript (enough to find the assistant's last message); the first,
+/// probably cut, line is dropped.
+fn transcript_tail(path: &Path) -> Option<String> {
+    use std::io::{Read, Seek, SeekFrom};
+    const TAIL: u64 = 128 * 1024;
+    let mut file = std::fs::File::open(path).ok()?;
+    let len = file.metadata().ok()?.len();
+    let start = len.saturating_sub(TAIL);
+    file.seek(SeekFrom::Start(start)).ok()?;
+    let mut buf = Vec::new();
+    file.take(TAIL).read_to_end(&mut buf).ok()?;
+    let text = String::from_utf8_lossy(&buf).into_owned();
+    Some(if start > 0 {
+        text.split_once('\n')
+            .map(|(_, rest)| rest.to_owned())
+            .unwrap_or_default()
+    } else {
+        text
+    })
 }
 
 /// Details a tool gives on the command line: Codex's `notify` adds the turn as one JSON argument
@@ -709,10 +745,7 @@ fn places_in(id: &str, home: &Path, config: &Path, local: Option<&Path>) -> Vec<
         }],
         // Codex (CLI and app) share one `config.toml` in CODEX_HOME (default ~/.codex).
         "codex" => {
-            let dir = std::env::var_os("CODEX_HOME")
-                .filter(|d| !d.is_empty())
-                .map(PathBuf::from)
-                .unwrap_or_else(|| home.join(".codex"));
+            let dir = codex_dir(home);
             vec![Place {
                 label: "Codex",
                 path: dir.join("config.toml"),
@@ -756,6 +789,38 @@ fn places_in(id: &str, home: &Path, config: &Path, local: Option<&Path>) -> Vec<
             list
         }
         _ => Vec::new(),
+    }
+}
+
+/// Codex's folder: `CODEX_HOME`, else `~/.codex`.
+fn codex_dir(home: &Path) -> PathBuf {
+    std::env::var_os("CODEX_HOME")
+        .filter(|d| !d.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".codex"))
+}
+
+/// Codex's `hooks.json` (the pet waves when Codex is about to ask you to approve something),
+/// when Codex's folder exists.
+fn codex_hooks_file(home: &Path) -> Option<PathBuf> {
+    let dir = codex_dir(home);
+    dir.is_dir().then(|| dir.join("hooks.json"))
+}
+
+fn add_codex_hooks(file: &Path, program: &str) -> Result<(), String> {
+    let text = setup::add_codex_hooks(read_text(file).as_deref(), program)
+        .map_err(|why| format!("Codex hooks: {why}"))?;
+    write_safely(file, &text).map_err(|e| format!("Codex hooks: Pluto could not save them ({e})."))
+}
+
+fn remove_codex_hooks(file: &Path) -> Result<(), String> {
+    let Some(text) = read_text(file) else {
+        return Ok(());
+    };
+    match setup::remove_codex_hooks(Some(&text)).map_err(|why| format!("Codex hooks: {why}"))? {
+        Some(text) => write_safely(file, &text)
+            .map_err(|e| format!("Codex hooks: Pluto could not save them ({e}).")),
+        None => Ok(()),
     }
 }
 
@@ -1035,6 +1100,12 @@ pub async fn mcp_connect(
             done.push("Cursor hooks");
         }
     }
+    if id == "codex" {
+        if let Some(file) = os_folders().and_then(|(home, _)| codex_hooks_file(&home)) {
+            add_codex_hooks(&file, &program)?;
+            done.push("Codex approval hook");
+        }
+    }
     if id == "opencode" {
         if let Some(file) = os_folders().and_then(|(home, _)| opencode_plugin_file(&home)) {
             add_opencode_plugin(&file, &program)?;
@@ -1062,6 +1133,11 @@ pub fn mcp_disconnect(id: String) -> Result<(), String> {
             remove_cursor_hooks(&file)?;
         }
     }
+    if id == "codex" {
+        if let Some(file) = os_folders().and_then(|(home, _)| codex_hooks_file(&home)) {
+            remove_codex_hooks(&file)?;
+        }
+    }
     if id == "opencode" {
         if let Some(file) = os_folders().and_then(|(home, _)| opencode_plugin_file(&home)) {
             remove_opencode_plugin(&file)?;
@@ -1080,6 +1156,11 @@ pub struct DeveloperLines {
     pub git_push: String,
     /// Run a build this way.
     pub build: String,
+    /// For any other assistant's hooks (owner 2026-11-03: "even when I set up another app"):
+    /// "it is done", "it needs you", "it wants permission". Change `my-app` to its name.
+    pub agent_done: String,
+    pub agent_needs_you: String,
+    pub agent_permission: String,
 }
 
 pub fn developer_lines(program: &str) -> DeveloperLines {
@@ -1088,6 +1169,9 @@ pub fn developer_lines(program: &str) -> DeveloperLines {
         git_commit: format!("#!/bin/sh\n\"{p}\" --react git_commit --assistant git\n"),
         git_push: format!("#!/bin/sh\n\"{p}\" --react git_push --assistant git\n"),
         build: format!("<your build> && \"{p}\" --react build_ok --assistant build || \"{p}\" --react build_failed --assistant build"),
+        agent_done: format!("\"{p}\" --react agent_done --assistant my-app"),
+        agent_needs_you: format!("\"{p}\" --react agent_needs_you --assistant my-app"),
+        agent_permission: format!("\"{p}\" --react agent_permission --assistant my-app"),
     }
 }
 
@@ -1545,6 +1629,53 @@ mod tests {
             read_text(&plugin).unwrap(),
             "export const Mine = async () => ({})\n"
         );
+    }
+
+    #[test]
+    fn a_done_that_ends_with_a_question_becomes_needs_you_for_any_tool() {
+        // Codex hands its last message over directly.
+        let codex = r#"{"type":"agent-turn-complete","cwd":"/work/app","last-assistant-message":"Pushed. Want a PR too?"}"#;
+        assert_eq!(from_hook("agent_done", codex).0, "agent_needs_you");
+        let plain = r#"{"cwd":"/work/app","last-assistant-message":"All done."}"#;
+        assert_eq!(from_hook("agent_done", plain).0, "agent_done");
+        // A tool that only names a transcript (Cursor, Claude Code): the end of it is read.
+        let dir = tempfile::tempdir().unwrap();
+        let t = dir.path().join("t.jsonl");
+        let mut body = String::new();
+        for i in 0..4000 {
+            body.push_str(&format!(r#"{{"role":"user","content":"filler line number {i} to push the file past the tail size"}}"#));
+            body.push('\n');
+        }
+        body.push_str(
+            r#"{"role":"assistant","content":[{"type":"text","text":"Which one should I use?"}]}"#,
+        );
+        std::fs::write(&t, &body).unwrap();
+        assert!(
+            body.len() > 128 * 1024,
+            "the file is longer than the tail that is read"
+        );
+        let input = serde_json::json!({ "cwd": "/work/app", "transcript_path": t }).to_string();
+        assert_eq!(from_hook("agent_done", &input).0, "agent_needs_you");
+        // Only a "done" is ever changed.
+        assert_eq!(from_hook("git_push", codex).0, "git_push");
+        assert_eq!(from_hook("agent_needs_you", plain).0, "agent_needs_you");
+    }
+
+    #[test]
+    fn codex_gets_its_approval_hook_with_connect_and_loses_it_with_disconnect() {
+        let dir = tempfile::tempdir().unwrap();
+        // CODEX_HOME may point elsewhere on the test machine; only the shape is checked here.
+        let file = dir.path().join("hooks.json");
+        add_codex_hooks(&file, "/opt/pluto").unwrap();
+        assert!(setup::has_codex_hooks(read_text(&file).as_deref()));
+        remove_codex_hooks(&file).unwrap();
+        assert!(!setup::has_codex_hooks(read_text(&file).as_deref()));
+        let lines = developer_lines("C:\\Pluto\\pluto.exe");
+        assert!(lines
+            .agent_permission
+            .contains("--react agent_permission --assistant my-app"));
+        assert!(lines.agent_needs_you.contains("C:/Pluto/pluto.exe"));
+        assert!(lines.agent_done.ends_with("--assistant my-app"));
     }
 
     #[test]

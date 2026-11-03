@@ -39,9 +39,9 @@ export const SOON = [
 /** What the pet does on its own for each assistant, once connected (the rest only when it asks). */
 export const PET_REACTS: Record<string, readonly string[]> = {
   claude: ["Done", "Needs you", "Names the chat"],
-  codex: ["Done", "Names the chat"],
-  cursor: ["Done", "Names the folder"],
-  opencode: ["Done", "Names the folder"],
+  codex: ["Done", "Needs you", "Names the chat"],
+  cursor: ["Done", "Needs you (questions)", "Names the folder"],
+  opencode: ["Done", "Needs you", "Names the folder"],
 };
 
 export const COMING = { icon: Lock, text: "Turn assistants off, change tracking, shortcuts or start-up. Those stay with you." } as const;
@@ -398,6 +398,7 @@ function AssistantEditor({ id, a, onClose }: { id: string | null; a: AssistantIn
   const [manualOpen, setManualOpen] = useState(false);
   const name = a?.name ?? "Another assistant";
   const command = a?.places[0] ? programOf(a.places[0].manual) : "pluto";
+  const { data: lines } = useQuery({ queryKey: ["mcp", "developer"], queryFn: ipc.mcpDeveloper, enabled: id !== null && !a });
   const copy = async (text: string) => {
     try { await navigator.clipboard.writeText(text); notify.success("Setup copied"); } catch { notify.error("Could not copy"); }
   };
@@ -454,6 +455,20 @@ function AssistantEditor({ id, a, onClose }: { id: string | null; a: AssistantIn
                 </>
               )}
           </section>
+
+          {!a && lines && (
+            <section aria-label="Pet reactions from any app">
+              <h3 className="text-xs font-medium text-muted-foreground">Pet reactions from any app</h3>
+              <p className="mt-1 text-[12px] text-muted-foreground">If the app can run a command when it finishes or waits for you (a hook, a notify setting, a script), give it one of these. Change “my-app” to its name; Pluto shows it on the pet.</p>
+              {([["It is done", lines.agentDone], ["It needs you", lines.agentNeedsYou], ["It wants your permission", lines.agentPermission]] as const).map(([what, text]) => (
+                <div key={what} className="mt-3">
+                  <p className="mb-1 text-[12px] font-medium">{what}</p>
+                  <pre aria-label={`${what} command`} className="overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed">{text}</pre>
+                  <Button size="sm" variant="outline" className="mt-2" onClick={() => void copy(text)}><Copy className="size-3.5" />Copy</Button>
+                </div>
+              ))}
+            </section>
+          )}
 
           {a && (
             <section aria-label="Recent requests">

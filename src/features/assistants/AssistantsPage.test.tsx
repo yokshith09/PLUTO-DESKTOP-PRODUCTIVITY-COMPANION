@@ -33,7 +33,7 @@ function renderPage({ enabled = false, connected = false, dev = false } = {}) {
     { atMs: 1, assistant: "Claude Code", tool: "task_add", ok: true, detail: "Added the task \"Call the bank\".", changed: true, undoId: 7, undone: false },
   ]);
   vi.spyOn(ipc, "mcpUndo").mockResolvedValue("Removed the task \"Call the bank\".");
-  vi.spyOn(ipc, "mcpDeveloper").mockResolvedValue({ gitCommit: "#!/bin/sh\npluto --react git_commit", gitPush: "x", build: "make && pluto --react build_ok" });
+  vi.spyOn(ipc, "mcpDeveloper").mockResolvedValue({ gitCommit: "#!/bin/sh\npluto --react git_commit", gitPush: "x", build: "make && pluto --react build_ok", agentDone: "pluto --react agent_done --assistant my-app", agentNeedsYou: "pluto --react agent_needs_you --assistant my-app", agentPermission: "pluto --react agent_permission --assistant my-app" });
   if (!vi.isMockFunction(ipc.devGitWatch)) vi.spyOn(ipc, "devGitWatch").mockResolvedValue({ roots: [], repos: [] });
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><AssistantsPage /></QueryClientProvider>);
   return { connect, disconnect, prefsSet, activity };
@@ -95,6 +95,21 @@ describe("Assistants page", () => {
     expect(programOf('{"mcp":{"pluto":{"type":"local","command":["/opt/pluto","--mcp-bridge"]}}}')).toBe("/opt/pluto");
     expect(programOf('{"servers":{"pluto":{"command":"/x"}}}')).toBe("/x");
     expect(programOf("nothing here")).toBe("pluto");
+  });
+
+  it("Another assistant gets the commands for done, needs you and permission, to copy into any app's hook (owner 2026-11-03)", async () => {
+    renderPage();
+    fireEvent.click(within(await screen.findByRole("listitem", { name: "Another assistant" })).getByRole("button", { name: "Set up by hand" }));
+    const dialog = await screen.findByRole("dialog");
+    const section = await within(dialog).findByRole("region", { name: "Pet reactions from any app" });
+    expect(within(section).getByLabelText("It needs you command").textContent).toContain("--react agent_needs_you --assistant my-app");
+    expect(within(section).getByLabelText("It wants your permission command").textContent).toContain("agent_permission");
+    expect(within(section).getAllByRole("button", { name: "Copy" })).toHaveLength(3);
+  });
+
+  it("every assistant that reacts on its own lists Needs you, as the owner asked", () => {
+    for (const id of ["claude", "codex", "opencode"]) expect(PET_REACTS[id]).toContain("Needs you");
+    expect(PET_REACTS.cursor?.some((r) => r.startsWith("Needs you"))).toBe(true);
   });
 
   it("Coming lists the planned ideas and says none of them works yet", async () => {

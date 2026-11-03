@@ -12,7 +12,7 @@ export type AssistantPlace = { label: string; path: string; installed: boolean; 
 /** An assistant tile: found on this computer, and whether Pluto is in its settings. */
 export type AssistantInfo = { id: string; name: string; installed: boolean; connected: boolean; places: AssistantPlace[] };
 
-export type DeveloperLines = { gitCommit: string; gitPush: string; build: string };
+export type DeveloperLines = { gitCommit: string; gitPush: string; build: string; agentDone: string; agentNeedsYou: string; agentPermission: string };
 /** Folders watched for commits and pushes, and the repositories found in them. */
 export type GitWatchInfo = { roots: string[]; repos: string[] };
 /** A commit or push the folder watcher saw. */

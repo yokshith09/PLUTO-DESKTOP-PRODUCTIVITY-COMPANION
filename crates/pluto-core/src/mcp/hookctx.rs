@@ -19,6 +19,8 @@ pub struct HookInput {
     pub permission: bool,
     /// The request itself, when the tool says it (Codex's `input-messages`), shortened.
     pub request: Option<String>,
+    /// The assistant's last message, when the tool hands it over (Codex's `last-assistant-message`).
+    pub last_message: Option<String>,
 }
 
 /// Reads a hook's stdin JSON; anything unreadable gives an empty context.
@@ -51,6 +53,7 @@ pub fn parse(input: &str) -> HookInput {
         folder,
         transcript: s("transcript_path").map(PathBuf::from),
         permission: s("message").is_some_and(|m| m.to_lowercase().contains("permission")),
+        last_message: s("last-assistant-message").map(str::to_owned),
         request: v
             .get("input-messages")
             .and_then(Value::as_array)
@@ -108,6 +111,51 @@ fn shorten(text: &str) -> String {
     } else {
         one
     }
+}
+
+/// True when a message ends by asking you something ("Want me to continue?"): the assistant is
+/// waiting for your answer, which is "needs you" even when the tool has no hook for it
+/// (owner 2026-11-03: "needs you for all of them, even other apps").
+pub fn asks_question(text: &str) -> bool {
+    text.trim_end_matches(|c: char| c.is_whitespace() || "\"'”’)]*_`>".contains(c))
+        .ends_with('?')
+}
+
+/// The text of the last assistant message in a transcript (JSONL), tolerant of the shapes the
+/// tools write: `{"type":"assistant","message":{"content":[{"type":"text","text":…}]}}` (Claude
+/// Code), `{"role":"assistant","message":{…}}` and `{"role":"assistant","content":"…"}` (others).
+pub fn last_assistant_text(transcript_jsonl: &str) -> Option<String> {
+    for line in transcript_jsonl.lines().rev() {
+        let Ok(v) = serde_json::from_str::<Value>(line) else {
+            continue;
+        };
+        let role = v
+            .get("role")
+            .or_else(|| v.get("type"))
+            .or_else(|| v.get("message").and_then(|m| m.get("role")))
+            .and_then(Value::as_str);
+        if role != Some("assistant") {
+            continue;
+        }
+        let content = v
+            .get("message")
+            .and_then(|m| m.get("content"))
+            .or_else(|| v.get("content"));
+        let text = match content {
+            Some(Value::String(t)) => t.clone(),
+            Some(Value::Array(parts)) => parts
+                .iter()
+                .filter(|p| p.get("type").and_then(Value::as_str) == Some("text"))
+                .filter_map(|p| p.get("text").and_then(Value::as_str))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            _ => continue,
+        };
+        if !text.trim().is_empty() {
+            return Some(text);
+        }
+    }
+    None
 }
 
 /// Just a folder (OpenCode's plugin passes the session's folder in `PLUTO_CWD`).
@@ -203,6 +251,39 @@ mod tests {
             Some("Rename the tray menu items and a…")
         );
         assert_eq!(from_folder("/home/me/site").folder.as_deref(), Some("site"));
+    }
+
+    #[test]
+    fn a_message_that_ends_with_a_question_means_it_waits_for_you() {
+        assert!(asks_question("Done. Want me to commit it?"));
+        assert!(asks_question("Shall I go on **with the tests**?\n"));
+        assert!(asks_question("Should I use `main`?”"));
+        assert!(!asks_question("All done. Tests pass."));
+        assert!(!asks_question("Why it failed? I fixed it."));
+        assert!(!asks_question(""));
+    }
+
+    #[test]
+    fn the_last_assistant_message_is_read_from_the_shapes_tools_write() {
+        let claude = [
+            r#"{"type":"user","message":{"role":"user","content":"hi"}}"#,
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash"}]}}"#,
+            r#"{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Ready to push?"}]}}"#,
+        ]
+        .join("\n");
+        assert_eq!(
+            last_assistant_text(&claude).as_deref(),
+            Some("Ready to push?")
+        );
+        let other = "{\"role\":\"assistant\",\"content\":\"First\"}\nnot json\n{\"role\":\"user\",\"content\":\"ok\"}";
+        assert_eq!(last_assistant_text(other).as_deref(), Some("First"));
+        assert_eq!(last_assistant_text("{\"role\":\"user\"}"), None);
+        assert_eq!(
+            parse(r#"{"last-assistant-message":"Done?"}"#)
+                .last_message
+                .as_deref(),
+            Some("Done?")
+        );
     }
 
     #[test]

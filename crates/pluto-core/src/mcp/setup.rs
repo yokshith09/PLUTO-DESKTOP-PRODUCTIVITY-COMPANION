@@ -334,11 +334,34 @@ pub fn remove_cursor_hooks(existing: Option<&str>) -> Result<Option<String>, Str
 pub const OPENCODE_PLUGIN_MARK: &str =
     "// Added by Pluto: the pet cheers when an OpenCode session finishes.";
 
-/// OpenCode plugin (H-3): on `session.idle`, runs Pluto's reaction with the session's folder.
+/// OpenCode plugin (H-3): "done" when a session goes idle, "wants your permission" when it asks
+/// (`permission.asked`, or `permission.updated` in older versions; each request once).
 pub fn opencode_plugin(program: &str) -> String {
     let prog = serde_json::to_string(program).unwrap_or_default();
     format!(
-        "{OPENCODE_PLUGIN_MARK}\n// Disconnect OpenCode in Pluto to remove it.\nconst PLUTO = {prog};\n\nexport const PlutoPet = async ({{ $, directory }}) => ({{\n  event: async ({{ event }}) => {{\n    if (event.type !== \"session.idle\") return;\n    try {{\n      await $`${{PLUTO}} --react agent_done --assistant opencode`.env({{ ...process.env, PLUTO_CWD: directory ?? \"\" }}).quiet().nothrow();\n    }} catch {{}}\n  }},\n}});\n"
+        r#"{OPENCODE_PLUGIN_MARK}
+// Disconnect OpenCode in Pluto to remove it.
+const PLUTO = {prog};
+const asked = new Set();
+
+export const PlutoPet = async ({{ $, directory }}) => {{
+  const react = async (reaction) => {{
+    try {{
+      await $`${{PLUTO}} --react ${{reaction}} --assistant opencode`.env({{ ...process.env, PLUTO_CWD: directory ?? "" }}).quiet().nothrow();
+    }} catch {{}}
+  }};
+  return {{
+    event: async ({{ event }}) => {{
+      if (event.type === "session.idle") return react("agent_done");
+      if (event.type === "permission.asked" || event.type === "permission.updated") {{
+        const id = event.properties?.id;
+        if (id) {{ if (asked.has(id)) return; asked.add(id); }}
+        return react("agent_permission");
+      }}
+    }},
+  }};
+}};
+"#
     )
 }
 
@@ -347,20 +370,30 @@ pub fn opencode_plugin(program: &str) -> String {
 pub const CLAUDE_HOOKS: &[(&str, &str)] =
     &[("Stop", "agent_done"), ("Notification", "agent_needs_you")];
 
+/// Codex's hook for the pet: when it is about to ask you to approve something. Pluto's hook prints
+/// nothing and exits 0, which leaves Codex's own approval prompt exactly as it was. ("Done" comes
+/// from `notify`, which needs no trust step.)
+pub const CODEX_HOOKS: &[(&str, &str)] = &[("PermissionRequest", "agent_permission")];
+
 /// The hook command for one reaction.
 pub fn hook_command(program: &str, reaction: &str) -> String {
-    format!("\"{program}\" --react {reaction} --assistant claude-code")
+    hook_command_for(program, reaction, "claude-code")
 }
 
-fn is_ours(hook: &Value) -> bool {
-    hook.get("command")
-        .and_then(Value::as_str)
-        .is_some_and(|c| c.contains("--react ") && c.contains("--assistant claude-code"))
+fn hook_command_for(program: &str, reaction: &str, assistant: &str) -> String {
+    format!("\"{program}\" --react {reaction} --assistant {assistant}")
 }
 
-/// Claude Code's `settings.json` with Pluto's hooks added (old Pluto hooks replaced), all else kept.
-pub fn add_hooks(existing: Option<&str>, program: &str) -> Result<String, String> {
-    let without = remove_hooks(existing)?.unwrap_or_else(|| existing.unwrap_or("").to_owned());
+/// A settings file in Claude Code's hook shape (`{"hooks": {Event: [{"hooks": [{"command"}]}]}}`,
+/// which Codex's `hooks.json` shares) with Pluto's hooks added (old Pluto hooks replaced).
+fn add_hooks_in(
+    existing: Option<&str>,
+    program: &str,
+    assistant: &str,
+    events: &[(&str, &str)],
+) -> Result<String, String> {
+    let without =
+        remove_hooks_in(existing, assistant)?.unwrap_or_else(|| existing.unwrap_or("").to_owned());
     let mut root = parse(Some(&without))?;
     let hooks = root
         .entry("hooks")
@@ -368,7 +401,7 @@ pub fn add_hooks(existing: Option<&str>, program: &str) -> Result<String, String
     let Value::Object(hooks) = hooks else {
         return Err(UNREADABLE.into());
     };
-    for (event, reaction) in CLAUDE_HOOKS {
+    for (event, reaction) in events {
         let list = hooks
             .entry(*event)
             .or_insert_with(|| Value::Array(Vec::new()));
@@ -376,14 +409,13 @@ pub fn add_hooks(existing: Option<&str>, program: &str) -> Result<String, String
             return Err(UNREADABLE.into());
         };
         list.push(serde_json::json!({
-            "hooks": [{ "type": "command", "command": hook_command(program, reaction) }]
+            "hooks": [{ "type": "command", "command": hook_command_for(program, reaction, assistant) }]
         }));
     }
     Ok(print(root))
 }
 
-/// The file without Pluto's hooks, or `None` when it had none.
-pub fn remove_hooks(existing: Option<&str>) -> Result<Option<String>, String> {
+fn remove_hooks_in(existing: Option<&str>, assistant: &str) -> Result<Option<String>, String> {
     let mut root = parse(existing)?;
     let Some(Value::Object(hooks)) = root.get_mut("hooks") else {
         return Ok(None);
@@ -394,7 +426,7 @@ pub fn remove_hooks(existing: Option<&str>) -> Result<Option<String>, String> {
         for group in groups.iter_mut() {
             if let Some(Value::Array(inner)) = group.get_mut("hooks") {
                 let before = inner.len();
-                inner.retain(|h| !is_ours(h));
+                inner.retain(|h| !is_ours_for(h, assistant));
                 found |= inner.len() != before;
             }
         }
@@ -412,6 +444,31 @@ pub fn remove_hooks(existing: Option<&str>) -> Result<Option<String>, String> {
         root.remove("hooks");
     }
     Ok(Some(print(root)))
+}
+
+/// Claude Code's `settings.json` with Pluto's hooks added (old Pluto hooks replaced), all else kept.
+pub fn add_hooks(existing: Option<&str>, program: &str) -> Result<String, String> {
+    add_hooks_in(existing, program, "claude-code", CLAUDE_HOOKS)
+}
+
+/// The file without Pluto's hooks, or `None` when it had none.
+pub fn remove_hooks(existing: Option<&str>) -> Result<Option<String>, String> {
+    remove_hooks_in(existing, "claude-code")
+}
+
+/// Codex's `hooks.json` with Pluto's approval hook added, everything else kept.
+pub fn add_codex_hooks(existing: Option<&str>, program: &str) -> Result<String, String> {
+    add_hooks_in(existing, program, "codex", CODEX_HOOKS)
+}
+
+/// Codex's `hooks.json` without Pluto's hook, or `None` when it had none.
+pub fn remove_codex_hooks(existing: Option<&str>) -> Result<Option<String>, String> {
+    remove_hooks_in(existing, "codex")
+}
+
+/// True when Pluto's approval hook is in Codex's `hooks.json`.
+pub fn has_codex_hooks(existing: Option<&str>) -> bool {
+    matches!(remove_codex_hooks(existing), Ok(Some(_)))
 }
 
 /// True when Pluto's hooks are in the file.
@@ -494,6 +551,32 @@ mod tests {
         assert!(plugin.starts_with(OPENCODE_PLUGIN_MARK));
         assert!(plugin.contains(r#"const PLUTO = "C:\\Pluto\\pluto.exe";"#));
         assert!(plugin.contains("session.idle"));
+        // It also reacts when OpenCode asks for permission, once per request.
+        assert!(plugin.contains("permission.asked") && plugin.contains("permission.updated"));
+        assert!(plugin.contains("agent_permission") && plugin.contains("asked.has(id)"));
+    }
+
+    #[test]
+    fn codex_gets_an_approval_hook_that_keeps_the_users_own_hooks_and_comes_out_again() {
+        let before = r#"{"hooks":{"PermissionRequest":[{"matcher":"Bash","hooks":[{"type":"command","command":"python3 ~/mine.py"}]}],"Stop":[{"hooks":[{"type":"command","command":"x"}]}]}}"#;
+        let after = add_codex_hooks(Some(before), "/opt/pluto").unwrap();
+        let again = add_codex_hooks(Some(&after), "/opt/pluto").unwrap();
+        assert_eq!(after, again, "added once");
+        assert!(has_codex_hooks(Some(&again)));
+        assert!(
+            !has_hooks(Some(&again)),
+            "Claude's hooks are a separate thing"
+        );
+        assert!(again.contains("--react agent_permission --assistant codex"));
+        let back: Value =
+            serde_json::from_str(&remove_codex_hooks(Some(&again)).unwrap().unwrap()).unwrap();
+        assert_eq!(back, serde_json::from_str::<Value>(before).unwrap());
+        assert_eq!(remove_codex_hooks(Some(before)).unwrap(), None);
+        let fresh: Value = serde_json::from_str(&add_codex_hooks(None, "p").unwrap()).unwrap();
+        assert_eq!(
+            fresh["hooks"]["PermissionRequest"][0]["hooks"][0]["type"],
+            "command"
+        );
     }
 
     #[test]

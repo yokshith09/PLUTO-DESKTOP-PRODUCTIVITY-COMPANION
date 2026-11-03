@@ -324,6 +324,7 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-03: U-1 note editor built (tests: 525 UI, 551 core, 48 shell). Unverified on a real PC. Next: U-2 Settings in two tabs (preview first), or FS-1/TT-1 if the owner moves them up.
 
 - 2026-11-03: Claude Code chat named on the pet (folder + first request; permission vs reply). Tests 555 core, 49 shell. Unverified on Windows. Next: U-2 build.
+- 2026-11-03: needs-you for all assistants (Codex approval hook, OpenCode permission event, question check for any tool, copy-paste commands for other apps). Tests 534 UI, 563 core, 56 shell. Unverified on a real PC. Owner: items 4-6 then release v0.6.0 directly (skipping 0.5.10).
 - 2026-11-03: Assistants H-1..H-4 built (Codex, OpenCode, Windsurf, Cursor hooks) with the Coming list. Tests 532 UI, 560 core, 54 shell; clippy clean for Linux and the Windows target. Unverified on a real PC. Next: owner picks A-1..A-8 order, or U-4 preview.
 - 2026-11-03: U-3 task editor built from the owner's reference (cards, calendar, priority redesigned). Tests 529 UI. Unverified in the real window. Next: H-1..H-4 assistants.
 - 2026-11-03: Fix: the private pipe no longer stops for good after one bad connection (pet went quiet on "Claude Code is done"). Shell tests 51. Unverified on Windows.
