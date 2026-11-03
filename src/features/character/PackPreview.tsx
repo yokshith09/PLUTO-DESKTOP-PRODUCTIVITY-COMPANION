@@ -61,10 +61,3 @@ export function PackPreview({ pack }: { pack: PetPack }) {
     </>
   );
 }
-
-/** A small, still view of a character in its current look, for the Wardrobe page. */
-export function PackMirror({ pack }: { pack: PetPack }) {
-  const worn = useWorn();
-  const { data: sheet } = useQuery({ queryKey: ["pets", "sheet", pack.id], queryFn: () => ipc.petsSheet(pack.id), staleTime: Infinity });
-  return sheet ? <SpritePet key={pack.id} sheet={sheet} row="idle" size={144} wear={worn} label={`${pack.display_name} in your current look`} /> : null;
-}

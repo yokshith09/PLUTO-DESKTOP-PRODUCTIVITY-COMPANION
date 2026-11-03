@@ -6,7 +6,7 @@ import { PageHeader, Panel } from "@/features/shell/PageHeader";
 import { BEAR_POSES, Bear, type BearPose } from "@/features/shell/Bear";
 import { BACK_TURN_SHAKE, playEmote, type EmoteRun } from "@/pet/emotes";
 import { PetLibrary } from "./PetLibrary";
-import { PackMirror, PackPreview } from "./PackPreview";
+import { PackPreview } from "./PackPreview";
 import { useQuery } from "@tanstack/react-query";
 import { ipc } from "@/ipc";
 import { NudgeSettings } from "@/features/settings/NudgeSettings";
@@ -144,9 +144,8 @@ export function CharacterPage({ onOpenProfile }: { onOpenProfile?: () => void } 
         </Panel>
 
         <div className="lg:col-span-2"><PetLibrary shown={shownPack ? shown : null} onShow={setPicked} /></div>
-        {/* The Wardrobe stretches to the height of the column beside it, and its mirror takes the spare
-            room, so neither side has an empty gap at any window size (owner 2026-10-31). */}
-        <WardrobePanel mirror={shownPack ? <PackMirror pack={shownPack} /> : <Bear pose="idle" wear={worn} animated className="size-36" />} />
+        {/* One preview on this page: the big one above already wears whatever you put on here. */}
+        <WardrobePanel />
         <div className="flex flex-col gap-4">
           {/* Takes up whatever height the Wardrobe beside it needs. */}
           <CompanionPanel onOpenProfile={onOpenProfile} />

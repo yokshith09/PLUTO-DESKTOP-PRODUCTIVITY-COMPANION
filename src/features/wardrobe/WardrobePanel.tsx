@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Shirt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -15,7 +14,7 @@ const tile = (on: boolean) =>
     on ? "border-primary bg-primary/10 font-medium text-foreground" : "bg-card text-muted-foreground hover:border-foreground/25 hover:text-foreground");
 
 /** Accessories and outfits for any character. All free, none locked; one thing per place on the body. */
-export function WardrobePanel({ mirror }: { mirror?: ReactNode } = {}) {
+export function WardrobePanel() {
   const { wardrobe, save } = useWardrobe();
   if (!wardrobe) return null;
   const apply = (next: Wardrobe) => {
@@ -28,11 +27,6 @@ export function WardrobePanel({ mirror }: { mirror?: ReactNode } = {}) {
       <h2 className="text-[15px] font-semibold">Accessories and outfits</h2>
       <p className="mt-0.5 text-xs text-muted-foreground">Dress your pet, whichever character it is. Everything is free. One thing for the head, the face and the neck.</p>
       <Panel className="mt-3 flex flex-1 flex-col gap-4 p-4">
-        {mirror && (
-          <div role="img" aria-label="Your pet in its current look" className="grid min-h-36 flex-1 place-items-center rounded-lg border bg-muted/40 [background-image:radial-gradient(circle_at_center,var(--border)_1px,transparent_1px)] [background-size:16px_16px]">
-            {mirror}
-          </div>
-        )}
         <div role="group" aria-label="Outfits">
           <p className="text-xs font-medium text-muted-foreground">Outfits</p>
           <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3">

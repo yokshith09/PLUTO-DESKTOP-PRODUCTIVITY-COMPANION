@@ -31,6 +31,13 @@ describe("Character page preview (F1/F2)", () => {
     expect(screen.queryByRole("group", { name: "Preview animation" })).toBeNull();
   });
 
+  it("has one preview of the pet: the Accessories card does not draw a second one", async () => {
+    renderPage();
+    const wardrobe = await screen.findByRole("region", { name: "Accessories and outfits" });
+    expect(wardrobe.querySelector("svg.bear, [role=img]")).toBeNull();
+    expect(screen.queryByRole("img", { name: /current look/ })).toBeNull();
+  });
+
   it("choosing another character changes the preview and lists its animations", async () => {
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Preview Boba" }));
