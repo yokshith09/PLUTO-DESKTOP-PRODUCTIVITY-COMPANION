@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ChevronRight, FolderGit2, FolderKanban, FolderOpen, Link2, MoreHorizontal, Pencil, Plus, Search, Timer, Trash2, Unlink } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, FolderGit2, FolderKanban, FolderOpen, Link2, MoreHorizontal, Pencil, Plus, Search, Timer, Trash2, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { PageHeader, Tile } from "@/features/shell/PageHeader";
 import { NoteEditor } from "@/features/notes/NoteEditor";
 import { TaskDetail } from "@/features/tasks/TaskDetail";
@@ -18,7 +18,7 @@ import { notify } from "@/lib/notify";
 import { timeAgo } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { planRename, summarize } from "./summary";
-import { activity, ensure, forget, linkKind, nameFor, renameSpace, samePath, setFolder, shortName, spaceOf, unlinkedRepos, type Space, type Spaces } from "./spaces";
+import { ALL_TABS, TEMPLATES, TEMPLATE_IDS, activity, ensure, forget, linkKind, linksLabel, nameFor, renameSpace, samePath, setFolder, shortName, spaceOf, tabsOf, toggleTab, unlinkedRepos, withTemplate, type Space, type Spaces, type TabId, type TemplateId } from "./spaces";
 import { ActivityPanel, LinksPanel, openPath } from "./SpaceParts";
 import { useSpaces } from "./useSpaces";
 
@@ -44,7 +44,7 @@ const isDone = (r: TaskRow) => r.task.status === "COMPLETED" || r.task.status ==
 const shortDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString([], { month: "short", day: "numeric" });
 const lastPush = (folder: string | null, events: GitEvent[]) => (folder ? events.find((e) => e.kind === "git_push" && samePath(e.repo, folder)) ?? null : null);
 
-type Tab = "overview" | "tasks" | "notes" | "links" | "activity";
+type Tab = TabId;
 
 /** Projects (owner 2026-11-02, preview v2): cards to pick a project, then its own space. */
 export function ProjectsPage() {
@@ -60,18 +60,16 @@ export function ProjectsPage() {
   const [chosen, setChosen] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
   const [query, setQuery] = useState("");
-  const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
   const [openTask, setOpenTask] = useState<string | null>(null);
   const [openNote, setOpenNote] = useState<string | null>(null);
   const current = projects.find((p) => p.name === chosen) ?? null;
 
   const open = (name: string) => { setChosen(name); setTab("overview"); };
-  const start = () => {
-    const name = newName.trim().slice(0, 100);
+  const start = (rawName: string, template: TemplateId) => {
+    const name = rawName.trim().slice(0, 100);
     if (!name) return;
-    void save(ensure(spaces, name));
-    setNewName("");
+    void save(withTemplate(ensure(spaces, name), name, template));
     setAdding(false);
     open(name);
   };
@@ -124,18 +122,12 @@ export function ProjectsPage() {
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
                   <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search projects" aria-label="Search projects" className="h-9 w-56 pl-8" />
                 </label>
-                {adding ? (
-                  <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); start(); }}>
-                    <Input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === "Escape" && setAdding(false)} placeholder="Project name" aria-label="New project name" maxLength={100} className="h-9 w-48" />
-                    <Button type="submit" disabled={!newName.trim()}>Create</Button>
-                  </form>
-                ) : (
-                  <Button onClick={() => setAdding(true)}><Plus />New project</Button>
-                )}
+                <Button onClick={() => setAdding((v) => !v)} aria-expanded={adding}><Plus />New project</Button>
               </div>
             }
           />
-          {projects.length === 0 ? (
+          {adding && <NewProject onCreate={start} onCancel={() => setAdding(false)} />}
+          {projects.length === 0 && !adding ? (
             <div className="grid place-items-center rounded-xl border bg-card px-6 py-16 text-center">
               <div>
                 <span className="mx-auto mb-3 grid size-10 place-items-center rounded-lg bg-muted text-muted-foreground"><FolderKanban className="size-5" /></span>
@@ -147,7 +139,7 @@ export function ProjectsPage() {
                 </div>
               </div>
             </div>
-          ) : list.length === 0 ? (
+          ) : projects.length === 0 ? null : list.length === 0 ? (
             <div className="rounded-xl border bg-card px-6 py-12 text-center">
               <p className="text-sm font-medium">No projects match “{query}”</p>
               <Button className="mt-3" variant="outline" onClick={() => setQuery("")}>Clear search</Button>
@@ -223,6 +215,44 @@ function Stat({ value, label, warn = false }: { value: string; label: string; wa
   );
 }
 
+/** Name and a template: the template only chooses the tabs the project starts with (FR-113). */
+function NewProject({ onCreate, onCancel }: { onCreate: (name: string, template: TemplateId) => void; onCancel: () => void }) {
+  const [name, setName] = useState("");
+  const [template, setTemplate] = useState<TemplateId>("developer");
+  const tabs = TEMPLATES[template];
+  const labels: Record<TabId, string> = { overview: "Overview", tasks: "Tasks", notes: "Notes", links: tabs.links, activity: "Activity" };
+  return (
+    <form aria-label="New project" className="space-y-4 rounded-xl border bg-card p-5" onSubmit={(e) => { e.preventDefault(); onCreate(name, template); }}>
+      <div>
+        <label htmlFor="new-project-name" className="mb-1.5 block text-[13px] font-medium">Name</label>
+        <Input id="new-project-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Escape" && onCancel()} placeholder="Project name" aria-label="New project name" maxLength={100} className="max-w-sm" />
+      </div>
+      <div>
+        <p id="new-project-template" className="mb-1.5 text-[13px] font-medium">Template <span className="font-normal text-muted-foreground">· only picks the tabs it starts with; change them any time from ⋯</span></p>
+        <div role="radiogroup" aria-labelledby="new-project-template" className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
+          {TEMPLATE_IDS.map((id) => (
+            <button key={id} type="button" role="radio" aria-checked={template === id} aria-label={TEMPLATES[id].name} onClick={() => setTemplate(id)}
+              className={cn("rounded-xl border p-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring", template === id ? "border-primary bg-primary/10" : "hover:border-foreground/30 hover:bg-muted/60")}>
+              <span className="block text-[13px] font-semibold">{TEMPLATES[id].name}</span>
+              <span className="block text-[11.5px] text-muted-foreground">{TEMPLATES[id].about}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="mb-1 text-[12px] text-muted-foreground">It will start like this</p>
+        <div aria-label="Starting tabs" className="flex flex-wrap gap-0.5 border-b">
+          {tabs.tabs.map((t, i) => <span key={t} className={cn("-mb-px border-b-2 px-3 py-2 text-[13px]", i === 0 ? "border-primary font-semibold" : "border-transparent text-muted-foreground")}>{labels[t]}</span>)}
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <Button type="submit" disabled={!name.trim()}>Create</Button>
+        <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
+      </div>
+    </form>
+  );
+}
+
 /** A project's own screen: header, four numbers, tabs (owner-approved preview v2). */
 function ProjectSpace({ project, space, spaces, save, events, tab, setTab, onBack, onRename, onRemoved, onOpenTask, onOpenNote }: {
   project: Project; space: Space; spaces: Spaces; save: (s: Spaces) => Promise<void>; events: GitEvent[];
@@ -274,7 +304,11 @@ function ProjectSpace({ project, space, spaces, save, events, tab, setTab, onBac
     </form>
   );
   const seeAll = (to: Tab) => <Button size="sm" variant="ghost" className="h-7 text-[12px] text-muted-foreground" onClick={() => setTab(to)}>See all<ChevronRight className="size-3.5" /></Button>;
-  const TABS: [Tab, string, number | null][] = [["overview", "Overview", null], ["tasks", "Tasks", project.open], ["notes", "Notes", project.notes.length], ["links", "Links & files", space.links.length], ["activity", "Activity", null]];
+  const LABELS: Record<Tab, [string, number | null]> = { overview: ["Overview", null], tasks: ["Tasks", project.open], notes: ["Notes", project.notes.length], links: [linksLabel(space), space.links.length], activity: ["Activity", null] };
+  const shown = tabsOf(space);
+  const TABS: [Tab, string, number | null][] = shown.map((id) => [id, LABELS[id][0], LABELS[id][1]]);
+  // A tab that was just hidden cannot stay open.
+  if (!shown.includes(tab)) queueMicrotask(() => setTab("overview"));
 
   return (
     <section aria-label={`Project ${project.name}`} className="space-y-6">
@@ -300,6 +334,13 @@ function ProjectSpace({ project, space, spaces, save, events, tab, setTab, onBac
             <DropdownMenuContent align="end" className="[&_svg]:size-3.5" onCloseAutoFocus={(e) => e.preventDefault()}>
               <DropdownMenuItem onSelect={() => void pickFolder()}><FolderOpen />{space.folder ? "Change folder" : "Link a folder"}</DropdownMenuItem>
               {space.folder && <DropdownMenuItem onSelect={() => void save(setFolder(spaces, project.name, null)).then(() => notify.success("Folder unlinked", { description: "Nothing on disk was changed." }))}><Unlink />Unlink folder</DropdownMenuItem>}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Tabs</DropdownMenuLabel>
+              {ALL_TABS.filter((t) => t !== "overview").map((t) => (
+                <DropdownMenuItem key={t} onSelect={() => void save(toggleTab(spaces, project.name, t))}>
+                  <Check className={cn(!shown.includes(t) && "opacity-0")} />{LABELS[t][0]}
+                </DropdownMenuItem>
+              ))}
               {project.tasks.length === 0 && project.notes.length === 0 && (
                 <>
                   <DropdownMenuSeparator />

@@ -6,7 +6,31 @@
 import type { TaskRow } from "@/ipc";
 
 export interface SpaceLink { label: string; target: string }
-export interface Space { name: string; folder: string | null; links: SpaceLink[] }
+/** The views a project can show (U-7). Overview is always there. */
+export type TabId = "overview" | "tasks" | "notes" | "links" | "activity";
+export const ALL_TABS: readonly TabId[] = ["overview", "tasks", "notes", "links", "activity"];
+export interface Space { name: string; folder: string | null; links: SpaceLink[]; template?: TemplateId; tabs?: TabId[] }
+
+/** Project templates (FR-113, owner 2026-11-02, approved 2026-11-04): a template only chooses which
+ *  tabs a project starts with, in which order, and what the links tab is called. Tabs can be changed later. */
+export type TemplateId = "developer" | "student" | "research" | "freelance" | "personal";
+export const TEMPLATES: Record<TemplateId, { name: string; about: string; tabs: TabId[]; links: string }> = {
+  developer: { name: "Developer", about: "Tasks, notes, links and files, and Activity from commits", tabs: ["overview", "tasks", "notes", "links", "activity"], links: "Links & files" },
+  student: { name: "Student", about: "Tasks, notes and sources", tabs: ["overview", "tasks", "notes", "links"], links: "Sources" },
+  research: { name: "Research", about: "Notes first, then sources and tasks", tabs: ["overview", "notes", "links", "tasks"], links: "Sources" },
+  freelance: { name: "Freelance", about: "Tasks, notes and client links", tabs: ["overview", "tasks", "notes", "links"], links: "Client links" },
+  personal: { name: "Personal", about: "Just tasks and notes", tabs: ["overview", "tasks", "notes"], links: "Links & files" },
+};
+export const TEMPLATE_IDS = Object.keys(TEMPLATES) as TemplateId[];
+export const isTemplate = (v: unknown): v is TemplateId => typeof v === "string" && v in TEMPLATES;
+
+/** The tabs a space shows: its own choice, else its template's, else all five (projects made before templates). */
+export function tabsOf(space: Pick<Space, "template" | "tabs">): TabId[] {
+  const own = space.tabs?.length ? space.tabs : space.template ? TEMPLATES[space.template].tabs : [...ALL_TABS];
+  return ["overview", ...own.filter((t) => t !== "overview")];
+}
+/** What the links tab is called here. */
+export const linksLabel = (space: Pick<Space, "template">): string => (space.template ? TEMPLATES[space.template].links : "Links & files");
 export interface Spaces { projects: Space[] }
 export const EMPTY_SPACES: Spaces = { projects: [] };
 
@@ -35,7 +59,8 @@ export function cleanSpaces(stored: unknown): Spaces {
           return target ? [{ label: str(r.label).slice(0, 100) || shortName(target), target }] : [];
         })
       : [];
-    projects.push({ name, folder: str(o.folder) || null, links });
+    const tabs = Array.isArray(o.tabs) ? ALL_TABS.filter((t) => (o.tabs as unknown[]).includes(t)) : [];
+    projects.push({ name, folder: str(o.folder) || null, links, ...(isTemplate(o.template) ? { template: o.template } : {}), ...(tabs.length ? { tabs } : {}) });
   }
   return { projects };
 }
@@ -56,6 +81,20 @@ function put(s: Spaces, space: Space): Spaces {
   const projects = [...s.projects];
   if (i < 0) projects.push(space); else projects[i] = space;
   return { projects };
+}
+
+/** Starts a project with a template's tabs. */
+export function withTemplate(s: Spaces, name: string, template: TemplateId): Spaces {
+  const sp = spaceOf(s, name);
+  return put(s, { name: sp.name, folder: sp.folder, links: sp.links, template });
+}
+/** Shows or hides one tab of a project (Overview cannot be hidden); a tab shown again goes last. */
+export function toggleTab(s: Spaces, name: string, tab: TabId): Spaces {
+  if (tab === "overview") return s;
+  const sp = spaceOf(s, name);
+  const now = tabsOf(sp);
+  const next = now.includes(tab) ? now.filter((t) => t !== tab) : [...now, tab];
+  return put(s, { ...sp, tabs: next });
 }
 
 /** Keeps a project that has no tasks or notes yet (before, a new project vanished on restart). */

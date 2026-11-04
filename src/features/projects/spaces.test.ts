@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TaskRow } from "@/ipc";
-import { activity, addLink, cleanSpaces, EMPTY_SPACES, ensure, forget, linkKind, nameFor, removeLink, renameSpace, samePath, setFolder, shortName, spaceOf, unlinkedRepos } from "./spaces";
+import { ALL_TABS, TEMPLATES, TEMPLATE_IDS, activity, addLink, cleanSpaces, EMPTY_SPACES, ensure, forget, linkKind, nameFor, removeLink, renameSpace, samePath, setFolder, shortName, spaceOf, tabsOf, toggleTab, unlinkedRepos, withTemplate, linksLabel } from "./spaces";
 
 describe("cleanSpaces", () => {
   it("keeps good projects, drops junk, repeats and empty links", () => {
@@ -59,5 +59,50 @@ describe("activity", () => {
   });
   it("a project without a folder shows no git activity", () => {
     expect(activity(null, [{ repo: "E:\\p", kind: "git_push", atMs: 1 }], [], [])).toEqual([]);
+  });
+});
+
+describe("project templates (FR-113, U-7)", () => {
+  it("offers five templates; every one starts on Overview and uses only real tabs", () => {
+    expect(TEMPLATE_IDS).toEqual(["developer", "student", "research", "freelance", "personal"]);
+    for (const id of TEMPLATE_IDS) {
+      expect(TEMPLATES[id].tabs[0]).toBe("overview");
+      expect(TEMPLATES[id].tabs.every((t) => ALL_TABS.includes(t))).toBe(true);
+    }
+    expect(TEMPLATES.research.tabs).toEqual(["overview", "notes", "links", "tasks"]);
+  });
+
+  it("a project made before templates keeps all five tabs; a template picks its own and renames the links tab", () => {
+    expect(tabsOf({})).toEqual([...ALL_TABS]);
+    expect(linksLabel({})).toBe("Links & files");
+    const s = withTemplate(EMPTY_SPACES, "Thesis", "student");
+    expect(spaceOf(s, "Thesis").template).toBe("student");
+    expect(tabsOf(spaceOf(s, "Thesis"))).toEqual(["overview", "tasks", "notes", "links"]);
+    expect(linksLabel(spaceOf(s, "Thesis"))).toBe("Sources");
+    expect(linksLabel({ template: "freelance" })).toBe("Client links");
+  });
+
+  it("tabs can be hidden and shown again later; Overview stays; the choice survives a reload", () => {
+    let s = withTemplate(EMPTY_SPACES, "App", "developer");
+    s = toggleTab(s, "App", "activity");
+    expect(tabsOf(spaceOf(s, "App"))).toEqual(["overview", "tasks", "notes", "links"]);
+    expect(toggleTab(s, "App", "overview")).toBe(s);
+    s = toggleTab(s, "App", "activity");
+    expect(tabsOf(spaceOf(s, "App"))).toEqual(["overview", "tasks", "notes", "links", "activity"]);
+    s = toggleTab(s, "App", "notes");
+    const again = cleanSpaces(JSON.parse(JSON.stringify(s)));
+    expect(tabsOf(spaceOf(again, "App"))).toEqual(["overview", "tasks", "links", "activity"]);
+    expect(spaceOf(again, "App").template).toBe("developer");
+  });
+
+  it("a template does not touch a project's folder or links, and junk in the stored file is dropped", () => {
+    let s = setFolder(ensure(EMPTY_SPACES, "App"), "App", "E:/p/app");
+    s = addLink(s, "App", "https://example.com", "Docs");
+    s = withTemplate(s, "App", "personal");
+    expect(spaceOf(s, "App").folder).toBe("E:/p/app");
+    expect(spaceOf(s, "App").links).toHaveLength(1);
+    const odd = cleanSpaces({ projects: [{ name: "X", template: "wizard", tabs: ["nope", "notes"] }] });
+    expect(spaceOf(odd, "X").template).toBeUndefined();
+    expect(tabsOf(spaceOf(odd, "X"))).toEqual(["overview", "notes"]);
   });
 });

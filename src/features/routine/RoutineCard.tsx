@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { ConfirmAction } from "@/components/ConfirmAction";
-import { Bell, BellOff, Check, Plus, Repeat, X } from "lucide-react";
+import { BarChart3, Bell, BellOff, Check, Plus, Repeat, X } from "lucide-react";
 import { Tile } from "@/features/shell/PageHeader";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { addItem, pending, removeItem, renameItem, toggle, weekCount, MAX_ITEMS, TITLE_MAX } from "./routine";
+import { RoutineProgress } from "./RoutineProgress";
 import { useRoutine } from "./useRoutine";
 
 /**
@@ -16,6 +17,7 @@ export function RoutineCard({ className }: { className?: string }) {
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
+  const [progress, setProgress] = useState(false);
   const left = pending(state).length;
   const total = state.items.length;
 
@@ -27,11 +29,20 @@ export function RoutineCard({ className }: { className?: string }) {
   const remind = state.remind;
 
   return (
+    <>
     <Tile
       className={className}
       title="Daily routine"
       count={total ? `${total - left} of ${total}` : 0}
       action={
+        <>
+        <button
+          type="button" aria-label="Progress" title="Your routine over time"
+          onClick={() => setProgress(true)}
+          className="grid size-7 place-items-center rounded text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <BarChart3 className="size-3.5" />
+        </button>
         <button
           type="button"
           aria-label={remind.on ? `Reminder at ${remind.at}, turn off` : "Reminder off, turn on"}
@@ -42,6 +53,7 @@ export function RoutineCard({ className }: { className?: string }) {
         >
           {remind.on ? <Bell className="size-3.5" /> : <BellOff className="size-3.5" />}
         </button>
+        </>
       }
     >
       <div className="flex flex-col gap-2">
@@ -135,5 +147,7 @@ export function RoutineCard({ className }: { className?: string }) {
         )}
       </div>
     </Tile>
+    <RoutineProgress open={progress} onClose={() => setProgress(false)} state={state} today={today} />
+    </>
   );
 }

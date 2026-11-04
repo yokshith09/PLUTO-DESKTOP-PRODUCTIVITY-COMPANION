@@ -6,7 +6,8 @@ import { ymd } from "@/lib/dates";
  */
 export const MAX_ITEMS = 30;
 export const TITLE_MAX = 60;
-export const HISTORY_DAYS = 60;
+/** How long a past day is kept (owner 2026-11-04: 365). */
+export const HISTORY_DAYS = 365;
 export const DEFAULT_REMIND_AT = "18:00";
 
 export interface RoutineItem { id: string; title: string }
@@ -17,13 +18,18 @@ export interface RoutineState {
   done: string[];
   /** Past days: day → ids done that day (kept for the weekly count, FR-90). */
   history: Record<string, string[]>;
+  /** Past days: day → ids planned that day (the routines that existed when the day ended). Days
+   *  before this was recorded have no entry; they show what was done and no ratio. */
+  planned: Record<string, string[]>;
+  /** Every routine's last title by id, so a past day still names a routine that was renamed or removed. */
+  names: Record<string, string>;
   remind: { on: boolean; at: string };
   /** The day the pending reminder was last shown, so it fires at most once a day. */
   remindedOn: string | null;
 }
 
 export const emptyRoutine = (day: string): RoutineState => ({
-  items: [], day, done: [], history: {}, remind: { on: true, at: DEFAULT_REMIND_AT }, remindedOn: null,
+  items: [], day, done: [], history: {}, planned: {}, names: {}, remind: { on: true, at: DEFAULT_REMIND_AT }, remindedOn: null,
 });
 
 /** Read whatever is stored; anything broken falls back to an empty routine. */
@@ -39,27 +45,36 @@ export function parseRoutine(raw: unknown, today: string): RoutineState {
     day: typeof r.day === "string" ? r.day : today,
     done: Array.isArray(r.done) ? r.done.filter((x): x is string => typeof x === "string") : [],
     history: r.history && typeof r.history === "object" ? r.history : {},
+    planned: r.planned && typeof r.planned === "object" ? r.planned : {},
+    names: r.names && typeof r.names === "object" ? Object.fromEntries(Object.entries(r.names).filter(([, v]) => typeof v === "string")) : {},
     remind: { on: r.remind?.on !== false, at },
     remindedOn: typeof r.remindedOn === "string" ? r.remindedOn : null,
   }, today);
 }
 
-/** A new day: yesterday's ticks move to history (last 60 days) and today starts empty. */
+/** A new day: yesterday's ticks and plan move to history (a year of days) and today starts empty. */
 export function rollOver(s: RoutineState, today: string): RoutineState {
   if (s.day === today) return s;
   const history = { ...s.history, [s.day]: s.done };
+  const planned = { ...s.planned, [s.day]: [...new Set([...s.items.map((i) => i.id), ...s.done])] };
   const keep = Object.keys(history).sort().slice(-HISTORY_DAYS);
-  return { ...s, day: today, done: [], history: Object.fromEntries(keep.map((d) => [d, history[d] ?? []])) };
+  const keepDays = new Set(keep);
+  const hist = Object.fromEntries(keep.map((d) => [d, history[d] ?? []]));
+  const plan = Object.fromEntries(Object.entries(planned).filter(([d]) => keepDays.has(d)));
+  // Names are kept for every routine that is still listed or appears in a kept day.
+  const used = new Set([...s.items.map((i) => i.id), ...Object.values(hist).flat(), ...Object.values(plan).flat()]);
+  const names = Object.fromEntries(Object.entries({ ...s.names, ...Object.fromEntries(s.items.map((i) => [i.id, i.title])) }).filter(([id]) => used.has(id)));
+  return { ...s, day: today, done: [], history: hist, planned: plan, names };
 }
 
 export const addItem = (s: RoutineState, title: string, id: string): RoutineState => {
   const t = title.trim().slice(0, TITLE_MAX);
   if (!t || s.items.length >= MAX_ITEMS) return s;
-  return { ...s, items: [...s.items, { id, title: t }] };
+  return { ...s, items: [...s.items, { id, title: t }], names: { ...s.names, [id]: t } };
 };
 export const renameItem = (s: RoutineState, id: string, title: string): RoutineState => {
   const t = title.trim().slice(0, TITLE_MAX);
-  return t ? { ...s, items: s.items.map((i) => (i.id === id ? { ...i, title: t } : i)) } : s;
+  return t ? { ...s, items: s.items.map((i) => (i.id === id ? { ...i, title: t } : i)), names: { ...s.names, [id]: t } } : s;
 };
 export const removeItem = (s: RoutineState, id: string): RoutineState =>
   ({ ...s, items: s.items.filter((i) => i.id !== id), done: s.done.filter((d) => d !== id) });

@@ -17,6 +17,7 @@ import { PrivacyRadar } from "./PrivacyRadar";
 import { RANGES, rangeBounds, type RangeKey } from "./range";
 import { TimeAnalytics } from "./TimeAnalytics";
 import { TimeCard } from "./TimeCard";
+import { TimeMonth } from "./TimeMonth";
 import { TrackingSettings } from "./TrackingSettings";
 
 function Stat({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string | undefined }) {
@@ -106,6 +107,8 @@ export function TimePage() {
         <Stat label="Most used" value={tracking ? (apps[0]?.app ?? "—") : "—"} sub={apps[0] ? `${formatDuration(apps[0].total_seconds)} · ${apps[0].category}` : undefined} />
         <Stat label="Tasks done" value={done} sub={planned ? `of ${planned} planned` : "in this period"} />
       </div>
+
+      <TimeMonth tracking={tracking} />
 
       <TileLayoutPicker value={layout} onChange={setLayout} />
       <div className={cn("grid gap-4 lg:grid-cols-12", ROW_HEIGHT)}>

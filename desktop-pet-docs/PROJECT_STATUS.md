@@ -338,3 +338,4 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-03: Study scope recorded in MASTER_PLAN U-4 and DECISIONS; A-1 approved. Nothing built for either yet.
 - 2026-11-04: A-1 built (waiting badge). Tests 561 UI, 575 core, 57 shell; clippy clean for Linux and the Windows target. Unverified on a real PC and in the real pet window. Study screens on hold (owner did not like them). Next: U-5..U-8 previews.
 - 2026-11-04: U-5..U-8 previews published (https://claude.ai/artifact/88MAXTqq2R1Az7kLnTKkEy), waiting for the owner. Owner asked for click-to-go on notifications (A-4, brought forward); answer given, waiting for go-ahead.
+- 2026-11-04: U-6 (Time month tiles), U-7 (project templates) and U-8 (routine progress) built. 582 UI tests pass; no core change. Unverified in the real window. Not built: U-6 commit dots, U-7 Exams/Questions/Hours tabs. Next: U-5 free tile resize.

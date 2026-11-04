@@ -1094,6 +1094,23 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     expect(await screen.findByRole("region", { name: "Project Thesis" })).toBeTruthy();
   });
 
+  it("A new project picks a template, which sets its first tabs; ⋯ can show or hide a tab (U-7)", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await goTo(user, /^Projects/);
+    await user.click(await screen.findByRole("button", { name: "New project" }));
+    const form = screen.getByRole("form", { name: "New project" });
+    await user.click(within(form).getByRole("radio", { name: "Student" }));
+    expect(within(within(form).getByLabelText("Starting tabs")).getByText("Sources")).toBeTruthy();
+    await user.type(within(form).getByRole("textbox", { name: "New project name" }), "Biology{Enter}");
+    const project = await screen.findByRole("region", { name: "Project Biology" });
+    const tabs = within(project).getByRole("tablist", { name: "Project views" });
+    expect(within(tabs).getAllByRole("tab").map((t) => t.textContent?.replace(/\d+$/, ""))).toEqual(["Overview", "Tasks", "Notes", "Sources"]);
+    await user.click(within(project).getByRole("button", { name: "More for Biology" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Activity" }));
+    await waitFor(() => expect(within(within(project).getByRole("tablist", { name: "Project views" })).getByRole("tab", { name: /Activity/ })).toBeTruthy());
+  });
+
   it("Project Spaces: make a project from a found git folder, see its pushes, add a link; it stays after a rename", async () => {
     const { ipc } = await import("@/ipc");
     const open = vi.spyOn(ipc, "projectPathOpen");
