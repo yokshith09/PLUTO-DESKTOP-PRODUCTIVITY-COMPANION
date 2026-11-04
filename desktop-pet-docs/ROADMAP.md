@@ -457,3 +457,4 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-03: A-6 done in code. Study screens (5 ideas) and the A-1 badge previewed; waiting for the owner's pick.
 - 2026-11-03: Study scope set by the owner (stripped overview with sliding Report tab, trimmed course page with a real syllabus, adjustable timetable with CSV/Excel import; no review cards). A-1 approved as previewed.
 - 2026-11-04: A-1 done in code. Study screens ON HOLD (owner did not like the preview). U-5..U-8 next, preview first.
+- 2026-11-04: A-4 click-to-go wanted with A-1 (window of the chat via its process tree). U-5..U-8 previews published.
