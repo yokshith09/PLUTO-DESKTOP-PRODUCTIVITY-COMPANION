@@ -7,6 +7,7 @@
 
 pub mod activity;
 pub mod ask;
+pub mod away;
 pub mod hookctx;
 mod limit;
 pub mod link;
@@ -83,6 +84,8 @@ pub trait Host: Send + Sync {
     }
     /// A chat started or stopped waiting for you (A-1): the host keeps the list and tells the pet.
     fn waiting(&self, _change: WaitChange) {}
+    // A-3
+    fn finished(&self, _assistant: String, _place: Option<String>, _kind: &'static str) {}
     /// Note a call for the Assistants page (the host adds the time).
     fn record(&self, _tool: &'static str, _assistant: &str, _ok: bool, _detail: String) {}
 }
@@ -366,8 +369,8 @@ impl PlutoMcp {
             let place = place.map(str::to_owned);
             match reaction {
                 "agent_needs_you" | "agent_permission" => host.waiting(WaitChange::Raise {
-                    assistant,
-                    place,
+                    assistant: assistant.clone(),
+                    place: place.clone(),
                     kind: if reaction == "agent_permission" {
                         waiting::Kind::Permission
                     } else {
@@ -375,9 +378,16 @@ impl PlutoMcp {
                     },
                     window,
                 }),
-                "agent_done" | "agent_resumed" => {
-                    host.waiting(WaitChange::Clear { assistant, place })
-                }
+                "agent_done" | "agent_resumed" => host.waiting(WaitChange::Clear {
+                    assistant: assistant.clone(),
+                    place: place.clone(),
+                }),
+                _ => {}
+            }
+            match reaction {
+                "agent_done" => host.finished(assistant, place, "done"),
+                "agent_needs_you" => host.finished(assistant, place, "needs"),
+                "agent_permission" => host.finished(assistant, place, "permission"),
                 _ => {}
             }
         }

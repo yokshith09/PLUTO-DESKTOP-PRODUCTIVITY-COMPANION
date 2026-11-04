@@ -17,7 +17,7 @@ use pluto_core::mcp::activity::{Activity, Call};
 use pluto_core::mcp::ask::{Question, ANSWER_WAIT};
 use pluto_core::mcp::setup::{self, Format};
 use pluto_core::mcp::write::{self, Change};
-use pluto_core::mcp::{hookctx, link, waiting};
+use pluto_core::mcp::{away, hookctx, link, waiting};
 use pluto_core::mcp::{Host, HostFuture, PetMessage, RateLimit, Status, WaitChange};
 use pluto_core::settings_service::SettingsService;
 use serde::Serialize;
@@ -320,6 +320,7 @@ struct ShellHost<R: Runtime> {
     guard: Arc<Guard>,
     asks: Arc<Asks>,
     waits: Arc<WaitList>,
+    away: Arc<AwayList>,
 }
 
 /// Chats waiting for you (A-1), kept here so every hook sees the same list and the pet can ask
@@ -370,6 +371,41 @@ impl WaitList {
         let mut list = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         list.expire(now);
         list.list()
+    }
+}
+
+/// Chats that spoke while the person was away (A-3). Its loop is running only while it has
+/// something left to announce.
+#[derive(Default)]
+pub struct AwayList(Mutex<AwayState>);
+
+#[derive(Default)]
+struct AwayState {
+    away: away::Away,
+    checking: bool,
+}
+
+impl AwayList {
+    /// Records a missed chat and says whether this caller must start the short-lived check loop.
+    fn note(&self, missed: away::Missed, idle_ms: u64, now: i64) -> bool {
+        let mut state = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        state.away.note(missed, idle_ms, now);
+        if state.away.is_empty() || state.checking {
+            return false;
+        }
+        state.checking = true;
+        true
+    }
+
+    /// Gives the one welcome-back message, if any, and tells the loop when it can stop.
+    fn back(&self, idle_ms: u64, now: i64) -> (Option<String>, bool) {
+        let mut state = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        let text = state.away.back(idle_ms, now);
+        let keep_checking = !state.away.is_empty();
+        if !keep_checking {
+            state.checking = false;
+        }
+        (text, keep_checking)
     }
 }
 
@@ -439,7 +475,7 @@ impl Guard {
 
 /// The pet's bubble for a message: reactions read as they are, a `say` with the assistant's name.
 fn bubble(message: PetMessage) -> String {
-    if message.reaction.is_some() {
+    if message.reaction.is_some() || message.assistant.is_empty() {
         message.text
     } else {
         format!("{}: {}", message.assistant, message.text)
@@ -480,6 +516,29 @@ fn now_ms<R: Runtime>(app: &AppHandle<R>) -> i64 {
         .unwrap_or_default()
 }
 
+/// Input idle time using the same media-aware rule as time tracking. Unsupported targets are
+/// deliberately treated as active: A-3 must not announce an away event without a real probe.
+fn effective_idle() -> u64 {
+    #[cfg(windows)]
+    {
+        crate::tracking::win::idle_ms()
+            .map(|idle| {
+                pluto_core::usage::effective_idle_ms(idle, crate::tracking::win::display_required())
+            })
+            .unwrap_or_default()
+    }
+    #[cfg(target_os = "macos")]
+    {
+        crate::tracking::mac::idle_ms()
+            .map(|idle| pluto_core::usage::effective_idle_ms(idle, false))
+            .unwrap_or_default()
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        0
+    }
+}
+
 impl<R: Runtime> Host for ShellHost<R> {
     fn status(&self) -> HostFuture<'_, Status> {
         // The focus session and today's tasks; the app in front comes with the read tools (P4.1b).
@@ -507,6 +566,52 @@ impl<R: Runtime> Host for ShellHost<R> {
     fn waiting(&self, change: WaitChange) {
         let list = self.waits.apply(change, now_ms(&self.app));
         let _ = self.app.emit("pet://waiting", &list);
+    }
+
+    fn finished(&self, assistant: String, place: Option<String>, kind: &'static str) {
+        let kind = match kind {
+            "done" => away::Kind::Finished,
+            "needs" => away::Kind::Needs,
+            "permission" => away::Kind::Permission,
+            _ => return,
+        };
+        let (folder, _) = waiting::from_place(place.as_deref());
+        let now = now_ms(&self.app);
+        let start = self.away.note(
+            away::Missed {
+                assistant,
+                folder,
+                kind,
+                at_ms: now,
+            },
+            effective_idle(),
+            now,
+        );
+        if !start {
+            return;
+        }
+        let app = self.app.clone();
+        let away = self.away.clone();
+        let guard = self.guard.clone();
+        tauri::async_runtime::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                let (text, keep_checking) = away.back(effective_idle(), now_ms(&app));
+                if let Some(text) = text {
+                    let message = PetMessage {
+                        assistant: String::new(),
+                        text,
+                        reaction: None,
+                    };
+                    if !guard.hold(&message) {
+                        show_on_pet(&app, message, false);
+                    }
+                }
+                if !keep_checking {
+                    return;
+                }
+            }
+        });
     }
 
     fn ask(&self, question: Question) -> HostFuture<'_, Option<String>> {
@@ -618,6 +723,7 @@ pub struct Mcp {
     guard: Arc<Guard>,
     asks: Arc<Asks>,
     waits: Arc<WaitList>,
+    away: Arc<AwayList>,
     listener: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
 }
 
@@ -651,6 +757,7 @@ pub fn shell_host<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp) -> Arc<dyn Host> {
         guard: mcp.guard.clone(),
         asks: mcp.asks.clone(),
         waits: mcp.waits.clone(),
+        away: mcp.away.clone(),
     })
 }
 
@@ -668,6 +775,7 @@ fn listen_now<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp, data_dir: &Path) {
         guard: mcp.guard.clone(),
         asks: mcp.asks.clone(),
         waits: mcp.waits.clone(),
+        away: mcp.away.clone(),
     });
     let limits = Arc::new(Limits::default());
     let dir = data_dir.to_owned();
@@ -1525,6 +1633,19 @@ mod tests {
             ("agent_done", Some("staysync".to_owned()))
         );
         assert_eq!(from_hook("agent_done", "garbage"), ("agent_done", None));
+    }
+
+    #[test]
+    fn an_away_bubble_has_no_assistant_prefix_or_action() {
+        assert_eq!(
+            bubble(PetMessage {
+                assistant: String::new(),
+                text: "Welcome back. Claude Code finished in DESKTOP-PET while you were away."
+                    .into(),
+                reaction: None,
+            }),
+            "Welcome back. Claude Code finished in DESKTOP-PET while you were away."
+        );
     }
 
     #[test]
