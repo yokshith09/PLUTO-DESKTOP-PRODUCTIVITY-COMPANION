@@ -149,6 +149,20 @@ export function onPetAction(cb: (id: string) => void): () => void {
 /** A question for the person on the pet (an assistant's setting change, or `ask_person`). */
 export interface PetAsk { id: number; title: string; detail: string; options: string[] }
 
+/** A chat waiting for you in an assistant's own app (A-1): shown as a number on the pet. */
+export interface WaitingChat { assistant: string; folder: string; detail: string; kind: "needs" | "permission"; since: number }
+
+/** The list of waiting chats changed. Outside the app a `pluto-pet-waiting` window event stands in. */
+export function onPetWaiting(cb: (chats: WaitingChat[]) => void): () => void {
+  if (isTauri()) {
+    const pending = listen<WaitingChat[]>("pet://waiting", (e) => cb(e.payload));
+    return () => void pending.then((off) => off());
+  }
+  const handler = (e: Event) => cb((e as CustomEvent<WaitingChat[]>).detail);
+  window.addEventListener("pluto-pet-waiting", handler);
+  return () => window.removeEventListener("pluto-pet-waiting", handler);
+}
+
 export function onPetAsk(cb: (ask: PetAsk) => void, done: (id: number) => void): () => void {
   if (!isTauri()) {
     const on = (e: Event) => cb((e as CustomEvent<PetAsk>).detail);

@@ -17,8 +17,8 @@ use pluto_core::mcp::activity::{Activity, Call};
 use pluto_core::mcp::ask::{Question, ANSWER_WAIT};
 use pluto_core::mcp::setup::{self, Format};
 use pluto_core::mcp::write::{self, Change};
-use pluto_core::mcp::{hookctx, link};
-use pluto_core::mcp::{Host, HostFuture, PetMessage, RateLimit, Status};
+use pluto_core::mcp::{hookctx, link, waiting};
+use pluto_core::mcp::{Host, HostFuture, PetMessage, RateLimit, Status, WaitChange};
 use pluto_core::settings_service::SettingsService;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
@@ -313,6 +313,47 @@ struct ShellHost<R: Runtime> {
     activity: Arc<Activity>,
     guard: Arc<Guard>,
     asks: Arc<Asks>,
+    waits: Arc<WaitList>,
+}
+
+/// Chats waiting for you (A-1), kept here so every hook sees the same list and the pet can ask
+/// for it when it opens.
+#[derive(Default)]
+pub struct WaitList(Mutex<waiting::Waiting>);
+
+impl WaitList {
+    /// Applies one change and returns the list after it (what has waited too long is dropped first).
+    fn apply(&self, change: WaitChange, now: i64) -> Vec<waiting::Chat> {
+        let mut list = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        list.expire(now);
+        match change {
+            WaitChange::Raise {
+                assistant,
+                place,
+                kind,
+            } => {
+                let (folder, detail) = waiting::from_place(place.as_deref());
+                list.raise(waiting::Chat {
+                    assistant,
+                    folder,
+                    detail,
+                    kind,
+                    since: now,
+                });
+            }
+            WaitChange::Clear { assistant, place } => {
+                let (folder, _) = waiting::from_place(place.as_deref());
+                list.clear(&assistant, &folder);
+            }
+        }
+        list.list()
+    }
+
+    fn current(&self, now: i64) -> Vec<waiting::Chat> {
+        let mut list = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        list.expire(now);
+        list.list()
+    }
 }
 
 /// Questions waiting on the pet for a button press, by id.
@@ -432,6 +473,11 @@ impl<R: Runtime> Host for ShellHost<R> {
         self.guard.hold(message)
     }
 
+    fn waiting(&self, change: WaitChange) {
+        let list = self.waits.apply(change, now_ms(&self.app));
+        let _ = self.app.emit("pet://waiting", &list);
+    }
+
     fn ask(&self, question: Question) -> HostFuture<'_, Option<String>> {
         Box::pin(async move {
             // Only a pet on screen can be asked.
@@ -540,6 +586,7 @@ pub struct Mcp {
     activity: Arc<Activity>,
     guard: Arc<Guard>,
     asks: Arc<Asks>,
+    waits: Arc<WaitList>,
     listener: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
 }
 
@@ -572,6 +619,7 @@ pub fn shell_host<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp) -> Arc<dyn Host> {
         activity: mcp.activity.clone(),
         guard: mcp.guard.clone(),
         asks: mcp.asks.clone(),
+        waits: mcp.waits.clone(),
     })
 }
 
@@ -588,6 +636,7 @@ fn listen_now<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp, data_dir: &Path) {
         activity: mcp.activity.clone(),
         guard: mcp.guard.clone(),
         asks: mcp.asks.clone(),
+        waits: mcp.waits.clone(),
     });
     let limits = Arc::new(Limits::default());
     let dir = data_dir.to_owned();
@@ -1191,6 +1240,12 @@ pub fn mcp_listening(mcp: State<'_, Mcp>) -> bool {
     mcp.listening()
 }
 
+/// The chats waiting for you right now (the pet asks when it opens; changes come as `pet://waiting`).
+#[tauri::command]
+pub fn pet_waiting(app: AppHandle, mcp: State<'_, Mcp>) -> Vec<waiting::Chat> {
+    mcp.waits.current(now_ms(&app))
+}
+
 /// The person pressed a button on a question the pet showed.
 #[tauri::command]
 pub fn pet_answer(mcp: State<'_, Mcp>, id: u64, answer: String) -> bool {
@@ -1428,6 +1483,54 @@ mod tests {
             ("agent_done", Some("staysync".to_owned()))
         );
         assert_eq!(from_hook("agent_done", "garbage"), ("agent_done", None));
+    }
+
+    #[test]
+    fn the_wait_list_follows_hooks_and_drops_what_waited_too_long() {
+        let list = WaitList::default();
+        let raise = |assistant: &str, place: &str, kind| WaitChange::Raise {
+            assistant: assistant.into(),
+            place: Some(place.into()),
+            kind,
+        };
+        let one = list.apply(
+            raise("Claude Code", "app · “fix”", waiting::Kind::Needs),
+            1_000,
+        );
+        assert_eq!(one.len(), 1);
+        assert_eq!(
+            (one[0].folder.as_str(), one[0].detail.as_str()),
+            ("app", "“fix”")
+        );
+        // The same chat asks for a permission: still one chat, now naming the tool.
+        let again = list.apply(
+            raise(
+                "Claude Code",
+                "to use Bash · app",
+                waiting::Kind::Permission,
+            ),
+            2_000,
+        );
+        assert_eq!(again.len(), 1);
+        assert_eq!(
+            (again[0].detail.as_str(), again[0].kind),
+            ("to use Bash", waiting::Kind::Permission)
+        );
+        list.apply(raise("Claude Code", "site", waiting::Kind::Needs), 3_000);
+        // A reply in "app" clears only app.
+        let after = list.apply(
+            WaitChange::Clear {
+                assistant: "Claude Code".into(),
+                place: Some("app · “fix”".into()),
+            },
+            4_000,
+        );
+        assert_eq!(
+            after.iter().map(|c| c.folder.as_str()).collect::<Vec<_>>(),
+            ["site"]
+        );
+        // Half an hour later it is gone without anyone saying so.
+        assert!(list.current(3_000 + waiting::EXPIRES_MS).is_empty());
     }
 
     #[test]

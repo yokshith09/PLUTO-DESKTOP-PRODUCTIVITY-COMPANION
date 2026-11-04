@@ -359,6 +359,7 @@ export function createMock() {
     meeting_restore: () => null,
     meeting_purge: () => null,
     pet_answer: () => true,
+    pet_waiting: () => [],
     mcp_assistants: () => mockAssistants.map((x) => ({ ...x, places: x.places.map((p) => ({ ...p })) })),
     mcp_connect: (a) => {
       const x = mockAssistants.find((m) => m.id === a.id);

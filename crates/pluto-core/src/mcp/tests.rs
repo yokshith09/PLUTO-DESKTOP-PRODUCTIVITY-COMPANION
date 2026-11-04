@@ -18,6 +18,7 @@ struct FakeHost {
     focusing: bool,
     answer: Option<String>,
     asked: Mutex<Vec<ask::Question>>,
+    waits: Mutex<Vec<WaitChange>>,
 }
 
 impl Host for FakeHost {
@@ -54,6 +55,9 @@ impl Host for FakeHost {
         self.asked.lock().unwrap().push(question);
         let answer = self.answer.clone();
         Box::pin(async move { answer })
+    }
+    fn waiting(&self, change: WaitChange) {
+        self.waits.lock().unwrap().push(change);
     }
     fn record(&self, tool: &'static str, assistant: &str, ok: bool, detail: String) {
         self.recorded
@@ -274,6 +278,49 @@ fn bubbles_lose_control_characters_and_extra_spaces() {
         exactly,
         "characters, not bytes"
     );
+}
+
+#[tokio::test]
+async fn hooks_keep_the_waiting_list_and_a_reply_is_silent() {
+    let host = Arc::new(FakeHost::default());
+    let dyn_host: Arc<dyn Host> = host.clone();
+    let server = PlutoMcp::new(dyn_host, "Claude Code", Arc::new(RateLimit::default()));
+    server.react_once("agent_needs_you", Some("app · “fix tray”"));
+    server.react_once("agent_permission", Some("to use Bash · app"));
+    server.react_once("agent_resumed", Some("app"));
+    server.react_once("agent_done", Some("app"));
+    let waits = host.waits.lock().unwrap().clone();
+    assert_eq!(waits.len(), 4);
+    assert!(matches!(
+        &waits[0],
+        WaitChange::Raise {
+            kind: waiting::Kind::Needs,
+            ..
+        }
+    ));
+    assert!(
+        matches!(&waits[1], WaitChange::Raise { kind: waiting::Kind::Permission, place: Some(p), .. } if p == "to use Bash · app")
+    );
+    assert!(matches!(&waits[2], WaitChange::Clear { place: Some(p), .. } if p == "app"));
+    assert!(matches!(&waits[3], WaitChange::Clear { .. }));
+    // Only the first, second and last made a bubble: a reply shows nothing and is not logged.
+    let shown = host.shown.lock().unwrap().clone();
+    assert_eq!(shown.len(), 3);
+    assert!(shown.iter().all(|m| !m.text.is_empty()));
+    let logged = host.recorded.lock().unwrap().len();
+    assert_eq!(logged, 3);
+}
+
+#[tokio::test]
+async fn the_react_tool_does_not_offer_the_silent_reply() {
+    let (client, host) = connect(newest()).await;
+    let r = call(&client, "react", json!({ "reaction": "agent_resumed" })).await;
+    assert_eq!(r.is_error, Some(true));
+    let said = text(&r);
+    let offered = said.split("Use one of:").nth(1).unwrap_or_default();
+    assert!(offered.contains("agent_done") && !offered.contains("agent_resumed"));
+    assert!(host.shown.lock().unwrap().is_empty());
+    client.cancel().await.unwrap();
 }
 
 #[test]

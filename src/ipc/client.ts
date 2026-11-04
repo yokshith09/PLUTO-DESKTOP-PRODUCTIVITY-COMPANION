@@ -1,5 +1,5 @@
 // Typed IPC client (F0-07): the only place that knows command names and argument shapes.
-import { call } from "./transport";
+import { call, type WaitingChat } from "./transport";
 import type {
   UsageSummary, TimeRange, TrackingStatus, OpenTab, PetPack, BinNote, DailyLog, Reminder, ReminderInput, ReminderPatch, Label, LabelCount, Note, NoteInput, NotePatch, NoteSort, NoteSummary, Task, TaskEdit, TaskEvent, TaskFilters, TaskRow,
   TaskStatus, TaskView, WorkUpdate, LinkInput, TaskPlan, RepeatDay, FocusSession, FocusStart, RetentionRules, RetentionCounts, Meeting, MeetingFilters, MeetingInput, MeetingSummary,
@@ -165,6 +165,8 @@ export const ipc = {
     call<{ pet: "left" | "right"; card: "above" | "below" } | null>("pet_hover", { expanded, cardWidth, cardHeight, below: below ?? null }),
   /** The person pressed a button on a question the pet showed. */
   petAnswer: (id: number, answer: string) => call<boolean>("pet_answer", { id, answer }),
+  /** Chats waiting for you right now (the pet asks when it opens; changes arrive as events). */
+  petWaiting: () => call<WaitingChat[]>("pet_waiting"),
   /** The drawn parts of the pet window (left, top, width, height); clicks go through the rest. */
   petSolid: (rects: number[][], holding: boolean) => call<null>("pet_solid", { rects, holding }),
   petClick: () => call<unknown>("pet_click"),

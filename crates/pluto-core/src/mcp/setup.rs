@@ -366,9 +366,13 @@ export const PlutoPet = async ({{ $, directory }}) => {{
 }
 
 /// Claude Code's hooks for the pet (developer reactions): when it stops, the pet cheers; when it
-/// needs you, the pet waves. (event, reaction).
-pub const CLAUDE_HOOKS: &[(&str, &str)] =
-    &[("Stop", "agent_done"), ("Notification", "agent_needs_you")];
+/// needs you, the pet waves; when you send a prompt, that chat stops counting as waiting for you
+/// (the badge on the pet, A-1; silent). (event, reaction).
+pub const CLAUDE_HOOKS: &[(&str, &str)] = &[
+    ("Stop", "agent_done"),
+    ("Notification", "agent_needs_you"),
+    ("UserPromptSubmit", "agent_resumed"),
+];
 
 /// Codex's hook for the pet: when it is about to ask you to approve something. Pluto's hook prints
 /// nothing and exits 0, which leaves Codex's own approval prompt exactly as it was. ("Done" comes
@@ -669,12 +673,17 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("--react agent_needs_you"));
+        assert!(v["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"]
+            .as_str()
+            .unwrap()
+            .contains("--react agent_resumed --assistant claude-code"));
         assert!(has_hooks(Some(&twice)));
 
         let back = remove_hooks(Some(&twice)).unwrap().unwrap();
         let v: Value = serde_json::from_str(&back).unwrap();
         assert_eq!(v["hooks"]["Stop"][0]["hooks"][0]["command"], "say done");
         assert!(v["hooks"].get("Notification").is_none());
+        assert!(v["hooks"].get("UserPromptSubmit").is_none());
         assert!(!has_hooks(Some(&back)));
         assert_eq!(remove_hooks(Some("{}")).unwrap(), None);
         let alone = remove_hooks(Some(&add_hooks(None, "p").unwrap()))

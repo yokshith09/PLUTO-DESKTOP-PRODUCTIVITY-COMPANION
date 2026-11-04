@@ -15,6 +15,7 @@ pub mod setup;
 pub mod status;
 #[cfg(test)]
 mod tests;
+pub mod waiting;
 pub mod write;
 
 use std::future::Future;
@@ -80,6 +81,8 @@ pub trait Host: Send + Sync {
     fn hold(&self, _message: &PetMessage) -> bool {
         false
     }
+    /// A chat started or stopped waiting for you (A-1): the host keeps the list and tells the pet.
+    fn waiting(&self, _change: WaitChange) {}
     /// Note a call for the Assistants page (the host adds the time).
     fn record(&self, _tool: &'static str, _assistant: &str, _ok: bool, _detail: String) {}
 }
@@ -113,6 +116,22 @@ pub struct TodayCounts {
     pub overdue: u32,
 }
 
+/// A change to the list of chats waiting for you (A-1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WaitChange {
+    /// A chat needs you or wants a permission; `place` is the hook's place text.
+    Raise {
+        assistant: String,
+        place: Option<String>,
+        kind: waiting::Kind,
+    },
+    /// The chat replied (`agent_resumed`) or finished.
+    Clear {
+        assistant: String,
+        place: Option<String>,
+    },
+}
+
 /// Something an assistant asked the pet to show.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PetMessage {
@@ -130,6 +149,8 @@ pub const REACTIONS: &[(&str, &str)] = &[
     ("agent_done", "{} is done"),
     ("agent_needs_you", "{} needs you"),
     ("agent_permission", "{} wants your permission"),
+    // Silent: you replied, so that chat no longer waits for you (A-1). Nothing is shown.
+    ("agent_resumed", ""),
     ("agent_error", "{} hit an error"),
     ("git_commit", "{}: committed"),
     ("git_push", "{}: pushed"),
@@ -325,6 +346,30 @@ impl PlutoMcp {
     /// Plays one reaction. `place` says where it happened (a chat's folder and first request),
     /// shown after the line: "Claude Code is done · DESKTOP-PET · “fix tray”".
     pub fn react_once(&self, reaction: &'static str, place: Option<&str>) -> String {
+        // The waiting list is bookkeeping, not a message: it follows every hook, even a rate-limited
+        // one, and a held bubble (focus guard) still shows on the badge.
+        if let Some(host) = &self.host {
+            let assistant = self.assistant.to_string();
+            let place = place.map(str::to_owned);
+            match reaction {
+                "agent_needs_you" | "agent_permission" => host.waiting(WaitChange::Raise {
+                    assistant,
+                    place,
+                    kind: if reaction == "agent_permission" {
+                        waiting::Kind::Permission
+                    } else {
+                        waiting::Kind::Needs
+                    },
+                }),
+                "agent_done" | "agent_resumed" => {
+                    host.waiting(WaitChange::Clear { assistant, place })
+                }
+                _ => {}
+            }
+        }
+        if reaction == "agent_resumed" {
+            return "Noted.".to_owned();
+        }
         let result = match (self.over_limit("react"), &self.host) {
             (Some(refused), _) => refused,
             (None, None) => Self::refused(NOT_RUNNING),
@@ -424,8 +469,17 @@ impl PlutoMcp {
             Ok(host) => host,
             Err(refused) => return refused,
         };
-        let Some((reaction, text)) = reaction_line(args.reaction.trim(), &self.assistant) else {
-            let names: Vec<&str> = REACTIONS.iter().map(|(n, _)| *n).collect();
+        // `agent_resumed` is a hook's bookkeeping (A-1), not something to show: not offered here.
+        let asked = args.reaction.trim();
+        let line = (asked != "agent_resumed")
+            .then(|| reaction_line(asked, &self.assistant))
+            .flatten();
+        let Some((reaction, text)) = line else {
+            let names: Vec<&str> = REACTIONS
+                .iter()
+                .map(|(n, _)| *n)
+                .filter(|n| *n != "agent_resumed")
+                .collect();
             return self.noted(
                 "react",
                 Self::refused(format!(

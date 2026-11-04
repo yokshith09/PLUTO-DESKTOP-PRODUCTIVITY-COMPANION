@@ -8,7 +8,7 @@ import { useFocus } from "@/hooks/useFocus";
 import { clock } from "@/lib/focus";
 import { ymd } from "@/lib/dates";
 import { useTheme } from "@/hooks/useTheme";
-import { ipc, onEvent, onPetAsk, onPetMenu, onPetPlaced, onPetSay, petAction, type PetAsk, type TaskRow } from "@/ipc";
+import { ipc, onEvent, onPetAsk, onPetMenu, onPetPlaced, onPetSay, onPetWaiting, petAction, type PetAsk, type TaskRow, type WaitingChat } from "@/ipc";
 import { cn } from "@/lib/utils";
 import { PetCard } from "./PetCard";
 import { glanceText } from "./glance";
@@ -17,6 +17,8 @@ import { enqueue, isAsleep, reactionForSay, type Reaction } from "./reactions";
 import { parseReactionSettings, reactionWithSettings } from "./reactionSettings";
 import { NO_COUNTS, advance, reactionForSpecial, type SpecialSignal } from "./special";
 import { useTypingAlong } from "./typing";
+import { WaitingBadge, WaitingList } from "./WaitingBadge";
+import { stillWaiting } from "./waiting";
 
 /** Card and bubble sizes in logical pixels; the shell grows the window by this much. */
 export const CARD_W = 300;
@@ -347,6 +349,25 @@ export function PetApp() {
     (id) => setAsks((q) => q.filter((x) => x.id !== id)),
   ), []);
   const asking = asks[0];
+
+  // Chats waiting for you in an assistant's app (A-1): a number on the pet, a list on hover.
+  const [waitingAll, setWaitingAll] = useState<WaitingChat[]>([]);
+  const [overBadge, setOverBadge] = useState(false);
+  const [tick, setTick] = useState(() => Date.now());
+  useEffect(() => {
+    // The first look must not overwrite a change that arrived while it was on its way.
+    let changed = false;
+    void ipc.petWaiting().then((list) => { if (!changed) setWaitingAll(list); }, () => undefined);
+    const off = onPetWaiting((list) => { changed = true; setWaitingAll(list); });
+    return off;
+  }, []);
+  // Looks again every half minute: the time each has waited, and anything that has waited too long.
+  useEffect(() => {
+    const id = window.setInterval(() => setTick(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const waiting = stillWaiting(waitingAll, tick);
+  useEffect(() => { if (waiting.length === 0) setOverBadge(false); }, [waiting.length]);
   const answer = (a: PetAsk, choice: string) => {
     setAsks((q) => q.filter((x) => x.id !== a.id));
     void ipc.petAnswer(a.id, choice);
@@ -370,7 +391,7 @@ export function PetApp() {
   const working = openToday.some((r) => r.task.status === "IN_PROGRESS");
   // Typing along beats hover and the rest: you are busy, it keeps you company.
   const pose: BearPose = playing?.pose ?? (napping ? "sleep" : typing !== "off" ? typing : hovering ? "wave" : asleep ? "sleep" : working ? "work" : "idle");
-  const bear = (
+  const bearButton = (
     <button
       ref={bearRef}
       type="button" data-pet-bear aria-label="Pluto. Click to open, double-click to hide, right-click for options"
@@ -389,9 +410,17 @@ export function PetApp() {
       )}
     </button>
   );
+  const bear = (
+    <div className="relative shrink-0">
+      {bearButton}
+      <WaitingBadge chats={waiting} onOver={() => { setOverBadge(true); wake(); }} onOut={() => setOverBadge(false)} />
+    </div>
+  );
 
   const extra = asking
     ? <AskCard ask={asking} onAnswer={(c) => answer(asking, c)} />
+    : overBadge && waiting.length > 0
+    ? <WaitingList chats={waiting} now={Date.now()} width={CARD_W - 40} />
     : panel === "card"
     ? <PetCard className="shrink-0" style={{ width: CARD_W, height: CARD_H }} napping={napping} onNap={setNapping} />
     : panel === "bubble" && playing

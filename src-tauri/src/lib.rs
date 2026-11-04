@@ -168,6 +168,7 @@ pub fn run() {
             mcp::mcp_listening,
             mcp::mcp_undo,
             mcp::pet_answer,
+            mcp::pet_waiting,
             mcp::mcp_developer,
             devwatch::dev_git_watch,
             devwatch::dev_git_add_folder,

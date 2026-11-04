@@ -336,3 +336,4 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-03: Character page no longer draws a second preview in Accessories and outfits (owner request). Tests UI +1.
 - 2026-11-03: A-6 built (permission names the tool). Tests 556 UI, 568 core, 56 shell; clippy clean for Linux and the Windows target. Unverified on a real PC. Study screen suggestions and the A-1 badge shown as a preview (https://claude.ai/artifact/2tEFtQVJMKoQFAiyMbFq7L); nothing built for them yet. Next: the owner picks Study screens and approves the badge, then A-1 build.
 - 2026-11-03: Study scope recorded in MASTER_PLAN U-4 and DECISIONS; A-1 approved. Nothing built for either yet.
+- 2026-11-04: A-1 built (waiting badge). Tests 561 UI, 575 core, 57 shell; clippy clean for Linux and the Windows target. Unverified on a real PC and in the real pet window. Study screens on hold (owner did not like them). Next: U-5..U-8 previews.

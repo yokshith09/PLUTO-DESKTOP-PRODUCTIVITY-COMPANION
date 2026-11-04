@@ -29,6 +29,43 @@ const tap = (el: HTMLElement) => {
   fireEvent.pointerUp(el, { button: 0, screenX: 10, screenY: 10 });
 };
 
+describe("chats waiting for you (A-1)", () => {
+  const chat = (folder: string, kind: "needs" | "permission", ago: number, detail = "") =>
+    ({ assistant: "Claude Code", folder, detail, kind, since: Date.now() - ago * 60_000 });
+
+  it("shows a number on the pet while chats wait, warm when one asks permission, and lists them on hover", async () => {
+    renderPet();
+    await screen.findByRole("button", { name: /^Pluto\./ });
+    expect(screen.queryByRole("status", { name: /waiting for you/ })).toBeNull();
+    act(() => {
+      window.dispatchEvent(new CustomEvent("pluto-pet-waiting", { detail: [chat("staysync", "needs", 4, "“Want me to commit it?”"), chat("DESKTOP-PET", "permission", 1, "to use Bash")] }));
+    });
+    const badge = await screen.findByRole("status", { name: "2 chats waiting for you, 1 asks permission" });
+    expect(badge.textContent).toBe("2");
+    expect(badge.className).toContain("bg-amber-400");
+    fireEvent.mouseEnter(badge);
+    const list = await screen.findByRole("region", { name: "Waiting for you" });
+    expect(within(list).getByText("DESKTOP-PET")).toBeTruthy();
+    expect(within(list).getByText(/to use Bash/)).toBeTruthy();
+    expect(within(list).getByText("4m")).toBeTruthy();
+    // The pet's layout is rebuilt once its place is known, so look the badge up again.
+    fireEvent.mouseLeave(screen.getByRole("status", { name: /waiting for you/ }));
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Waiting for you" })).toBeNull());
+  });
+
+  it("is not there when nothing waits, uses the accent for a plain wait, and forgets a chat after half an hour", async () => {
+    renderPet();
+    await screen.findByRole("button", { name: /^Pluto\./ });
+    act(() => { window.dispatchEvent(new CustomEvent("pluto-pet-waiting", { detail: [chat("a", "needs", 2)] })); });
+    const badge = await screen.findByRole("status", { name: "1 chat waiting for you" });
+    expect(badge.className).toContain("bg-primary");
+    act(() => { window.dispatchEvent(new CustomEvent("pluto-pet-waiting", { detail: [chat("a", "needs", 45)] })); });
+    await waitFor(() => expect(screen.queryByRole("status", { name: /waiting for you/ })).toBeNull());
+    act(() => { window.dispatchEvent(new CustomEvent("pluto-pet-waiting", { detail: [] })); });
+    expect(screen.queryByRole("status", { name: /waiting for you/ })).toBeNull();
+  });
+});
+
 describe("desktop pet", () => {
   it("shows a message from the dashboard above the pet, e.g. the routine reminder (FR-43, FR-85)", async () => {
     renderPet();

@@ -26,7 +26,6 @@ export const CAN = [
 ] as const;
 /** Planned next (owner 2026-11-03, A-1..A-8). Shown so you know what is ahead; none of it works yet. */
 export const SOON = [
-  { title: "How many are waiting", text: "A small “2” on the pet; hover to see which chats." },
   { title: "A different sound", text: "“Needs you” sounds different from “done”." },
   { title: "Finished while you were away", text: "Told once, when you come back." },
   { title: "Still working", text: "“DESKTOP-PET has been working 25 min”." },
@@ -37,8 +36,8 @@ export const SOON = [
 
 /** What the pet does on its own for each assistant, once connected (the rest only when it asks). */
 export const PET_REACTS: Record<string, readonly string[]> = {
-  claude: ["Done", "Needs you", "Names the chat", "Names the tool it asks to use"],
-  codex: ["Done", "Needs you", "Names the chat", "Names the tool it asks to use"],
+  claude: ["Done", "Needs you", "Names the chat", "Names the tool it asks to use", "Counts chats waiting for you"],
+  codex: ["Done", "Needs you", "Names the chat", "Names the tool it asks to use", "Counts chats waiting for you"],
   cursor: ["Done", "Needs you (questions)", "Names the folder"],
   opencode: ["Done", "Needs you", "Names the folder"],
 };

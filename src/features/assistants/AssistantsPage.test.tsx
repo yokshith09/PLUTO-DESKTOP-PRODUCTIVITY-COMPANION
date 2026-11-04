@@ -117,7 +117,7 @@ describe("Assistants page", () => {
     const coming = await screen.findByRole("region", { name: "Coming" });
     expect(within(coming).getByText("Not working yet")).toBeTruthy();
     expect(within(coming).getAllByRole("listitem")).toHaveLength(SOON.length);
-    expect(SOON).toHaveLength(7);
+    expect(SOON).toHaveLength(6);
     // A-6 shipped: it is no longer on the Coming list.
     expect(within(coming).queryByText("Which tool it wants")).toBeNull();
     expect(within(coming).getByText("Click to go there")).toBeTruthy();
