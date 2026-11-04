@@ -461,3 +461,4 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-04: U-6, U-7, U-8 done in code (commit dots and extra tabs left out). U-5 next.
 - 2026-11-04: U-5 done in code. U-5..U-8 complete; next FS-1 / TT-1 previews, A-4 on the owner's go.
 - 2026-11-04: A-4 done in code. Order now: FS-1, TT-1 (previews first) -> release v0.6.0 on the owner's word -> A-8, A-3, A-7, A-2, A-5 -> P5. On hold: Study screens. Not built from approved previews: U-6 commit dots, U-7 Exams/Questions/Hours tabs.
+- 2026-11-04: Handover to Codex (A-3, A-7) and Antigravity (A-2, A-5) prepared. Next for Claude Code: review and merge their draft PRs; then FS-1 / TT-1 previews, A-8 preview, release v0.6.0 on the owner's word.

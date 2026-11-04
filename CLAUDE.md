@@ -11,4 +11,6 @@ Pluto is a local-first desktop app (Tauri v2, Rust core `crates/pluto-core`, Rea
 5. Add tests with every change. Never call something Complete if it needs a real OS and nobody ran it — mark it Unverified.
 6. Update `PROJECT_STATUS.md`, `ROADMAP.md`, `DECISIONS.md` and `CHANGELOG.md` in the same change.
 
+Other coding agents (Codex, Antigravity): see `AGENTS.md` and `desktop-pet-docs/handover/` (their tasks, rules and boundaries). Claude Code is the integrator and merges their reports into the five docs.
+
 Commands: `pnpm typecheck && pnpm lint && pnpm test` · `cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace` · `pnpm gen:types` after changing a core type · `pnpm check:core-deps`.
