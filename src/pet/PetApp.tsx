@@ -253,6 +253,14 @@ export function PetApp() {
     timers.current.leave = window.setTimeout(() => void closeCard(), 250);
   };
 
+  /** Bring a waiting chat's window forward (A-4); say so when it cannot be found. */
+  const goChat = (assistant: string, folder?: string) => {
+    void ipc.petFocusChat(assistant, folder).then(
+      (ok) => { if (!ok) reactRef.current({ pose: "wait", bubble: "I can't find that window any more", ms: 4000, priority: 4 }); },
+      () => undefined,
+    );
+  };
+
   const click = () => {
     setNapping(false);
     special("click");
@@ -263,7 +271,20 @@ export function PetApp() {
       if (action.id.startsWith("reminder-done:")) void ipc.reminderSetDone(action.id.slice("reminder-done:".length), true);
       else if (action.id.startsWith("task-undo:")) void ipc.taskTransition(action.id.slice("task-undo:".length), "PLANNED");
       else if (action.id.startsWith("focus-break:")) void focus.start("BREAK", Number(action.id.slice("focus-break:".length)) || 5);
+      // A waiting chat's bubble: bring the window it runs in to the front (A-4).
+      else if (action.id.startsWith("chat-go:")) goChat(action.id.slice("chat-go:".length));
       else void petAction(action.id);
+      const drop = (r: Reaction): Reaction => ({ pose: r.pose, bubble: r.bubble, ms: r.ms, priority: r.priority });
+      if (playingRef.current) playingRef.current = drop(playingRef.current);
+      setPlaying((p) => (p ? drop(p) : p));
+      // Going to a chat ends its bubble now, so "I can't find that window" is not queued behind it.
+      if (action.id.startsWith("chat-go:")) { clearTimeout(timers.current.play); playNext(); }
+      return;
+    }
+    // A bubble that knows its page (a reminder, a new task): a click opens Pluto there (A-4).
+    const go = playingRef.current?.go;
+    if (go) {
+      void ipc.petCommand(go as `page:${string}`);
       const drop = (r: Reaction): Reaction => ({ pose: r.pose, bubble: r.bubble, ms: r.ms, priority: r.priority });
       if (playingRef.current) playingRef.current = drop(playingRef.current);
       setPlaying((p) => (p ? drop(p) : p));
@@ -353,6 +374,9 @@ export function PetApp() {
   // Chats waiting for you in an assistant's app (A-1): a number on the pet, a list on hover.
   const [waitingAll, setWaitingAll] = useState<WaitingChat[]>([]);
   const [overBadge, setOverBadge] = useState(false);
+  const [overList, setOverList] = useState(false);
+  // Leaving the badge for the list crosses a small gap: the list stays a moment so it can be clicked.
+  const badgeOut = useRef<number | undefined>(undefined);
   const [tick, setTick] = useState(() => Date.now());
   useEffect(() => {
     // The first look must not overwrite a change that arrived while it was on its way.
@@ -367,7 +391,7 @@ export function PetApp() {
     return () => clearInterval(id);
   }, []);
   const waiting = stillWaiting(waitingAll, tick);
-  useEffect(() => { if (waiting.length === 0) setOverBadge(false); }, [waiting.length]);
+  useEffect(() => { if (waiting.length === 0) { setOverBadge(false); setOverList(false); } }, [waiting.length]);
   const answer = (a: PetAsk, choice: string) => {
     setAsks((q) => q.filter((x) => x.id !== a.id));
     void ipc.petAnswer(a.id, choice);
@@ -413,14 +437,14 @@ export function PetApp() {
   const bear = (
     <div className="relative shrink-0">
       {bearButton}
-      <WaitingBadge chats={waiting} onOver={() => { setOverBadge(true); wake(); }} onOut={() => setOverBadge(false)} />
+      <WaitingBadge chats={waiting} onOver={() => { clearTimeout(badgeOut.current); setOverBadge(true); wake(); }} onOut={() => { badgeOut.current = window.setTimeout(() => setOverBadge(false), 350); }} />
     </div>
   );
 
   const extra = asking
     ? <AskCard ask={asking} onAnswer={(c) => answer(asking, c)} />
-    : overBadge && waiting.length > 0
-    ? <WaitingList chats={waiting} now={Date.now()} width={CARD_W - 40} />
+    : (overBadge || overList) && waiting.length > 0
+    ? <WaitingList chats={waiting} now={Date.now()} width={CARD_W - 40} onOver={() => setOverList(true)} onOut={() => setOverList(false)} onGo={(c) => goChat(c.assistant, c.folder)} />
     : panel === "card"
     ? <PetCard className="shrink-0" style={{ width: CARD_W, height: CARD_H }} napping={napping} onNap={setNapping} />
     : panel === "bubble" && playing

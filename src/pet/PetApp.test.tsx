@@ -31,7 +31,7 @@ const tap = (el: HTMLElement) => {
 
 describe("chats waiting for you (A-1)", () => {
   const chat = (folder: string, kind: "needs" | "permission", ago: number, detail = "") =>
-    ({ assistant: "Claude Code", folder, detail, kind, since: Date.now() - ago * 60_000 });
+    ({ assistant: "Claude Code", folder, detail, kind, since: Date.now() - ago * 60_000, jump: false });
 
   it("shows a number on the pet while chats wait, warm when one asks permission, and lists them on hover", async () => {
     renderPet();
@@ -43,14 +43,77 @@ describe("chats waiting for you (A-1)", () => {
     const badge = await screen.findByRole("status", { name: "2 chats waiting for you, 1 asks permission" });
     expect(badge.textContent).toBe("2");
     expect(badge.className).toContain("bg-amber-400");
-    fireEvent.mouseEnter(badge);
-    const list = await screen.findByRole("region", { name: "Waiting for you" });
+    // The pet's layout is rebuilt once its place is known (later under load): hover again until the list shows.
+    await waitFor(() => {
+      fireEvent.mouseEnter(screen.getByRole("status", { name: /waiting for you/ }));
+      expect(screen.getByRole("region", { name: "Waiting for you" })).toBeTruthy();
+    });
+    const list = screen.getByRole("region", { name: "Waiting for you" });
     expect(within(list).getByText("DESKTOP-PET")).toBeTruthy();
     expect(within(list).getByText(/to use Bash/)).toBeTruthy();
     expect(within(list).getByText("4m")).toBeTruthy();
     // The pet's layout is rebuilt once its place is known, so look the badge up again.
     fireEvent.mouseLeave(screen.getByRole("status", { name: /waiting for you/ }));
     await waitFor(() => expect(screen.queryByRole("region", { name: "Waiting for you" })).toBeNull());
+  });
+
+  it("a row of a chat whose window is known takes you to it; one without is plain text (A-4)", async () => {
+    const focus = vi.spyOn(ipc, "petFocusChat").mockResolvedValue(true);
+    renderPet();
+    await screen.findByRole("button", { name: /^Pluto\./ });
+    act(() => {
+      window.dispatchEvent(new CustomEvent("pluto-pet-waiting", { detail: [{ ...chat("staysync", "needs", 4), jump: true }, chat("other", "permission", 1)] }));
+    });
+    await waitFor(() => {
+      fireEvent.mouseEnter(screen.getByRole("status", { name: /waiting for you/ }));
+      expect(screen.getByRole("region", { name: "Waiting for you" })).toBeTruthy();
+    });
+    const list = screen.getByRole("region", { name: "Waiting for you" });
+    expect(within(list).getAllByRole("button")).toHaveLength(1);
+    fireEvent.click(within(list).getByRole("button", { name: "Go to staysync, Claude Code" }));
+    expect(focus).toHaveBeenCalledWith("Claude Code", "staysync");
+  });
+
+  it("the list stays up while the mouse moves from the badge onto it, so a row can be clicked (A-4)", async () => {
+    renderPet();
+    await screen.findByRole("button", { name: /^Pluto\./ });
+    act(() => { window.dispatchEvent(new CustomEvent("pluto-pet-waiting", { detail: [{ ...chat("a", "needs", 1), jump: true }] })); });
+    await waitFor(() => {
+      fireEvent.mouseEnter(screen.getByRole("status", { name: /waiting for you/ }));
+      expect(screen.getByRole("region", { name: "Waiting for you" })).toBeTruthy();
+    });
+    const list = screen.getByRole("region", { name: "Waiting for you" });
+    fireEvent.mouseLeave(screen.getByRole("status", { name: /waiting for you/ }));
+    fireEvent.mouseEnter(list);
+    await new Promise((r) => setTimeout(r, 500));
+    expect(screen.queryByRole("region", { name: "Waiting for you" })).toBeTruthy();
+    fireEvent.mouseLeave(screen.getByRole("region", { name: "Waiting for you" }));
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Waiting for you" })).toBeNull());
+  });
+
+  it("a waiting chat's bubble says it can go there, and a click brings its window forward; if it cannot, the pet says so (A-4)", async () => {
+    const focus = vi.spyOn(ipc, "petFocusChat").mockResolvedValue(false);
+    renderPet();
+    await screen.findByRole("button", { name: /^Pluto\./ });
+    act(() => {
+      window.dispatchEvent(new CustomEvent("pluto-pet-say", { detail: { text: "Claude Code needs you · staysync", actionId: "chat-go:Claude Code", actionLabel: "go to it" } }));
+    });
+    expect((await screen.findAllByText("Claude Code needs you · staysync · click: go to it")).length).toBeGreaterThan(0);
+    tap(bear());
+    expect(focus).toHaveBeenCalledWith("Claude Code", undefined);
+    expect((await screen.findAllByText("I can't find that window any more")).length).toBeGreaterThan(0);
+  });
+
+  it("a Pluto bubble that names a page opens Pluto there on a click (A-4)", async () => {
+    const command = vi.spyOn(ipc, "petCommand").mockResolvedValue(undefined);
+    renderPet();
+    await screen.findByRole("button", { name: /^Pluto\./ });
+    act(() => {
+      window.dispatchEvent(new CustomEvent("pluto-pet-say", { detail: { text: "You have 3 daily routine tasks pending", go: "page:today" } }));
+    });
+    expect((await screen.findAllByText("You have 3 daily routine tasks pending")).length).toBeGreaterThan(0);
+    tap(bear());
+    expect(command).toHaveBeenCalledWith("page:today");
   });
 
   it("is not there when nothing waits, uses the accent for a plain wait, and forgets a chat after half an hour", async () => {

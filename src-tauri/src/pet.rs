@@ -394,7 +394,11 @@ pub fn pet_click(app: AppHandle) {
 /// commands the pet menu already sends are accepted.
 #[tauri::command]
 pub fn pet_command(what: String, app: AppHandle) {
-    if matches!(what.as_str(), "new-note" | "new-task" | "focus" | "tasks") {
+    // `page:<name>` opens that page (a bubble's click, A-4); the dashboard checks the name.
+    let page = what.strip_prefix("page:").is_some_and(|n| {
+        !n.is_empty() && n.len() <= 20 && n.bytes().all(|b| b.is_ascii_lowercase())
+    });
+    if page || matches!(what.as_str(), "new-note" | "new-task" | "focus" | "tasks") {
         command(&app, &what);
     }
 }

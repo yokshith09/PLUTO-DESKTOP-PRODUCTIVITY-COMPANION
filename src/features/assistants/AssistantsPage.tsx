@@ -31,15 +31,14 @@ export const SOON = [
   { title: "Still working", text: "“DESKTOP-PET has been working 25 min”." },
   { title: "Chats in your projects", text: "A project’s Activity lists the chats that finished in its folder." },
   { title: "Your day with assistants", text: "An evening line: chats finished, per project." },
-  { title: "Click to go there", text: "Click the bubble to bring that chat’s window forward." },
 ] as const;
 
 /** What the pet does on its own for each assistant, once connected (the rest only when it asks). */
 export const PET_REACTS: Record<string, readonly string[]> = {
-  claude: ["Done", "Needs you", "Names the chat", "Names the tool it asks to use", "Counts chats waiting for you"],
-  codex: ["Done", "Needs you", "Names the chat", "Names the tool it asks to use", "Counts chats waiting for you"],
-  cursor: ["Done", "Needs you (questions)", "Names the folder"],
-  opencode: ["Done", "Needs you", "Names the folder"],
+  claude: ["Done", "Needs you", "Names the chat", "Names the tool it asks to use", "Counts chats waiting for you", "Click goes to its window"],
+  codex: ["Done", "Needs you", "Names the chat", "Names the tool it asks to use", "Counts chats waiting for you", "Click goes to its window"],
+  cursor: ["Done", "Needs you (questions)", "Names the folder", "Click goes to its window"],
+  opencode: ["Done", "Needs you", "Names the folder", "Click goes to its window"],
 };
 
 export const COMING = { icon: Lock, text: "Turn assistants off, change tracking, shortcuts or start-up. Those stay with you." } as const;

@@ -37,7 +37,7 @@ export function useRoutineReminder() {
       // Through the notification budget (FR-96): never spammy, never in quiet hours.
       void tryNudge("routine", now, () => {
         // Above the pet only: nothing pops up in the dashboard (owner 2026-10-23).
-        void petSay({ text: message, pose: "wait", ms: 10_000 });
+        void petSay({ text: message, pose: "wait", ms: 10_000, go: "page:today" });
       });
     };
     check();

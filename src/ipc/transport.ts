@@ -90,7 +90,7 @@ export function onTextBox(cb: (focused: boolean) => void): () => void {
 }
 
 /** Something the dashboard asks the pet to say above its head (FR-43), e.g. the routine reminder. */
-export interface PetSay { text: string; pose?: string; ms?: number; actionId?: string; actionLabel?: string }
+export interface PetSay { text: string; pose?: string; ms?: number; actionId?: string; actionLabel?: string; go?: string }
 
 /**
  * Dashboard → pet window message (FR-85/FR-43). In the app it is a Tauri event to every window;
@@ -150,7 +150,7 @@ export function onPetAction(cb: (id: string) => void): () => void {
 export interface PetAsk { id: number; title: string; detail: string; options: string[] }
 
 /** A chat waiting for you in an assistant's own app (A-1): shown as a number on the pet. */
-export interface WaitingChat { assistant: string; folder: string; detail: string; kind: "needs" | "permission"; since: number }
+export interface WaitingChat { assistant: string; folder: string; detail: string; kind: "needs" | "permission"; since: number; jump: boolean }
 
 /** The list of waiting chats changed. Outside the app a `pluto-pet-waiting` window event stands in. */
 export function onPetWaiting(cb: (chats: WaitingChat[]) => void): () => void {

@@ -167,11 +167,13 @@ export const ipc = {
   petAnswer: (id: number, answer: string) => call<boolean>("pet_answer", { id, answer }),
   /** Chats waiting for you right now (the pet asks when it opens; changes arrive as events). */
   petWaiting: () => call<WaitingChat[]>("pet_waiting"),
+  /** Bring the window of a waiting chat forward (A-4); false when its window is not known or is gone. */
+  petFocusChat: (assistant: string, folder?: string) => call<boolean>("pet_focus_chat", { assistant, folder: folder ?? null }),
   /** The drawn parts of the pet window (left, top, width, height); clicks go through the rest. */
   petSolid: (rects: number[][], holding: boolean) => call<null>("pet_solid", { rects, holding }),
   petClick: () => call<unknown>("pet_click"),
   /** Hover-card buttons: open the dashboard and start a new note or task (FR-111). */
-  petCommand: (what: "new-note" | "new-task" | "focus" | "tasks") => call<unknown>("pet_command", { what }),
+  petCommand: (what: "new-note" | "new-task" | "focus" | "tasks" | `page:${string}`) => call<unknown>("pet_command", { what }),
   /** Media keys under the pet (Windows only, Unverified). */
   petMedia: (action: "play-pause" | "next" | "previous") => call<unknown>("pet_media", { action }),
   petDoubleClick: () => call<unknown>("pet_double_click"),

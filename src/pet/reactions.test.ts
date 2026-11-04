@@ -77,3 +77,13 @@ describe("messages from the dashboard (FR-43)", () => {
     expect(reactionForSay({ text: "Moved to Bin", actionId: "n1" }, poses)?.action).toBeUndefined();
   });
 });
+
+describe("a bubble's page (A-4)", () => {
+  it("keeps a real page target and drops anything else", () => {
+    expect(reactionForSay({ text: "Hi", go: "page:today" }, [])?.go).toBe("page:today");
+    expect(reactionForSay({ text: "Hi", go: "page:../x" }, [])?.go).toBeUndefined();
+    expect(reactionForSay({ text: "Hi", go: "tasks" }, [])?.go).toBeUndefined();
+    // An action wins: a click does that, not both.
+    expect(reactionForSay({ text: "Hi", go: "page:today", actionId: "a", actionLabel: "A" }, [])?.go).toBeUndefined();
+  });
+});

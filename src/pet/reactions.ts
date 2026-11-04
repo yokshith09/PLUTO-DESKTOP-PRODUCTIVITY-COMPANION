@@ -7,7 +7,7 @@ import { BREAK_MINUTES, endLine } from "@/lib/focus";
  * What the pet does when something happens. One row per moment: add a row to react to
  * something new. `priority` decides who wins when two arrive together (higher plays first).
  */
-export interface Reaction { pose: BearPose; bubble: string; ms: number; priority: number; action?: { id: string; label: string } }
+export interface Reaction { pose: BearPose; bubble: string; ms: number; priority: number; action?: { id: string; label: string }; go?: string }
 
 /** What a reaction may look at: today's open tasks as they were just before the event. */
 export interface ReactionContext { openToday: TaskRow[] }
@@ -20,7 +20,7 @@ type Signal = Event;
 type Rules = { [K in Signal["type"]]?: Rule<Extract<Signal, { type: K }>> };
 
 export const RULES: Rules = {
-  TaskCreated: (e) => ({ pose: "catch", bubble: `Got it: ${quote(e.task.title)}`, ms: 3000, priority: 2 }),
+  TaskCreated: (e) => ({ pose: "catch", bubble: `Got it: ${quote(e.task.title)}`, ms: 3000, priority: 2, go: "page:tasks" }),
   TaskStatusChanged: (e, ctx) => {
     if (e.to === "COMPLETED") {
       const left = ctx.openToday.filter((r) => r.task.id !== e.id).length;
@@ -44,7 +44,7 @@ export const RULES: Rules = {
   FocusEnded: (e) => {
     const line = endLine(e.session);
     if (!line) return null;
-    return { pose: line.pose as BearPose, bubble: line.text, ms: 12_000, priority: 4, ...(line.offerBreak ? { action: { id: `focus-break:${BREAK_MINUTES}`, label: "Break" } } : {}) };
+    return { pose: line.pose as BearPose, bubble: line.text, ms: 12_000, priority: 4, ...(line.offerBreak ? { action: { id: `focus-break:${BREAK_MINUTES}`, label: "Break" } } : { go: "page:time" }) };
   },
 };
 
@@ -52,12 +52,13 @@ export const RULES: Rules = {
  * A message from the dashboard (FR-43), e.g. "You have 3 daily routine tasks pending". Unknown
  * poses fall back to a wave; it stays up long enough to be read.
  */
-export function reactionForSay(say: { text: string; pose?: string; ms?: number; actionId?: string; actionLabel?: string }, poses: readonly string[]): Reaction | null {
+export function reactionForSay(say: { text: string; pose?: string; ms?: number; actionId?: string; actionLabel?: string; go?: string }, poses: readonly string[]): Reaction | null {
   const text = say.text.trim();
   if (!text) return null;
   const pose = (say.pose && poses.includes(say.pose) ? say.pose : "wave") as BearPose;
   const r: Reaction = { pose, bubble: text.length > 160 ? `${text.slice(0, 159)}…` : text, ms: Math.min(Math.max(say.ms ?? 8000, 2000), 20_000), priority: 4 };
   if (say.actionId && say.actionLabel) r.action = { id: say.actionId, label: say.actionLabel.slice(0, 20) };
+  else if (say.go && /^page:[a-z]{1,20}$/.test(say.go)) r.go = say.go;
   return r;
 }
 

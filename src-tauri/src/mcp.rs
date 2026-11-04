@@ -95,8 +95,14 @@ async fn react_now(assistant: &str, reaction: &str, extra: Option<String>) {
         Some(input) => from_hook(reaction, &input),
         None => (reaction, None),
     };
+    // The chat's terminal or editor window, so a click on its bubble can bring it forward (A-4).
+    // Only a chat that waits for you needs one.
+    let window = matches!(reaction, "agent_needs_you" | "agent_permission")
+        .then(crate::jump::my_window)
+        .flatten();
     if let Some(pipe) = connect().await {
-        let _ = link::send_reaction(pipe, &token, assistant, reaction, place.as_deref()).await;
+        let _ = link::send_reaction_at(pipe, &token, assistant, reaction, place.as_deref(), window)
+            .await;
     }
 }
 
@@ -331,6 +337,7 @@ impl WaitList {
                 assistant,
                 place,
                 kind,
+                window,
             } => {
                 let (folder, detail) = waiting::from_place(place.as_deref());
                 list.raise(waiting::Chat {
@@ -339,6 +346,8 @@ impl WaitList {
                     detail,
                     kind,
                     since: now,
+                    window,
+                    jump: false,
                 });
             }
             WaitChange::Clear { assistant, place } => {
@@ -347,6 +356,14 @@ impl WaitList {
             }
         }
         list.list()
+    }
+
+    /// The window to bring forward for a chat (A-4); see [`waiting::Waiting::window_of`].
+    fn window_of(&self, assistant: &str, folder: Option<&str>) -> Option<i64> {
+        self.0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .window_of(assistant, folder)
     }
 
     fn current(&self, now: i64) -> Vec<waiting::Chat> {
@@ -429,8 +446,17 @@ fn bubble(message: PetMessage) -> String {
     }
 }
 
-fn show_on_pet<R: Runtime>(app: &AppHandle<R>, message: PetMessage) {
-    let _ = app.emit("pet://say", serde_json::json!({ "text": bubble(message) }));
+/// The bubble's action id for "take me to that chat"; the pet sends it back to `pet_focus_chat`.
+const CHAT_GO: &str = "chat-go:";
+
+fn show_on_pet<R: Runtime>(app: &AppHandle<R>, message: PetMessage, go: bool) {
+    let assistant = message.assistant.clone();
+    let mut say = serde_json::json!({ "text": bubble(message) });
+    if go {
+        say["actionId"] = format!("{CHAT_GO}{assistant}").into();
+        say["actionLabel"] = "go to it".into();
+    }
+    let _ = app.emit("pet://say", say);
 }
 
 /// Where the request log and its Undo are kept on this computer.
@@ -466,7 +492,12 @@ impl<R: Runtime> Host for ShellHost<R> {
     }
 
     fn show(&self, message: PetMessage) {
-        show_on_pet(&self.app, message);
+        // A "needs you" or permission bubble can take you to that chat when its window is known (A-4).
+        let go = matches!(
+            message.reaction,
+            Some("agent_needs_you" | "agent_permission")
+        ) && self.waits.window_of(&message.assistant, None).is_some();
+        show_on_pet(&self.app, message, go);
     }
 
     fn hold(&self, message: &PetMessage) -> bool {
@@ -702,7 +733,7 @@ pub fn start(app: AppHandle, settings: Arc<SettingsService>, bus: &EventBus, dat
                     let waited = mcp.guard.release();
                     let count = waited.len();
                     if let Some(last) = waited.into_iter().last() {
-                        show_on_pet(&app, last);
+                        show_on_pet(&app, last, false);
                         if count > 1 {
                             let _ = app.emit(
                                 "pet://say",
@@ -1246,6 +1277,17 @@ pub fn pet_waiting(app: AppHandle, mcp: State<'_, Mcp>) -> Vec<waiting::Chat> {
     mcp.waits.current(now_ms(&app))
 }
 
+/// Click on a waiting chat (its bubble or its row on the pet): bring the window it runs in to the
+/// front (A-4). `folder` is empty for a bubble, which only knows the assistant. False when the
+/// window is not known or is gone; the pet then says so.
+#[tauri::command]
+pub fn pet_focus_chat(mcp: State<'_, Mcp>, assistant: String, folder: Option<String>) -> bool {
+    let folder = folder.filter(|f| !f.is_empty());
+    mcp.waits
+        .window_of(&assistant, folder.as_deref())
+        .is_some_and(crate::jump::bring_forward)
+}
+
 /// The person pressed a button on a question the pet showed.
 #[tauri::command]
 pub fn pet_answer(mcp: State<'_, Mcp>, id: u64, answer: String) -> bool {
@@ -1486,12 +1528,31 @@ mod tests {
     }
 
     #[test]
+    fn a_click_finds_the_window_the_chats_hook_reported() {
+        let list = WaitList::default();
+        list.apply(
+            WaitChange::Raise {
+                assistant: "Claude Code".into(),
+                place: Some("app".into()),
+                kind: waiting::Kind::Needs,
+                window: Some(77),
+            },
+            1_000,
+        );
+        assert_eq!(list.window_of("Claude Code", Some("app")), Some(77));
+        assert_eq!(list.window_of("Claude Code", None), Some(77));
+        assert_eq!(list.window_of("Codex", None), None);
+        assert!(list.current(1_000)[0].jump);
+    }
+
+    #[test]
     fn the_wait_list_follows_hooks_and_drops_what_waited_too_long() {
         let list = WaitList::default();
         let raise = |assistant: &str, place: &str, kind| WaitChange::Raise {
             assistant: assistant.into(),
             place: Some(place.into()),
             kind,
+            window: None,
         };
         let one = list.apply(
             raise("Claude Code", "app · “fix”", waiting::Kind::Needs),

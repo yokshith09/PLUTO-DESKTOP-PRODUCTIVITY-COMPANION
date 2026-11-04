@@ -40,13 +40,29 @@ pub fn hello_line(token: &str, assistant: &str) -> String {
 pub const REACT_HELLO: &str = "PLUTO1R";
 
 pub fn react_line(token: &str, assistant: &str, reaction: &str, place: Option<&str>) -> String {
-    match place.and_then(super::hookctx::clean_place) {
-        Some(p) => format!(
-            "{REACT_HELLO} {token} {assistant} {reaction} {}\n",
-            super::hookctx::encode(&p)
-        ),
-        None => format!("{REACT_HELLO} {token} {assistant} {reaction}\n"),
+    react_line_at(token, assistant, reaction, place, None)
+}
+
+/// The same line with the window the chat runs in (A-4): a last word `w=<number>`, which an
+/// encoded place can never be (its `=` would be `%3D`). The number is the platform's handle
+/// (Windows: the top-level window; macOS: the app's process id); Pluto only hands it back to the OS.
+pub fn react_line_at(
+    token: &str,
+    assistant: &str,
+    reaction: &str,
+    place: Option<&str>,
+    window: Option<i64>,
+) -> String {
+    let mut line = format!("{REACT_HELLO} {token} {assistant} {reaction}");
+    if let Some(p) = place.and_then(super::hookctx::clean_place) {
+        line.push(' ');
+        line.push_str(&super::hookctx::encode(&p));
     }
+    if let Some(w) = window {
+        line.push_str(&format!(" w={w}"));
+    }
+    line.push('\n');
+    line
 }
 
 /// A checked reaction line: the assistant id, the reaction, and where (if given).
@@ -54,25 +70,35 @@ pub type ReactLine = (String, &'static str, Option<String>);
 
 /// Checks a reaction line: the token, the id, and a reaction Pluto knows.
 pub fn check_react(line: &str, token: &str) -> Result<ReactLine, Refused> {
+    check_react_at(line, token).map(|(r, _)| r)
+}
+
+/// [`check_react`], also giving the chat's window when the line names one (A-4).
+pub fn check_react_at(line: &str, token: &str) -> Result<(ReactLine, Option<i64>), Refused> {
     let mut parts = line.trim_end_matches(['\r', '\n']).split(' ');
-    let (Some(REACT_HELLO), Some(given), Some(id), Some(name), place, None) = (
-        parts.next(),
-        parts.next(),
-        parts.next(),
-        parts.next(),
-        parts.next(),
-        parts.next(),
-    ) else {
+    let (Some(REACT_HELLO), Some(given), Some(id), Some(name)) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
         return Err(Refused::BadHello);
     };
-    let place = match place {
-        Some(w) => Some(
-            super::hookctx::decode(w)
-                .and_then(|p| super::hookctx::clean_place(&p))
-                .ok_or(Refused::BadHello)?,
-        ),
-        None => None,
-    };
+    let mut place = None;
+    let mut window = None;
+    for word in parts {
+        if let Some(n) = word.strip_prefix("w=") {
+            if window.is_some() {
+                return Err(Refused::BadHello);
+            }
+            window = Some(n.parse::<i64>().map_err(|_| Refused::BadHello)?);
+        } else if place.is_none() && window.is_none() {
+            place = Some(
+                super::hookctx::decode(word)
+                    .and_then(|p| super::hookctx::clean_place(&p))
+                    .ok_or(Refused::BadHello)?,
+            );
+        } else {
+            return Err(Refused::BadHello);
+        }
+    }
     if !same(given.as_bytes(), token.as_bytes()) {
         return Err(Refused::WrongToken);
     }
@@ -81,7 +107,7 @@ pub fn check_react(line: &str, token: &str) -> Result<ReactLine, Refused> {
         .find(|(n, _)| *n == name)
         .map(|(n, _)| *n);
     match known {
-        Some(reaction) if id_is_valid(id) => Ok((id.to_owned(), reaction, place)),
+        Some(reaction) if id_is_valid(id) => Ok(((id.to_owned(), reaction, place), window)),
         _ => Err(Refused::BadHello),
     }
 }
@@ -180,9 +206,9 @@ where
         .await
         .map_err(|_| Refused::NoHello)??;
     if line.starts_with(REACT_HELLO) {
-        let (id, reaction, place) = check_react(&line, token)?;
+        let ((id, reaction, place), window) = check_react_at(&line, token)?;
         let server = PlutoMcp::new(host, &display_name(&id), limit_for(&id));
-        let said = server.react_once(reaction, place.as_deref());
+        let said = server.react_once_at(reaction, place.as_deref(), window);
         let _ = stream.write_all(format!("{said}\n").as_bytes()).await;
         let _ = stream.shutdown().await;
         return Ok(id);
@@ -197,7 +223,7 @@ where
 /// Plays one reaction on a running Pluto (`Pluto --react`): sends the line and waits briefly
 /// for the answer. Returns what Pluto said, or `None` when it did not answer.
 pub async fn send_reaction<P>(
-    mut pipe: P,
+    pipe: P,
     token: &str,
     assistant: &str,
     reaction: &str,
@@ -206,7 +232,22 @@ pub async fn send_reaction<P>(
 where
     P: AsyncRead + AsyncWrite + Unpin,
 {
-    pipe.write_all(react_line(token, assistant, reaction, place).as_bytes())
+    send_reaction_at(pipe, token, assistant, reaction, place, None).await
+}
+
+/// [`send_reaction`], also telling Pluto which window the chat runs in (A-4).
+pub async fn send_reaction_at<P>(
+    mut pipe: P,
+    token: &str,
+    assistant: &str,
+    reaction: &str,
+    place: Option<&str>,
+    window: Option<i64>,
+) -> Option<String>
+where
+    P: AsyncRead + AsyncWrite + Unpin,
+{
+    pipe.write_all(react_line_at(token, assistant, reaction, place, window).as_bytes())
         .await
         .ok()?;
     let mut answer = String::new();

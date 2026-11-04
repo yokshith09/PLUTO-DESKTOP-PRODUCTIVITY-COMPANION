@@ -519,6 +519,64 @@ mod link_tests {
         );
     }
 
+    #[test]
+    fn a_reaction_line_can_carry_the_chats_window() {
+        let line = link::react_line_at(
+            "tok",
+            "claude-code",
+            "agent_permission",
+            Some("to use Bash · app"),
+            Some(66_000),
+        );
+        assert!(line.trim_end().ends_with(" w=66000"));
+        assert_eq!(
+            link::check_react_at(&line, "tok"),
+            Ok((
+                (
+                    "claude-code".into(),
+                    "agent_permission",
+                    Some("to use Bash · app".into())
+                ),
+                Some(66_000)
+            ))
+        );
+        // No place, only a window.
+        let bare = link::react_line_at("tok", "codex", "agent_needs_you", None, Some(-5));
+        assert_eq!(link::check_react_at(&bare, "tok").unwrap().1, Some(-5));
+        // Without one, nothing changes from before, and a bad number or a repeat is refused.
+        assert_eq!(
+            link::react_line("tok", "git", "git_push", None),
+            "PLUTO1R tok git git_push\n"
+        );
+        assert_eq!(
+            link::check_react_at("PLUTO1R tok git git_push w=x\n", "tok"),
+            Err(Refused::BadHello)
+        );
+        assert_eq!(
+            link::check_react_at("PLUTO1R tok git git_push w=1 w=2\n", "tok"),
+            Err(Refused::BadHello)
+        );
+        assert_eq!(
+            link::check_react_at("PLUTO1R tok git git_push w=1 place\n", "tok"),
+            Err(Refused::BadHello)
+        );
+    }
+
+    #[test]
+    fn the_window_travels_to_the_waiting_list() {
+        let host = Arc::new(FakeHost::default());
+        let server = PlutoMcp::new(host.clone(), "Claude Code", Arc::new(RateLimit::default()));
+        server.react_once_at("agent_needs_you", Some("app"), Some(42));
+        let waits = host.waits.lock().unwrap().clone();
+        assert!(matches!(
+            &waits[0],
+            WaitChange::Raise {
+                window: Some(42),
+                ..
+            }
+        ));
+    }
+
     #[tokio::test(start_paused = true)]
     async fn a_connection_that_never_says_hello_is_closed() {
         let (pluto_end, _silent) = tokio::io::duplex(1024);

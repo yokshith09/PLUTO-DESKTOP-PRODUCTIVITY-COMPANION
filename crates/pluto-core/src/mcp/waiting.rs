@@ -31,6 +31,12 @@ pub struct Chat {
     pub kind: Kind,
     /// Milliseconds since the epoch.
     pub since: i64,
+    /// The window the chat runs in (A-4): the platform's handle, only ever handed back to the OS.
+    /// Never sent to the pet; it gets `jump` instead.
+    #[serde(skip)]
+    pub window: Option<i64>,
+    /// Whether a click can bring that chat's window forward.
+    pub jump: bool,
 }
 
 /// What a hook's place text says: the folder, and what the chat wants.
@@ -61,7 +67,16 @@ pub struct Waiting {
 
 impl Waiting {
     /// A chat needs you. The same assistant and folder replaces its earlier entry.
-    pub fn raise(&mut self, chat: Chat) {
+    pub fn raise(&mut self, mut chat: Chat) {
+        // A word from the chat that found no window keeps the one an earlier word found.
+        if chat.window.is_none() {
+            chat.window = self
+                .chats
+                .iter()
+                .find(|c| c.assistant == chat.assistant && c.folder == chat.folder)
+                .and_then(|c| c.window);
+        }
+        chat.jump = chat.window.is_some();
         self.chats
             .retain(|c| !(c.assistant == chat.assistant && c.folder == chat.folder));
         self.chats.push(chat);
@@ -86,6 +101,16 @@ impl Waiting {
         self.chats.len() != before
     }
 
+    /// The window to bring forward for a chat (A-4): the chat of `assistant` in `folder`, or with no
+    /// folder the one that has waited least long (a bubble only names the assistant).
+    pub fn window_of(&self, assistant: &str, folder: Option<&str>) -> Option<i64> {
+        self.chats
+            .iter()
+            .rev()
+            .filter(|c| c.assistant == assistant && folder.is_none_or(|f| c.folder == f))
+            .find_map(|c| c.window)
+    }
+
     pub fn list(&self) -> Vec<Chat> {
         self.chats.clone()
     }
@@ -102,6 +127,8 @@ mod tests {
             detail: String::new(),
             kind,
             since,
+            window: None,
+            jump: false,
         }
     }
 
@@ -178,5 +205,41 @@ mod tests {
             (String::new(), "to use shell".into())
         );
         assert_eq!(from_place(None), (String::new(), String::new()));
+    }
+
+    #[test]
+    fn a_chat_remembers_its_window_and_a_bubble_finds_the_latest_one() {
+        let mut w = Waiting::default();
+        let mut a = chat("Claude Code", "app", Kind::Needs, 1);
+        a.window = Some(111);
+        w.raise(a);
+        let mut b = chat("Claude Code", "site", Kind::Permission, 2);
+        b.window = Some(222);
+        w.raise(b);
+        w.raise(chat("Codex", "app", Kind::Needs, 3));
+        assert_eq!(w.window_of("Claude Code", Some("app")), Some(111));
+        assert_eq!(w.window_of("Claude Code", None), Some(222));
+        assert_eq!(
+            w.window_of("Codex", None),
+            None,
+            "no window found, nothing to jump to"
+        );
+        // A later word that found no window keeps the first one, and the row says it can jump.
+        w.raise(chat("Claude Code", "app", Kind::Permission, 9));
+        assert_eq!(w.window_of("Claude Code", Some("app")), Some(111));
+        assert!(
+            w.list()
+                .iter()
+                .find(|c| c.folder == "app" && c.assistant == "Claude Code")
+                .unwrap()
+                .jump
+        );
+        assert!(
+            !w.list()
+                .iter()
+                .find(|c| c.assistant == "Codex")
+                .unwrap()
+                .jump
+        );
     }
 }

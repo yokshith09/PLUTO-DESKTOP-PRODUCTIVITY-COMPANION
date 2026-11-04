@@ -117,10 +117,12 @@ describe("Assistants page", () => {
     const coming = await screen.findByRole("region", { name: "Coming" });
     expect(within(coming).getByText("Not working yet")).toBeTruthy();
     expect(within(coming).getAllByRole("listitem")).toHaveLength(SOON.length);
-    expect(SOON).toHaveLength(6);
+    expect(SOON).toHaveLength(5);
     // A-6 shipped: it is no longer on the Coming list.
     expect(within(coming).queryByText("Which tool it wants")).toBeNull();
-    expect(within(coming).getByText("Click to go there")).toBeTruthy();
+    // A-4 shipped too: clicking goes to the chat's window.
+    expect(within(coming).queryByText("Click to go there")).toBeNull();
+    expect(PET_REACTS.claude).toContain("Click goes to its window");
   });
 
   it("says plainly what assistants can do and that the diary is never shared", async () => {

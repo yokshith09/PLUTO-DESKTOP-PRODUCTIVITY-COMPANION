@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { WaitingChat } from "@/ipc";
 import { WAIT_EXPIRES_MS, badgeLabel, stillWaiting, waited } from "./waiting";
 
-const c = (folder: string, since: number, kind: WaitingChat["kind"] = "needs"): WaitingChat => ({ assistant: "Claude Code", folder, detail: "", kind, since });
+const c = (folder: string, since: number, kind: WaitingChat["kind"] = "needs"): WaitingChat => ({ assistant: "Claude Code", folder, detail: "", kind, since, jump: false });
 
 describe("waiting chats (A-1)", () => {
   it("keeps what waited less than half an hour, longest waiting first", () => {

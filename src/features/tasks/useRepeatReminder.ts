@@ -35,7 +35,7 @@ export function useRepeatReminder() {
       await save({ ...state, remindedOn: today });
       const message = openRepeatsMessage(await ipc.tasksQuery("today"));
       if (!message) return;
-      await tryNudge("repeat", now, () => petSay({ text: message, pose: "wait", ms: 10_000 }));
+      await tryNudge("repeat", now, () => petSay({ text: message, pose: "wait", ms: 10_000, go: "page:tasks" }));
     };
     void check();
     const wait = msUntil(state.at, new Date());

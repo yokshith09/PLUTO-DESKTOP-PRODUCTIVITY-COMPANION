@@ -5,6 +5,7 @@ mod autostart;
 mod devwatch;
 mod earlier_app;
 mod ipc;
+mod jump;
 mod logs;
 mod mcp;
 mod media;
@@ -169,6 +170,7 @@ pub fn run() {
             mcp::mcp_undo,
             mcp::pet_answer,
             mcp::pet_waiting,
+            mcp::pet_focus_chat,
             mcp::mcp_developer,
             devwatch::dev_git_watch,
             devwatch::dev_git_add_folder,

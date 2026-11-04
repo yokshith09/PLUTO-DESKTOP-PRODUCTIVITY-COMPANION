@@ -124,6 +124,8 @@ pub enum WaitChange {
         assistant: String,
         place: Option<String>,
         kind: waiting::Kind,
+        /// The window the chat runs in, when the hook could find it (A-4).
+        window: Option<i64>,
     },
     /// The chat replied (`agent_resumed`) or finished.
     Clear {
@@ -346,6 +348,17 @@ impl PlutoMcp {
     /// Plays one reaction. `place` says where it happened (a chat's folder and first request),
     /// shown after the line: "Claude Code is done · DESKTOP-PET · “fix tray”".
     pub fn react_once(&self, reaction: &'static str, place: Option<&str>) -> String {
+        self.react_once_at(reaction, place, None)
+    }
+
+    /// [`Self::react_once`] with the window the chat runs in (A-4), kept with the waiting chat so a
+    /// click on its bubble or its row can bring that window forward.
+    pub fn react_once_at(
+        &self,
+        reaction: &'static str,
+        place: Option<&str>,
+        window: Option<i64>,
+    ) -> String {
         // The waiting list is bookkeeping, not a message: it follows every hook, even a rate-limited
         // one, and a held bubble (focus guard) still shows on the badge.
         if let Some(host) = &self.host {
@@ -360,6 +373,7 @@ impl PlutoMcp {
                     } else {
                         waiting::Kind::Needs
                     },
+                    window,
                 }),
                 "agent_done" | "agent_resumed" => {
                     host.waiting(WaitChange::Clear { assistant, place })
