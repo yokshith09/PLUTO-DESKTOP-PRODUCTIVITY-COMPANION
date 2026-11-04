@@ -459,3 +459,4 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-04: A-1 done in code. Study screens ON HOLD (owner did not like the preview). U-5..U-8 next, preview first.
 - 2026-11-04: A-4 click-to-go wanted with A-1 (window of the chat via its process tree). U-5..U-8 previews published.
 - 2026-11-04: U-6, U-7, U-8 done in code (commit dots and extra tabs left out). U-5 next.
+- 2026-11-04: U-5 done in code. U-5..U-8 complete; next FS-1 / TT-1 previews, A-4 on the owner's go.

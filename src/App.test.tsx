@@ -1049,13 +1049,15 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     expect(await screen.findByRole("dialog")).toBeTruthy();
   });
 
-  it("Today tiles have two sizes, normal and full width, and Reset puts them back (owner 2026-10-27)", async () => {
+  it("Today tiles resize with the arrow keys in 12 columns and rows, and Reset puts them back (U-5)", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(await screen.findByRole("button", { name: /^Resize Focus: normal, make it full width/ }));
-    expect(await screen.findByRole("button", { name: /^Resize Focus: full width, make it normal/ })).toBeTruthy();
+    const grip = await screen.findByRole("button", { name: /^Resize Focus: 4 of 12 columns/ });
+    grip.focus();
+    await user.keyboard("{ArrowRight}{ArrowRight}{ArrowDown}");
+    expect(await screen.findByRole("button", { name: /^Resize Focus: 6 of 12 columns, 3 rows/ })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Reset layout" }));
-    expect(await screen.findByRole("button", { name: /^Resize Focus: normal/ })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /^Resize Focus: 4 of 12 columns\. Drag/ })).toBeTruthy();
   });
 
   it("the task editor suggests a next step and shows where the task is", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanOrder, cleanSizes, DEFAULT_ORDER, packRows } from "./MovableTiles";
+import { cleanOrder, cleanSizes, defaultCols, DEFAULT_ORDER, snap } from "./MovableTiles";
 
 describe("cleanOrder", () => {
   it("keeps a valid saved order", () => {
@@ -15,32 +15,22 @@ describe("cleanOrder", () => {
   });
 });
 
-describe("cleanSizes", () => {
-  it("keeps known sizes for known tiles", () => {
-    expect(cleanSizes({ agenda: "w", focus: "n" })).toEqual({ agenda: "w", focus: "n" });
+describe("cleanSizes (U-5 free resize)", () => {
+  it("keeps columns and rows, snapped to 3..12 and 1..4", () => {
+    expect(cleanSizes({ agenda: { c: 8, r: 3 }, focus: { c: 1 }, time: { c: 40, r: 9 }, links: { c: 5.4, r: 0 } }))
+      .toEqual({ agenda: { c: 8, r: 3 }, focus: { c: 3 }, time: { c: 12, r: 4 }, links: { c: 5, r: 1 } });
   });
-  it("turns the old three sizes into two: large is full width, small and medium are normal", () => {
-    expect(cleanSizes({ agenda: "l", focus: "s", time: "m" })).toEqual({ agenda: "w", focus: "n", time: "n" });
+  it("moves the older sizes over: full width is 12 columns, normal goes back to the usual width", () => {
+    expect(cleanSizes({ agenda: "w", focus: "n", time: "l", routine: "s" })).toEqual({ agenda: { c: 12 }, time: { c: 12 } });
   });
-  it("drops unknown tiles and sizes, and bad input", () => {
-    expect(cleanSizes({ agenda: "huge", nope: "l", links: "s" })).toEqual({ links: "n" });
+  it("drops unknown tiles, junk sizes and bad input", () => {
+    expect(cleanSizes({ nope: { c: 6 }, agenda: "huge", links: { c: "x" }, focus: { c: NaN } })).toEqual({});
     expect(cleanSizes(null)).toEqual({});
     expect(cleanSizes("x")).toEqual({});
   });
-});
-
-describe("packRows (tiles share a row equally, height follows content)", () => {
-  it("puts Today and Time side by side, then the three small tiles", () => {
-    expect(packRows(DEFAULT_ORDER, {})).toEqual([["agenda", "time"], ["focus", "routine", "links"]]);
-  });
-  it("a tile moved beside Today shares the row with it, half each", () => {
-    expect(packRows(["agenda", "focus", "time", "routine", "links"], {})).toEqual([["agenda", "focus"], ["time", "routine"], ["links"]]);
-  });
-  it("a full-width tile gets a row of its own", () => {
-    expect(packRows(DEFAULT_ORDER, { agenda: "w" })).toEqual([["agenda"], ["time", "focus"], ["routine", "links"]]);
-  });
-  it("a big tile never joins two small ones", () => {
-    expect(packRows(["focus", "routine", "agenda", "time", "links"], {})).toEqual([["focus", "routine"], ["agenda", "time"], ["links"]]);
+  it("starts Today and Time at half the page and the small tiles at a third", () => {
+    expect([defaultCols("agenda"), defaultCols("time"), defaultCols("focus"), defaultCols("routine"), defaultCols("links")]).toEqual([6, 6, 4, 4, 4]);
+    expect(snap({ c: 2.2 })).toEqual({ c: 3 });
   });
 });
 
