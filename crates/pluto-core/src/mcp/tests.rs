@@ -19,6 +19,7 @@ struct FakeHost {
     answer: Option<String>,
     asked: Mutex<Vec<ask::Question>>,
     waits: Mutex<Vec<WaitChange>>,
+    chats: Mutex<Vec<(String, Option<String>, &'static str)>>,
 }
 
 impl Host for FakeHost {
@@ -58,6 +59,9 @@ impl Host for FakeHost {
     }
     fn waiting(&self, change: WaitChange) {
         self.waits.lock().unwrap().push(change);
+    }
+    fn chat_event(&self, assistant: String, place: Option<String>, kind: &'static str) {
+        self.chats.lock().unwrap().push((assistant, place, kind));
     }
     fn record(&self, tool: &'static str, assistant: &str, ok: bool, detail: String) {
         self.recorded
@@ -289,6 +293,7 @@ async fn hooks_keep_the_waiting_list_and_a_reply_is_silent() {
     server.react_once("agent_permission", Some("to use Bash · app"));
     server.react_once("agent_resumed", Some("app"));
     server.react_once("agent_done", Some("app"));
+    server.react_once("agent_error", Some("app"));
     let waits = host.waits.lock().unwrap().clone();
     assert_eq!(waits.len(), 4);
     assert!(matches!(
@@ -303,12 +308,28 @@ async fn hooks_keep_the_waiting_list_and_a_reply_is_silent() {
     );
     assert!(matches!(&waits[2], WaitChange::Clear { place: Some(p), .. } if p == "app"));
     assert!(matches!(&waits[3], WaitChange::Clear { .. }));
-    // Only the first, second and last made a bubble: a reply shows nothing and is not logged.
+    assert_eq!(
+        *host.chats.lock().unwrap(),
+        vec![
+            (
+                "Claude Code".into(),
+                Some("app · “fix tray”".into()),
+                "needs"
+            ),
+            (
+                "Claude Code".into(),
+                Some("to use Bash · app".into()),
+                "permission"
+            ),
+            ("Claude Code".into(), Some("app".into()), "done"),
+        ]
+    );
+    // Needs, permission, done and error made bubbles; a reply remains silent and unlogged.
     let shown = host.shown.lock().unwrap().clone();
-    assert_eq!(shown.len(), 3);
+    assert_eq!(shown.len(), 4);
     assert!(shown.iter().all(|m| !m.text.is_empty()));
     let logged = host.recorded.lock().unwrap().len();
-    assert_eq!(logged, 3);
+    assert_eq!(logged, 4);
 }
 
 #[tokio::test]

@@ -60,6 +60,19 @@ describe("activity", () => {
   it("a project without a folder shows no git activity", () => {
     expect(activity(null, [{ repo: "E:\\p", kind: "git_push", atMs: 1 }], [], [])).toEqual([]);
   });
+  it("includes only this folder's chats, case-insensitively, with the right words", () => {
+    const chats = [
+      { assistant: "Claude Code", folder: "DESKTOP-PET", kind: "done", atMs: 30 },
+      { assistant: "Claude Code", folder: "desktop-pet", kind: "needs", atMs: 20 },
+      { assistant: "Claude Code", folder: "DESKTOP-PET", kind: "permission", atMs: 10 },
+      { assistant: "Cursor", folder: "other", kind: "done", atMs: 40 },
+    ];
+    expect(activity("E:\\Projects\\desktop-pet", [], [], [], 50, chats).map((item) => item.text)).toEqual([
+      "Claude Code finished", "Claude Code needed you", "Claude Code asked for permission",
+    ]);
+    expect(activity(null, [], [], [], 50, chats)).toEqual([]);
+    expect(activity("E:\\Projects\\other", [], [], [], 50, chats).map((item) => item.text)).toEqual(["Cursor finished"]);
+  });
 });
 
 describe("project templates (FR-113, U-7)", () => {
