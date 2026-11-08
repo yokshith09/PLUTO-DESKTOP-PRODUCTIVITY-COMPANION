@@ -17,6 +17,7 @@ pub mod status;
 #[cfg(test)]
 mod tests;
 pub mod waiting;
+pub mod working;
 pub mod write;
 
 use std::future::Future;
@@ -86,6 +87,8 @@ pub trait Host: Send + Sync {
     fn waiting(&self, _change: WaitChange) {}
     // A-3
     fn finished(&self, _assistant: String, _place: Option<String>, _kind: &'static str) {}
+    // A-7
+    fn working(&self, _change: WorkChange) {}
     /// Note a call for the Assistants page (the host adds the time).
     fn record(&self, _tool: &'static str, _assistant: &str, _ok: bool, _detail: String) {}
 }
@@ -132,6 +135,19 @@ pub enum WaitChange {
     },
     /// The chat replied (`agent_resumed`) or finished.
     Clear {
+        assistant: String,
+        place: Option<String>,
+    },
+}
+
+/// A chat began or ended work (A-7). `place` is parsed by the shell into its folder only.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WorkChange {
+    Start {
+        assistant: String,
+        place: Option<String>,
+    },
+    End {
         assistant: String,
         place: Option<String>,
     },
@@ -385,9 +401,18 @@ impl PlutoMcp {
                 _ => {}
             }
             match reaction {
-                "agent_done" => host.finished(assistant, place, "done"),
-                "agent_needs_you" => host.finished(assistant, place, "needs"),
-                "agent_permission" => host.finished(assistant, place, "permission"),
+                "agent_done" => host.finished(assistant.clone(), place.clone(), "done"),
+                "agent_needs_you" => host.finished(assistant.clone(), place.clone(), "needs"),
+                "agent_permission" => host.finished(assistant.clone(), place.clone(), "permission"),
+                _ => {}
+            }
+            match reaction {
+                "agent_resumed" => host.working(WorkChange::Start { assistant, place }),
+                "agent_done" | "agent_needs_you" | "agent_permission" | "agent_error" => host
+                    .working(WorkChange::End {
+                        assistant: self.assistant.to_string(),
+                        place,
+                    }),
                 _ => {}
             }
         }

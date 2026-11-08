@@ -17,8 +17,8 @@ use pluto_core::mcp::activity::{Activity, Call};
 use pluto_core::mcp::ask::{Question, ANSWER_WAIT};
 use pluto_core::mcp::setup::{self, Format};
 use pluto_core::mcp::write::{self, Change};
-use pluto_core::mcp::{away, hookctx, link, waiting};
-use pluto_core::mcp::{Host, HostFuture, PetMessage, RateLimit, Status, WaitChange};
+use pluto_core::mcp::{away, hookctx, link, waiting, working};
+use pluto_core::mcp::{Host, HostFuture, PetMessage, RateLimit, Status, WaitChange, WorkChange};
 use pluto_core::settings_service::SettingsService;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
@@ -321,6 +321,7 @@ struct ShellHost<R: Runtime> {
     asks: Arc<Asks>,
     waits: Arc<WaitList>,
     away: Arc<AwayList>,
+    working: Arc<WorkList>,
 }
 
 /// Chats waiting for you (A-1), kept here so every hook sees the same list and the pet can ask
@@ -406,6 +407,49 @@ impl AwayList {
             state.checking = false;
         }
         (text, keep_checking)
+    }
+}
+
+/// Assistant chats in progress (A-7). Its loop is running only while a chat is still working.
+#[derive(Default)]
+pub struct WorkList(Mutex<WorkState>);
+
+#[derive(Default)]
+struct WorkState {
+    working: working::Working,
+    ticking: bool,
+}
+
+impl WorkList {
+    /// Applies a hook change and says whether this caller must start the one-minute loop.
+    fn apply(&self, change: WorkChange, now: i64) -> bool {
+        let mut state = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        match change {
+            WorkChange::Start { assistant, place } => {
+                let (folder, _) = waiting::from_place(place.as_deref());
+                state.working.start(assistant, folder, now);
+            }
+            WorkChange::End { assistant, place } => {
+                let (folder, _) = waiting::from_place(place.as_deref());
+                state.working.end(&assistant, &folder);
+            }
+        }
+        if !state.working.should_tick() || state.ticking {
+            return false;
+        }
+        state.ticking = true;
+        true
+    }
+
+    /// Notices due now and says whether the one-minute loop should continue.
+    fn due(&self, now: i64) -> (Vec<working::Notice>, bool) {
+        let mut state = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        let notices = state.working.due(now);
+        let keep_ticking = state.working.should_tick();
+        if !keep_ticking {
+            state.ticking = false;
+        }
+        (notices, keep_ticking)
     }
 }
 
@@ -614,6 +658,37 @@ impl<R: Runtime> Host for ShellHost<R> {
         });
     }
 
+    fn working(&self, change: WorkChange) {
+        if !self.working.apply(change, now_ms(&self.app)) {
+            return;
+        }
+        let app = self.app.clone();
+        let working = self.working.clone();
+        let guard = self.guard.clone();
+        tauri::async_runtime::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                let (notices, keep_ticking) = working.due(now_ms(&app));
+                for notice in notices {
+                    let Some(text) = notice.text() else {
+                        continue;
+                    };
+                    let message = PetMessage {
+                        assistant: String::new(),
+                        text,
+                        reaction: None,
+                    };
+                    if !guard.hold(&message) {
+                        show_on_pet(&app, message, false);
+                    }
+                }
+                if !keep_ticking {
+                    return;
+                }
+            }
+        });
+    }
+
     fn ask(&self, question: Question) -> HostFuture<'_, Option<String>> {
         Box::pin(async move {
             // Only a pet on screen can be asked.
@@ -724,6 +799,7 @@ pub struct Mcp {
     asks: Arc<Asks>,
     waits: Arc<WaitList>,
     away: Arc<AwayList>,
+    working: Arc<WorkList>,
     listener: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
 }
 
@@ -758,6 +834,7 @@ pub fn shell_host<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp) -> Arc<dyn Host> {
         asks: mcp.asks.clone(),
         waits: mcp.waits.clone(),
         away: mcp.away.clone(),
+        working: mcp.working.clone(),
     })
 }
 
@@ -776,6 +853,7 @@ fn listen_now<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp, data_dir: &Path) {
         asks: mcp.asks.clone(),
         waits: mcp.waits.clone(),
         away: mcp.away.clone(),
+        working: mcp.working.clone(),
     });
     let limits = Arc::new(Limits::default());
     let dir = data_dir.to_owned();

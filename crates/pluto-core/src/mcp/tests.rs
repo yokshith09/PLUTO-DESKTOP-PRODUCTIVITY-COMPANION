@@ -20,6 +20,7 @@ struct FakeHost {
     asked: Mutex<Vec<ask::Question>>,
     waits: Mutex<Vec<WaitChange>>,
     finished: Mutex<Vec<(String, Option<String>, &'static str)>>,
+    working: Mutex<Vec<WorkChange>>,
 }
 
 impl Host for FakeHost {
@@ -62,6 +63,9 @@ impl Host for FakeHost {
     }
     fn finished(&self, assistant: String, place: Option<String>, kind: &'static str) {
         self.finished.lock().unwrap().push((assistant, place, kind));
+    }
+    fn working(&self, change: WorkChange) {
+        self.working.lock().unwrap().push(change);
     }
     fn record(&self, tool: &'static str, assistant: &str, ok: bool, detail: String) {
         self.recorded
@@ -329,6 +333,121 @@ async fn hooks_keep_the_waiting_list_and_a_reply_is_silent() {
             ("Claude Code".into(), Some("app".into()), "done"),
         ]
     );
+    assert_eq!(
+        *host.working.lock().unwrap(),
+        vec![
+            WorkChange::End {
+                assistant: "Claude Code".into(),
+                place: Some("app · “fix tray”".into()),
+            },
+            WorkChange::End {
+                assistant: "Claude Code".into(),
+                place: Some("to use Bash · app".into()),
+            },
+            WorkChange::Start {
+                assistant: "Claude Code".into(),
+                place: Some("app".into()),
+            },
+            WorkChange::End {
+                assistant: "Claude Code".into(),
+                place: Some("app".into()),
+            },
+        ]
+    );
+}
+
+#[test]
+fn working_tracker_notifies_once_at_each_threshold_with_exact_text() {
+    use working::Working;
+
+    let mut working = Working::default();
+    working.start("Claude Code".into(), "DESKTOP-PET".into(), 0);
+    assert!(working.should_tick());
+    assert!(working.due(25 * 60 * 1_000 - 1).is_empty());
+    let first = working.due(25 * 60 * 1_000);
+    assert_eq!(first.len(), 1);
+    assert_eq!(
+        first[0].text(),
+        Some("Claude Code has been working 25 min · DESKTOP-PET".into())
+    );
+    assert!(working.due(30 * 60 * 1_000).is_empty());
+    let second = working.due(60 * 60 * 1_000);
+    assert_eq!(second.len(), 1);
+    assert_eq!(
+        second[0].text(),
+        Some("Claude Code has been working 60 min · DESKTOP-PET".into())
+    );
+    assert!(working.due(2 * 60 * 60 * 1_000).is_empty());
+}
+
+#[test]
+fn working_tracker_keeps_chats_separate_and_a_new_prompt_restarts_one() {
+    use working::Working;
+
+    let mut working = Working::default();
+    working.start("Claude Code".into(), "one".into(), 0);
+    working.start("Claude Code".into(), "two".into(), 10);
+    assert!(working.end("Claude Code", "one"));
+    assert!(!working.end("Claude Code", "one"));
+    assert_eq!(
+        working.due(25 * 60 * 1_000 + 10),
+        vec![working::Notice {
+            assistant: "Claude Code".into(),
+            folder: "two".into(),
+            minutes: 25,
+        }]
+    );
+    working.start("Claude Code".into(), "two".into(), 30 * 60 * 1_000);
+    assert!(working.due(54 * 60 * 1_000 + 59_999).is_empty());
+    assert_eq!(
+        working.due(55 * 60 * 1_000),
+        vec![working::Notice {
+            assistant: "Claude Code".into(),
+            folder: "two".into(),
+            minutes: 25,
+        }]
+    );
+}
+
+#[test]
+fn working_tracker_expires_and_only_ticks_while_it_has_runs() {
+    use working::Working;
+
+    let mut working = Working::default();
+    assert!(!working.should_tick());
+    working.start("Claude Code".into(), String::new(), 0);
+    assert!(working.should_tick());
+    assert_eq!(
+        working.due(25 * 60 * 1_000),
+        vec![working::Notice {
+            assistant: "Claude Code".into(),
+            folder: String::new(),
+            minutes: 25,
+        }]
+    );
+    assert_eq!(
+        working.due(3 * 60 * 60 * 1_000 + 1),
+        Vec::<working::Notice>::new()
+    );
+    assert!(!working.should_tick());
+}
+
+#[test]
+fn working_tracker_keeps_at_most_twenty_runs() {
+    use working::Working;
+
+    let mut working = Working::default();
+    for number in 0..21 {
+        working.start(
+            format!("assistant {number}"),
+            format!("folder {number}"),
+            number,
+        );
+    }
+    assert_eq!(working.len(), 20);
+    let notices = working.due(25 * 60 * 1_000 + 20);
+    assert_eq!(notices.len(), 20);
+    assert_eq!(notices[0].folder, "folder 1");
 }
 
 #[test]
