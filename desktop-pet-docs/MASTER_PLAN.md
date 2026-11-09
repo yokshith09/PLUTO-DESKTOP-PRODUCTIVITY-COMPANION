@@ -388,3 +388,7 @@ Study hours: **partly solved** (app/site time + categories built; study hours pe
 - 2026-11-09: Roles approved and Projects page gated by role (done). Awaiting owner: Study v3, routine Letters/Daylight, assistant editor. Friends tab planned (P9, on hold).
 
 - 2026-11-09: Assistant editor with tool and reaction switches done. Study Courses v4 preview awaiting the owner.
+
+## Handover round K (2026-11-09)
+
+K-1 Timetable, K-2 Exams-notes-tasks tab, K-3 class reminders (one agent, in order); K-4 deterministic timing tests (any agent, parallel). Briefs in [handover/](handover/README.md). Course page on hold for an outside design ([brief](design/COURSE_PAGE_BRIEF.md)).

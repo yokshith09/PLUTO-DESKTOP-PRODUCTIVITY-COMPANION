@@ -349,3 +349,4 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-09: Assistant permissions built (tools and pet reactions switchable per assistant in Edit setup; Unverified on a real PC). Study v4 preview awaits the owner: https://claude.ai/artifact/1U4fxWzXwTAiwMqUMExCwd
 - 2026-11-09: Course page preview (Notebook / Board) awaits the owner: https://claude.ai/artifact/PYg5kxDDs89V21N1wwqJJz
 - 2026-11-09: Course page waits for an outside design; feature brief in design/COURSE_PAGE_BRIEF.md.
+- 2026-11-09: Handover round K prepared (handover/K-1..K-4.md; design reference design/study-v3-preview.html). Nothing built yet for K.

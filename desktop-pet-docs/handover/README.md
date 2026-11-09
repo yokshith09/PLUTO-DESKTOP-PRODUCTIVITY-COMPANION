@@ -1,3 +1,11 @@
+# Handover to other coding agents
+
+**Current round (2026-11-09), for any agent (Kimi, Codex, others):** tasks [K-1 Timetable](K-1.md), [K-2 Exams, notes, tasks](K-2.md), [K-3 Class reminders](K-3.md) — in this order, one agent — and [K-4 Deterministic tests](K-4.md), independent, can run in parallel on another agent. Branch names `<agent>/<id>` (for example `kimi/k-1`). The rules below apply unchanged; where they say "Codex or Antigravity" read "any agent". Rule 9 (do not edit the Assistants page) still applies. Rule 4: K-1 is allowed exactly one migration (013) and one dependency (`calamine`); K-1 and K-2 may add the prefs keys their briefs name.
+
+**Not handed over this round:** Course page (waits for an outside design: `../design/COURSE_PAGE_BRIEF.md`), routine tracker redesign (no look chosen), A-8 sounds (design choice), FS-1 / TT-1 (preview first), Windsurf reactions (owner's PC), Friends (P9, on hold), the release.
+
+---
+
 # Handover to Codex and Antigravity (2026-11-04)
 
 The owner is away for a while and asked that part of the remaining work be built by other agents. This file is the contract. Claude Code (the session that wrote it) stays the integrator: it reviews, merges and does the docs merge. **Nobody releases.**

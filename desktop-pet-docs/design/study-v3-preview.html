@@ -1,0 +1,378 @@
+<title>Pluto Study Page</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{--bg:#0e0f1a;--card:#171928;--card2:#1d2033;--line:rgba(255,255,255,.11);--fg:#eceefb;--mut:#a3a8c4;--accent:#9aa9f2;--ink:#10122a;--soft:rgba(154,169,242,.16);--warm:#f2c078;--warm-soft:rgba(242,192,120,.15);--ok:#7ad0a0;--ok-soft:rgba(122,208,160,.15);--c1:#9aa9f2;--c2:#7ad0c0;--c3:#e49ac0;--c4:#f2c078;color-scheme:dark}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f3f4fb;--card:#fff;--card2:#f0f1fa;--line:rgba(20,24,60,.12);--fg:#1b1d33;--mut:#5a5f80;--accent:#4f5fd0;--ink:#fff;--soft:rgba(79,95,208,.12);--warm:#9a5a08;--warm-soft:rgba(168,101,11,.12);--ok:#14805a;--ok-soft:rgba(20,128,90,.12);--c1:#4f5fd0;--c2:#18917e;--c3:#b6437f;--c4:#a8650b;color-scheme:light}}
+:root[data-theme="light"]{--bg:#f3f4fb;--card:#fff;--card2:#f0f1fa;--line:rgba(20,24,60,.12);--fg:#1b1d33;--mut:#5a5f80;--accent:#4f5fd0;--ink:#fff;--soft:rgba(79,95,208,.12);--warm:#9a5a08;--warm-soft:rgba(168,101,11,.12);--ok:#14805a;--ok-soft:rgba(20,128,90,.12);--c1:#4f5fd0;--c2:#18917e;--c3:#b6437f;--c4:#a8650b;color-scheme:light}
+*{box-sizing:border-box}body{background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{font-size:22px;margin:0;letter-spacing:-.01em}h2{font-size:11.5px;margin:0;text-transform:uppercase;letter-spacing:.09em;color:var(--mut);font-weight:700}h3{font-size:16px;margin:0;font-weight:650}p{margin:0}.mut{color:var(--mut)}.sm{font-size:12.5px}
+button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);flex-wrap:wrap}.tab{background:none;border:0;border-bottom:2px solid transparent;padding:9px 14px;color:var(--mut);margin-bottom:-1px}.tab[aria-selected=true]{color:var(--fg);border-color:var(--accent);font-weight:650}
+.panel[hidden]{display:none}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+.btn{border-radius:10px;padding:6px 12px;border:1px solid var(--line);background:transparent}.btn:hover{background:var(--card2)}.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--ink);font-weight:650}.btn.sm{padding:3px 9px;font-size:12.5px}
+input[type=text],input[type=time],input[type=date],select,textarea{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:6px 10px;min-width:0}textarea{width:100%;resize:vertical}
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none}
+.stack{display:flex;flex-direction:column;gap:14px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.sp{margin-left:auto}
+.note{font-size:12.5px;color:var(--mut);border-left:2px solid var(--accent);padding-left:10px}
+
+/* course chips + header */
+.chips{display:flex;gap:8px;flex-wrap:wrap}.cchip{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px}.cchip[aria-pressed=true]{border-color:var(--accent);background:var(--soft);font-weight:650}
+.chead{display:grid;grid-template-columns:1fr auto;gap:8px 20px;align-items:center}.chead .meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.meter{height:8px;border-radius:99px;background:var(--card2);overflow:hidden;min-width:140px}.meter i{display:block;height:100%;background:var(--ok);border-radius:99px}
+.cols{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px}@media(max-width:820px){.cols{grid-template-columns:1fr}}
+/* chatgpt flow + write-out */
+.flow{display:grid;gap:12px}.step{display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px}.step b.n{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--ink);font-size:12px}
+pre{margin:0;white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;font:12.5px/1.55 ui-monospace,Menlo,Consolas,monospace}
+.over{position:fixed;inset:0;background:rgba(5,6,14,.7);display:grid;place-items:center;padding:16px;z-index:60}.over[hidden]{display:none}
+.big{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:28px;width:min(640px,100%);display:flex;flex-direction:column;gap:18px}
+.wo{font-size:26px;line-height:1.4;font-weight:600;min-height:120px;display:flex;align-items:center}
+.prog{height:6px;border-radius:99px;background:var(--card2);overflow:hidden}.prog i{display:block;height:100%;background:var(--accent)}
+.sheet{background:#fff;color:#1b1d33;border-radius:8px;padding:22px 26px;font-size:13px;box-shadow:0 8px 30px rgba(0,0,0,.35);max-width:520px}.sheet h4{margin:0 0 2px;font-size:16px}.sheet ol{margin:10px 0 0;padding-left:20px}.sheet li{padding:6px 0;border-bottom:1px dotted #b9bdd6}
+/* timetable: a real week table */
+.tset{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}.tset label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mut)}
+.wk{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+.wkg{display:grid;min-width:720px}
+.wkh{display:contents}.wkh>div{padding:9px 6px;text-align:center;font-weight:650;border-bottom:1px solid var(--line);background:var(--card2);font-size:13px}.wkh>div.today{color:var(--accent)}
+.tcol{position:relative;border-left:1px solid var(--line);cursor:cell}.tcol.today{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.tl{position:absolute;left:0;right:0;border-top:1px solid var(--line);opacity:.6}.tlabel{padding-right:8px;text-align:right;font-size:11px;color:var(--mut);position:relative;font-variant-numeric:tabular-nums}.tlabel span{position:absolute;right:8px;transform:translateY(-8px);background:var(--card);padding:0 3px}
+.blk{position:absolute;left:4px;right:4px;border-radius:9px;padding:5px 7px;overflow:hidden;border:1px solid transparent;text-align:left;cursor:pointer;line-height:1.25;font-size:12.5px}.blk b{display:block;font-size:12.5px}.blk small{display:block;opacity:.85;font-size:11.5px}
+.blk:hover,.blk[aria-pressed=true]{border-color:var(--fg)}
+.nowl{position:absolute;left:0;right:0;border-top:2px solid var(--warm);z-index:3;pointer-events:none}
+.ed{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}.ed label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mut)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--mut)}
+
+/* v3: topic cards with a visible Open control, inline-editable subtopics and notes, a two-pane write-out mode, and one Plan tab */
+.st{border:1px solid transparent}.st.s0{background:var(--card2);color:var(--mut)}.st.s1{background:var(--soft);color:var(--accent)}.st.s2{background:var(--warm-soft);color:var(--warm)}.st.s3{background:var(--ok-soft);color:var(--ok)}
+.lab{font-size:11.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--mut);font-weight:700}
+.tlist{display:flex;flex-direction:column;gap:10px}
+.tc{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;transition:border-color .15s}
+.tc:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.tc.open{border-color:var(--accent)}
+.th{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 12px 8px 8px}
+.star{background:none;border:0;font-size:18px;line-height:1;color:var(--mut);width:32px;height:32px;border-radius:8px}.star:hover{background:var(--card2)}.star[aria-pressed=true]{color:var(--warm)}
+.tmain{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;align-items:center;text-align:left;background:none;border:0;padding:6px 4px;border-radius:10px;min-width:0}
+.tmain:hover{background:var(--card2)}
+.tmain .ttl{grid-column:1;font-weight:650;font-size:15px;overflow-wrap:anywhere}
+.tmain .meta{grid-column:1;display:flex;gap:6px;flex-wrap:wrap}
+.tmain .segs{grid-column:1;display:flex;gap:3px}
+.tmain .segs i{height:4px;flex:1;max-width:44px;border-radius:99px;background:var(--card2);border:1px solid var(--line)}.tmain .segs i.on{background:var(--ok);border-color:var(--ok)}
+.tmain .opn{grid-column:2;grid-row:1/4;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:12.5px;color:var(--mut);background:var(--card2);white-space:nowrap}
+.tmain:hover .opn,.tc.open .opn{color:var(--accent);border-color:var(--accent)}
+.chev{display:inline-block;transition:transform .15s}.tc.open .chev{transform:rotate(180deg)}
+.mchip{font-size:12px;color:var(--mut);background:var(--card2);border-radius:6px;padding:1px 8px}.mchip.ok{color:var(--ok);background:var(--ok-soft)}
+.tb{border-top:1px solid var(--line);background:var(--card2);padding:16px;display:flex;flex-direction:column;gap:12px}
+.sb{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.sh{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto;gap:8px;align-items:center}
+.sh input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.flat,input[type=text].flat{background:transparent;border:1px solid transparent;border-radius:8px;padding:4px 8px;width:100%;resize:none;overflow:hidden;line-height:1.45}
+.flat:hover{border-color:var(--line)}.flat:focus,input[type=text].flat:focus{border-color:var(--accent);background:var(--card2);outline:none}
+.sh .flat{font-weight:650;font-size:14px}
+.x{background:none;border:0;color:var(--mut);width:28px;height:28px;border-radius:8px;font-size:13px}.x:hover{background:var(--card2);color:var(--fg)}
+.np{list-style:none;margin:0;padding:0 0 0 30px;display:flex;flex-direction:column;gap:2px}
+.np li{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:6px;align-items:start}
+.wr{background:none;border:1px solid var(--line);border-radius:8px;width:28px;height:28px;color:var(--mut);margin-top:1px}.wr[aria-pressed=true]{background:var(--ok-soft);border-color:transparent;color:var(--ok)}
+.ghost{align-self:flex-start;background:none;border:1px dashed var(--line);border-radius:8px;color:var(--mut);padding:3px 10px;font-size:12.5px;margin-left:30px}.ghost:hover{color:var(--accent);border-color:var(--accent)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.nsub{display:flex;gap:8px;flex-wrap:wrap}.nsub input{flex:1 1 200px}
+.hint{font-size:12.5px;color:var(--mut)}
+/* right column */
+.kv{display:grid;grid-template-columns:84px minmax(0,1fr);gap:6px 12px;font-size:13.5px}.kv dt{color:var(--mut)}.kv dd{margin:0}
+.dl{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}.dl:first-of-type{border-top:0}
+.dl .d{font-weight:700;font-variant-numeric:tabular-nums;font-size:13px;line-height:1.2}.dl .d small{display:block;font-weight:500;color:var(--mut);font-size:11px}
+.sug{display:flex;gap:10px;padding:9px 11px;border-radius:10px;background:var(--soft);font-size:13px}
+.stackS{display:flex;flex-direction:column;gap:8px}
+/* write-out */
+.big.wide{width:min(980px,100%);padding:0;gap:0;overflow:hidden;max-height:92vh}
+.wh{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:14px;align-items:center;padding:16px 22px;border-bottom:1px solid var(--line)}
+.wog{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:0;overflow:hidden}@media(max-width:760px){.wog{grid-template-columns:1fr}}
+.wout{border-right:1px solid var(--line);background:var(--card2);padding:12px;overflow:auto;max-height:62vh;display:flex;flex-direction:column;gap:12px}
+.wsub{display:flex;flex-direction:column;gap:2px}.wsub .lab{padding:0 8px 4px;display:flex;justify-content:space-between;gap:6px}
+.op{display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px;text-align:left;background:none;border:1px solid transparent;border-radius:8px;padding:6px 8px;font-size:13px;color:var(--mut)}
+.op:hover{background:var(--card)}.op.cur{background:var(--card);border-color:var(--accent);color:var(--fg)}.op.w .ck{color:var(--ok)}
+.wm{padding:24px 28px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.wm .big-t{font-size:26px;line-height:1.4;font-weight:600;min-height:140px;overflow-wrap:anywhere}
+.wm textarea{font-size:20px;line-height:1.4;min-height:140px}
+.wm .empty{min-height:140px;display:flex;flex-direction:column;gap:10px;justify-content:center}
+/* plan tab */
+.exg{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.exc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.exc .top{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:12px;align-items:center}
+.exc .date{background:var(--warm-soft);color:var(--warm);border-radius:10px;text-align:center;padding:6px 2px;line-height:1.15}.exc .date b{display:block;font-size:22px}.exc .date small{font-size:10.5px;font-weight:700;text-transform:uppercase}
+.exc .pct{text-align:right}.exc .pct b{font-size:20px;display:block;line-height:1.1}.exc .pct small{color:var(--mut);font-size:11.5px}
+.exc .opn{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:12.5px;color:var(--mut);background:var(--card2)}.exc .opn:hover{color:var(--accent);border-color:var(--accent)}
+.exc.open .chev{transform:rotate(180deg)}
+.tchips{display:flex;gap:6px;flex-wrap:wrap}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start}
+.pc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.pc .hd{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.li{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.li input{accent-color:var(--ok);width:16px;height:16px;margin:0}
+.li b{display:block;font-weight:600;overflow-wrap:anywhere}.li.dn b{text-decoration:line-through;color:var(--mut)}
+.li small{color:var(--mut);font-size:12px;display:flex;gap:6px;align-items:center}
+
+</style>
+
+<div class="wrap">
+  <div class="row"><div><h1>Study</h1><p class="mut sm">Student pack, version 3. Three tabs. Demo data; nothing is built yet.</p></div></div>
+  <div class="tabs" role="tablist" aria-label="Study sections" id="tabs">
+    <button class="tab" role="tab" aria-selected="true" data-p="courses">Courses</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="tt">Timetable</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="plan">Exams, notes, tasks</button>
+  </div>
+
+  <section class="panel stack" id="courses" aria-label="Courses">
+    <div class="chips" id="courseChips" role="group" aria-label="Course"></div>
+    <div class="card stack" id="cHead"></div>
+    <div class="cols">
+      <div class="stack">
+        <div class="row"><h2>Syllabus</h2><span class="mut sm" id="sylSum"></span><button class="btn sm sp" id="addTopic">Add topic</button></div>
+        <div class="tlist" id="topics"></div>
+        <p class="hint">Every topic opens to its subtopics and short notes. Use the Open button on a card.</p>
+      </div>
+      <div class="stack">
+        <div class="card"><div class="row" style="margin-bottom:10px"><h2>Exam</h2><button class="btn sm sp">Edit</button></div>
+          <dl class="kv"><dt>Date</dt><dd>Mon, Nov 21 · 9:00</dd><dt>Place</dt><dd>Hall B, seat 42</dd><dt>Format</dt><dd>Written, 3 hours, 5 long questions</dd><dt>Marks</dt><dd>60% of the course grade</dd><dt>Allowed</dt><dd>Molecular model kit, calculator</dd></dl></div>
+        <div class="card"><div class="row" style="margin-bottom:6px"><h2>Important dates</h2><button class="btn sm sp">Add</button></div>
+          <div class="dl"><span class="d">Nov 11<small>in 2 days</small></span><span>Problem set 6 due</span><span class="pill st s2">Task</span></div>
+          <div class="dl"><span class="d">Nov 14<small>in 5 days</small></span><span>Lab report 3 due</span><span class="pill st s2">Lab</span></div>
+          <div class="dl"><span class="d">Nov 16<small>in 7 days</small></span><span>Mock test, chapters 1 to 6</span><span class="pill st s1">Quiz</span></div>
+          <div class="dl"><span class="d">Nov 21<small>in 12 days</small></span><span>Final exam</span><span class="pill st s3">Exam</span></div></div>
+        <div class="card stackS"><h2>Next steps</h2><div class="sug" id="sug1"></div><div class="sug" id="sug2"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel stack" id="tt" aria-label="Timetable" hidden>
+    <div class="card stack">
+      <div class="tset">
+        <label>Day starts<select id="t0"></select></label><label>Day ends<select id="t1"></select></label>
+        <label>Slot<select id="tsl"><option value="30">30 min</option><option value="60" selected>1 hour</option><option value="90">90 min</option></select></label>
+        <label>Days shown<select id="tdays"><option value="5">Mon to Fri</option><option value="6">Mon to Sat</option><option value="7" selected>Mon to Sun</option></select></label>
+        <label>Row height<select id="tH"><option value="40">Compact</option><option value="54" selected>Comfortable</option><option value="72">Roomy</option></select></label>
+        <span class="sp row"><button class="btn" id="tImp">Import</button><button class="btn">Export CSV</button><button class="btn pri" id="tAdd">Add class</button></span>
+      </div>
+      <div class="legend" id="tLegend"></div>
+    </div>
+    <div class="wk" id="wk" role="group" aria-label="Week timetable"></div>
+    <div class="card stack" id="tEd" hidden>
+      <div class="row"><h3 id="edT">Class</h3><button class="btn sm sp" id="edX" aria-label="Close editor">Close</button></div>
+      <div class="ed">
+        <label>Course<select id="eC"></select></label><label>Day<select id="eD"></select></label>
+        <label>Starts<input type="time" id="eS"></label><label>Ends<input type="time" id="eE"></label>
+        <label>Place<input type="text" id="eP" maxlength="40"></label><label>Teacher<input type="text" id="eT" maxlength="40"></label>
+        <label>Repeats<select id="eR"><option>Every week</option><option>Odd weeks</option><option>Even weeks</option><option>Just once</option></select></label>
+        <label>Remind me<select id="eM"><option>No reminder</option><option>10 minutes before</option><option>30 minutes before</option></select></label>
+      </div>
+      <div class="row"><button class="btn pri" id="eSave">Save</button><button class="btn" id="eDel">Delete class</button><span class="mut sm">Drag a block to move it, drag its bottom edge to change its length (in the real app).</span></div>
+    </div>
+    <div class="card stack" id="tImpBox" hidden>
+      <h2>Import a timetable</h2>
+      <div class="row"><button class="btn">Choose a .csv or .xlsx file</button><span class="mut sm">Read on your computer. Nothing is uploaded.</span></div>
+      <p class="sm">Photo of your timetable? Ask ChatGPT with this text, save its answer as CSV, import it.</p>
+      <pre id="tPrompt">Turn this timetable image into CSV with exactly these columns:
+course,day,start,end,place,teacher
+Use day names Mon to Sun and 24-hour times like 09:30. One row per class.</pre>
+      <div class="row"><button class="btn" id="tCopy">Copy the text</button><span class="mut sm" id="tCopied" aria-live="polite"></span></div>
+    </div>
+  </section>
+
+  <section class="panel stack" id="plan" aria-label="Exams, notes and tasks" hidden>
+    <div class="chips" id="planChips" role="group" aria-label="Filter by course"></div>
+    <div class="row"><h2>Exams</h2><button class="btn sm sp">Add exam</button></div>
+    <div class="exg" id="exList"></div>
+    <div class="two">
+      <div class="pc"><div class="hd"><h2>Tasks</h2><button class="btn pri sm sp">New task</button></div><div id="kList"></div></div>
+      <div class="pc"><div class="hd"><h2>Notes</h2><button class="btn pri sm sp">New note</button></div><div id="nList"></div></div>
+    </div>
+  </section>
+</div>
+
+<div class="over" id="gpt" hidden>
+  <div class="big" role="dialog" aria-modal="true" aria-labelledby="gT" style="max-height:92vh;overflow:auto">
+    <div class="row"><h3 id="gT">Make short notes from ChatGPT</h3><button class="btn sm sp" id="gX">Close</button></div>
+    <div class="flow">
+      <div class="step"><b class="n">1</b><div class="stack" style="gap:8px"><p><b>Ask ChatGPT.</b> Copy this into ChatGPT. It already has your topic in it.</p><pre id="gPrompt"></pre><div class="row"><button class="btn" id="gCopy">Copy the text</button><span class="mut sm" id="gCopied" aria-live="polite"></span></div></div></div>
+      <div class="step"><b class="n">2</b><div class="stack" style="gap:8px"><p><b>Paste its answer here.</b></p><textarea id="gIn" rows="5" aria-label="ChatGPT's answer"></textarea><button class="btn pri" id="gMake" style="align-self:flex-start">Make points</button></div></div>
+      <div class="step"><b class="n">3</b><div class="stack" style="gap:8px"><p><b>Check the points, pick where they go.</b></p><ol class="points" id="gOut" style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px"></ol><div class="row"><label class="mut sm" for="gSub">Save under</label><select id="gSub"></select><button class="btn pri" id="gSave" disabled>Save notes</button><span class="mut sm" id="gSaved" aria-live="polite"></span></div></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="over" id="wo" hidden>
+  <div class="big wide" role="dialog" aria-modal="true" aria-labelledby="woT">
+    <div class="wh"><div><h3 id="woT"></h3><div class="mut sm" id="woN"></div></div><div class="prog" style="width:160px"><i id="woP" style="width:0"></i></div><button class="btn sm" id="woX">Close</button></div>
+    <div class="wog">
+      <nav class="wout" id="woOut" aria-label="All points"></nav>
+      <div class="wm" id="woMain"></div>
+    </div>
+  </div>
+</div>
+
+<div class="over" id="pr" hidden>
+  <div class="big" role="dialog" aria-modal="true" aria-labelledby="prT" style="background:var(--bg);align-items:center">
+    <div class="row" style="width:100%"><h3 id="prT">Notebook sheet preview</h3><button class="btn sm sp" id="prX">Close</button></div>
+    <div class="sheet" id="prS"></div>
+    <p class="mut sm" style="text-align:center">Prints on A4 with space beside each line to write it by hand, or as a half-page revision card.</p>
+  </div>
+</div>
+
+<script>
+
+var $=function(i){return document.getElementById(i)};
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+var COURSES=[{n:'Organic Chemistry',c:'var(--c2)'},{n:'Linear Algebra',c:'var(--c1)'},{n:'Physics',c:'var(--c3)'}];
+var ST=['To learn','Learning','Revise','Exam-ready'];
+function P(x,w){return{x:x,w:w?1:0}}
+function S(n,d,p){return{n:n,d:d,p:p||[]}}
+var TOP=[
+ {t:'Alkanes and nomenclature',imp:0,s:3,subs:[S('Naming rules',1,[P('Name = longest chain + substituents.',1),P('Number from the end nearest the first branch.',1)]),S('Isomers',1,[P('Isomers share a formula but not a structure.',1)]),S('Conformations',1)]},
+ {t:'Stereochemistry',imp:1,s:3,subs:[S('Chirality',1,[P('A chiral centre has four different groups.',1)]),S('R and S',1,[P('R or S comes from priority, then direction.',1)]),S('Enantiomers and diastereomers',1,[P('Enantiomers are mirror images and rotate light oppositely.',1)]),S('Optical activity',1)]},
+ {t:'Substitution: SN1 and SN2',imp:1,s:2,subs:[S('SN2: one step, inversion',1,[P('SN2 is one step and inverts the centre.',1),P('Strong nucleophile and primary carbon favour SN2.',0)]),S('SN1: carbocation, racemisation',0,[P('SN1 goes through a carbocation and can racemise.',0),P('Weak nucleophile and tertiary carbon favour SN1.',0)]),S('Solvent and leaving group effects',0),S('Compare SN1 and SN2',0)]},
+ {t:'Elimination: E1 and E2',imp:1,s:1,subs:[S('E2: one step, anti-periplanar',0),S('E1: carbocation first',0),S('Zaitsev and Hofmann',0)]},
+ {t:'Alcohols and ethers',imp:0,s:0,subs:[S('Preparation',0),S('Reactions',0)]},
+ {t:'Aromatic compounds',imp:1,s:0,subs:[S('Aromaticity',0),S('Electrophilic substitution',0),S('Directing groups',0)]},
+ {t:'Spectroscopy: NMR and IR',imp:0,s:0,subs:[S('IR peaks',0),S('1H NMR shifts',0)]}
+];
+var open=2,cur=0;
+function cnt(x){var c={sn:x.subs.length,sd:0,pn:0,pw:0};x.subs.forEach(function(s){if(s.d)c.sd++;s.p.forEach(function(p){c.pn++;if(p.w)c.pw++})});return c}
+function metaHTML(x){var c=cnt(x);return'<span class="mchip">'+c.sd+' of '+c.sn+' subtopics</span><span class="mchip">'+c.pn+(c.pn===1?' short note':' short notes')+'</span>'+(c.pn?'<span class="mchip'+(c.pw===c.pn?' ok':'')+'">✍ '+c.pw+' of '+c.pn+' written</span>':'')}
+function segs(x){return x.subs.map(function(s){return'<i class="'+(s.d?'on':'')+'"></i>'}).join('')}
+function ready(){return TOP.filter(function(x){return x.s===3}).length}
+function chipsHTML(sel,all){return(all?'<button class="cchip" aria-pressed="'+(sel<0)+'" data-c="-1">All courses</button>':'')+COURSES.map(function(c,i){return'<button class="cchip" aria-pressed="'+(i===sel)+'" data-c="'+i+'"><i class="dot" style="background:'+c.c+'"></i>'+esc(c.n)+'</button>'}).join('')}
+function renderChips(){$('courseChips').innerHTML=chipsHTML(cur,0)+'<button class="cchip" style="color:var(--mut)">+ Add a course</button>'}
+function renderHead(){var r=ready(),p=Math.round(r/TOP.length*100);
+ $('cHead').innerHTML='<div class="chead"><div class="meta"><i class="dot" style="background:var(--c2);width:14px;height:14px"></i><h3 style="font-size:20px">Organic Chemistry</h3><span class="pill st s2">Exam in 12 days</span></div><div class="row"><span class="mut sm">8h 20m focus this week</span><button class="btn sm" aria-label="Course menu">⋯</button></div></div><div class="row" style="gap:14px"><div class="meter" style="flex:1" role="img" aria-label="'+p+' percent exam-ready"><i style="width:'+p+'%"></i></div><b>'+r+' of '+TOP.length+' topics exam-ready</b></div>';
+ var imp=TOP.filter(function(x){return x.imp&&x.s<3}).length,tw=0;TOP.forEach(function(x){var c=cnt(x);if(c.pn&&c.pw<c.pn)tw++});
+ $('sug1').innerHTML='<span aria-hidden="true">★</span><span><b>'+imp+' important topics</b> are not exam-ready yet. Start with Substitution.</span>';
+ $('sug2').innerHTML='<span aria-hidden="true">✍</span><span><b>'+tw+(tw===1?' topic':' topics')+'</b> '+(tw===1?'has':'have')+' notes still to write in your notebook.</span>'}
+function renderTopics(){$('sylSum').textContent=TOP.length+' topics';
+ $('topics').innerHTML=TOP.map(function(x,i){var o=i===open;
+  var h='<article class="tc'+(o?' open':'')+'"><div class="th"><button class="star" aria-pressed="'+!!x.imp+'" data-star="'+i+'" aria-label="Important topic">'+(x.imp?'★':'☆')+'</button>';
+  h+='<button class="tmain" data-open="'+i+'" aria-expanded="'+o+'"><span class="ttl">'+esc(x.t)+'</span><span class="meta" id="meta'+i+'">'+metaHTML(x)+'</span><span class="segs" aria-hidden="true">'+segs(x)+'</span><span class="opn">'+(o?'Close':'Open')+' <b class="chev" aria-hidden="true">▾</b></span></button>';
+  h+='<button class="pill st s'+x.s+'" data-st="'+i+'" aria-label="Status '+ST[x.s]+', tap to change">'+ST[x.s]+'</button></div>';
+  if(o){h+='<div class="tb">'+x.subs.map(function(s,j){
+    return'<section class="sb"><div class="sh"><input type="checkbox" data-sd="'+i+'-'+j+'"'+(s.d?' checked':'')+' aria-label="Subtopic understood"><input class="flat" type="text" data-sn="'+i+'-'+j+'" value="'+esc(s.n)+'" aria-label="Subtopic name"><span class="mut sm">'+s.p.length+(s.p.length===1?' note':' notes')+'</span><button class="x" data-sdel="'+i+'-'+j+'" aria-label="Delete subtopic">✕</button></div>'+
+    '<ol class="np">'+s.p.map(function(p,k){return'<li><button class="wr" data-pw="'+i+'-'+j+'-'+k+'" aria-pressed="'+!!p.w+'" title="Written in your notebook" aria-label="Written in notebook">✍</button><textarea class="flat" rows="1" data-pt="'+i+'-'+j+'-'+k+'" aria-label="Short note">'+esc(p.x)+'</textarea><button class="x" data-pdel="'+i+'-'+j+'-'+k+'" aria-label="Delete note">✕</button></li>'}).join('')+'</ol>'+
+    '<button class="ghost" data-padd="'+i+'-'+j+'">+ Add a short note</button></section>'}).join('');
+   h+='<div class="nsub"><input type="text" id="ns'+i+'" placeholder="New subtopic name" aria-label="New subtopic name"><button class="btn sm" data-sadd="'+i+'">Add subtopic</button></div>';
+   h+='<div class="tools"><button class="btn sm" data-gpt="'+i+'">Make notes from ChatGPT</button><button class="btn sm" data-wo="'+i+'">Write-out mode</button><button class="btn sm" data-pr="'+i+'">Notebook sheet</button></div></div>'}
+  return h+'</article>'}).join('');grow()}
+function grow(){[].forEach.call(document.querySelectorAll('textarea.flat'),function(t){t.style.height='auto';t.style.height=t.scrollHeight+'px'})}
+function ids(s){return s.split('-').map(Number)}
+$('courseChips').onclick=function(e){var b=e.target.closest('[data-c]');if(b){cur=+b.dataset.c;renderChips()}};
+$('topics').onclick=function(e){var t,a;
+ if(t=e.target.closest('[data-open]')){var i=+t.dataset.open;open=open===i?-1:i;renderTopics();return}
+ if(t=e.target.closest('[data-star]')){var k=TOP[+t.dataset.star];k.imp=k.imp?0:1;renderTopics();return}
+ if(t=e.target.closest('[data-st]')){var q=TOP[+t.dataset.st];q.s=(q.s+1)%4;renderTopics();renderHead();return}
+ if(t=e.target.closest('[data-gpt]')){openGpt(+t.dataset.gpt);return}
+ if(t=e.target.closest('[data-wo]')){openWo(+t.dataset.wo);return}
+ if(t=e.target.closest('[data-pr]')){openPr(+t.dataset.pr);return}
+ if(t=e.target.closest('[data-pw]')){a=ids(t.dataset.pw);var p=TOP[a[0]].subs[a[1]].p[a[2]];p.w=p.w?0:1;renderTopics();renderHead();return}
+ if(t=e.target.closest('[data-pdel]')){a=ids(t.dataset.pdel);TOP[a[0]].subs[a[1]].p.splice(a[2],1);renderTopics();renderHead();return}
+ if(t=e.target.closest('[data-padd]')){a=ids(t.dataset.padd);TOP[a[0]].subs[a[1]].p.push(P('',0));renderTopics();var ta=document.querySelectorAll('[data-pt^="'+a[0]+'-'+a[1]+'-"]');ta[ta.length-1].focus();return}
+ if(t=e.target.closest('[data-sdel]')){a=ids(t.dataset.sdel);TOP[a[0]].subs.splice(a[1],1);renderTopics();renderHead();return}
+ if(t=e.target.closest('[data-sadd]')){var n=+t.dataset.sadd,v=$('ns'+n).value.trim()||'New subtopic';TOP[n].subs.push(S(v,0));renderTopics();renderHead();return}
+ if(e.target.matches('input[data-sd]')){a=ids(e.target.dataset.sd);TOP[a[0]].subs[a[1]].d=e.target.checked?1:0;renderTopics();renderHead()}};
+$('topics').addEventListener('input',function(e){var d=e.target.dataset,a;
+ if(d.sn){a=ids(d.sn);TOP[a[0]].subs[a[1]].n=e.target.value}
+ if(d.pt){a=ids(d.pt);TOP[a[0]].subs[a[1]].p[a[2]].x=e.target.value;e.target.style.height='auto';e.target.style.height=e.target.scrollHeight+'px'}});
+$('addTopic').onclick=function(){TOP.push({t:'New topic',imp:0,s:0,subs:[]});open=TOP.length-1;renderTopics();renderHead()};
+
+/* ChatGPT -> points */
+var gi=0,pts=[];
+function openGpt(i){gi=i;var t=TOP[i].t;$('gPrompt').textContent='Explain "'+t+'" for an exam on Organic Chemistry.\nGive 5 to 8 short points a student can copy into a notebook.\nOne point per line, under 20 words each, no headings, no tables.\nEnd with one worked example in two lines.';$('gIn').value='';$('gOut').innerHTML='';$('gSave').disabled=true;$('gSaved').textContent='';$('gCopied').textContent='';
+ $('gSub').innerHTML=TOP[i].subs.map(function(s,j){return'<option value="'+j+'">'+esc(s.n)+'</option>'}).join('')+'<option value="new">A new subtopic: ChatGPT notes</option>';$('gpt').hidden=false;$('gIn').focus()}
+function toPoints(txt){return txt.split(/\n+/).map(function(l){return l.replace(/^\s*(?:[-*•–]|\d+[.)])\s*/,'').replace(/[*_`#>]+/g,'').replace(/\s+/g,' ').trim()}).filter(function(l){return l.length>3}).slice(0,9)}
+function drawPts(){$('gOut').innerHTML=pts.length?pts.map(function(p,i){return'<li><div class="row" style="flex-wrap:nowrap"><input type="text" style="flex:1" value="'+esc(p)+'" data-p="'+i+'" aria-label="Point '+(i+1)+'"><button class="btn sm" data-d="'+i+'" aria-label="Delete point '+(i+1)+'">✕</button></div></li>'}).join(''):'<li class="mut">Nothing to split yet. Paste the answer first.</li>';$('gSave').disabled=!pts.length}
+$('gMake').onclick=function(){pts=toPoints($('gIn').value);drawPts()};
+$('gOut').addEventListener('input',function(e){if(e.target.dataset.p!==undefined)pts[+e.target.dataset.p]=e.target.value});
+$('gOut').addEventListener('click',function(e){var d=e.target.dataset.d;if(d!==undefined){pts.splice(+d,1);drawPts()}});
+$('gSave').onclick=function(){var x=TOP[gi],v=$('gSub').value,list=pts.filter(Boolean).map(function(t){return P(t,0)});
+ if(v==='new'){x.subs.push(S('ChatGPT notes',0,list))}else{x.subs[+v].p=x.subs[+v].p.concat(list)}
+ $('gSaved').textContent='Saved '+list.length+' notes.';renderTopics();renderHead()};
+$('gX').onclick=function(){$('gpt').hidden=true};
+function copyEl(id,out){var t=$(id).textContent;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){$(out).textContent='Copied'},function(){var r=document.createRange();r.selectNodeContents($(id));var s=getSelection();s.removeAllRanges();s.addRange(r);$(out).textContent='Selected, press Ctrl+C'})}
+$('gCopy').onclick=function(){copyEl('gPrompt','gCopied')};
+
+/* Write-out: outline on the left, one big editable point on the right */
+var wi=0,wc=[0,0],wedit=false;
+function flat(){var f=[];TOP[wi].subs.forEach(function(s,a){s.p.forEach(function(p,b){f.push([a,b])})});return f}
+function fidx(f){for(var i=0;i<f.length;i++)if(f[i][0]===wc[0]&&f[i][1]===wc[1])return i;return -1}
+function openWo(i){wi=i;wedit=false;var f=flat();var first=f.filter(function(q){return!TOP[i].subs[q[0]].p[q[1]].w})[0]||f[0];wc=first?first.slice():[0,0];$('woT').textContent=TOP[i].t;showWo();$('wo').hidden=false}
+function showWo(){var x=TOP[wi],f=flat(),k=fidx(f),done=0;f.forEach(function(q){if(x.subs[q[0]].p[q[1]].w)done++});
+ $('woN').textContent=f.length?done+' of '+f.length+' written in your notebook':'No notes yet';$('woP').style.width=(f.length?done/f.length*100:0)+'%';
+ $('woOut').innerHTML=x.subs.map(function(s,a){return'<div class="wsub"><div class="lab"><span>'+esc(s.n)+'</span><button class="x" style="width:auto;padding:0 6px;height:20px;font-size:12px" data-wadd="'+a+'" title="Add a point to this subtopic">+ point</button></div>'+s.p.map(function(p,b){return'<button class="op'+(a===wc[0]&&b===wc[1]?' cur':'')+(p.w?' w':'')+'" data-g="'+a+'-'+b+'"><span class="ck" aria-hidden="true">'+(p.w?'✓':'○')+'</span><span>'+esc(p.x||'(empty)')+'</span></button>'}).join('')+'</div>'}).join('')+'<div class="nsub"><input type="text" id="wns" placeholder="New subtopic" aria-label="New subtopic name"><button class="btn sm" id="wnsB">Add</button></div>';
+ var m='';
+ if(k<0){m='<div class="empty"><p class="mut">This topic has no short notes yet.</p><button class="btn pri" style="align-self:flex-start" data-wfirst>Add the first note</button></div>'}
+ else{var s=x.subs[wc[0]],p=s.p[wc[1]];
+  m='<div class="lab">'+esc(s.n)+' · Point '+(k+1)+' of '+f.length+'</div>'+(wedit?'<textarea id="woEd" class="flat" style="border-color:var(--accent);background:var(--card2)" aria-label="Edit this point">'+esc(p.x)+'</textarea>':'<p class="big-t">'+(p.x?esc(p.x):'<span class="mut">Empty note. Press Edit to write it.</span>')+'</p>')+
+  '<div class="row"><button class="btn" data-wback'+(k===0?' disabled':'')+'>Back</button>'+(wedit?'<button class="btn" data-wsave>Save edit</button>':'<button class="btn" data-wedit>Edit this point</button>')+'<button class="btn" data-wdel>Delete</button><button class="btn pri sp" data-wnext>'+(k===f.length-1?'Written, finish':'Written, next')+'</button></div>'+
+  '<p class="hint">One point at a time, large, so you can copy it into your notebook without losing your place. Edit any point or add subtopics here; changes save as you go.</p>'}
+ $('woMain').innerHTML=m;var ta=$('woEd');if(ta){ta.style.height='auto';ta.style.height=Math.max(140,ta.scrollHeight)+'px';ta.focus()}}
+$('wo').addEventListener('click',function(e){var t,x=TOP[wi],f=flat(),k=fidx(f);
+ if(t=e.target.closest('[data-g]')){wc=ids(t.dataset.g);wedit=false;showWo();return}
+ if(t=e.target.closest('[data-wadd]')){var a=+t.dataset.wadd;x.subs[a].p.push(P('',0));wc=[a,x.subs[a].p.length-1];wedit=true;showWo();return}
+ if(e.target.closest('[data-wfirst]')){if(!x.subs.length)x.subs.push(S('Notes',0));x.subs[0].p.push(P('',0));wc=[0,x.subs[0].p.length-1];wedit=true;showWo();return}
+ if(e.target.closest('#wnsB')){var v=$('wns').value.trim()||'New subtopic';x.subs.push(S(v,0,[P('',0)]));wc=[x.subs.length-1,0];wedit=true;showWo();return}
+ if(e.target.closest('[data-wedit]')){wedit=true;showWo();return}
+ if(e.target.closest('[data-wsave]')){x.subs[wc[0]].p[wc[1]].x=$('woEd').value.trim();wedit=false;showWo();return}
+ if(e.target.closest('[data-wdel]')){x.subs[wc[0]].p.splice(wc[1],1);var g=flat();if(g.length){wc=g[Math.min(k,g.length-1)].slice()}wedit=false;showWo();return}
+ if(e.target.closest('[data-wback]')){if(k>0){wc=f[k-1].slice();wedit=false;showWo()}return}
+ if(e.target.closest('[data-wnext]')){if(wedit)x.subs[wc[0]].p[wc[1]].x=$('woEd').value.trim();x.subs[wc[0]].p[wc[1]].w=1;wedit=false;
+  var nxt=f.slice(k+1).concat(f.slice(0,k)).filter(function(q){return!x.subs[q[0]].p[q[1]].w})[0];
+  if(nxt){wc=nxt.slice();showWo()}else{$('wo').hidden=true;renderTopics();renderHead()}}});
+$('woX').onclick=function(){$('wo').hidden=true;renderTopics();renderHead()};
+function openPr(i){var x=TOP[i];$('prS').innerHTML='<h4>'+esc(x.t)+'</h4><div style="color:#5a5f80;font-size:12px">Organic Chemistry · exam Nov 21</div>'+x.subs.filter(function(s){return s.p.length}).map(function(s){return'<div style="margin-top:12px;font-weight:700">'+esc(s.n)+'</div><ol>'+s.p.map(function(p){return'<li>'+esc(p.x)+'</li>'}).join('')+'</ol>'}).join('');$('pr').hidden=false}
+$('prX').onclick=function(){$('pr').hidden=true};
+
+/* PLAN: exams, tasks, notes in one tab, one course filter */
+var pf=-1,exOpen=0;
+var EX=[{c:0,m:'Nov',d:21,t:'Mon · 9:00 · Hall B',left:12,real:1},{c:1,m:'Nov',d:30,t:'Wed · 14:00 · Hall A',left:21,txt:['Vector spaces','Eigenvalues','Orthogonality','SVD'],pr:35},{c:2,m:'Dec',d:7,t:'Wed · 10:00 · Lab block',left:28,txt:['Waves','Optics','Thermodynamics'],pr:10}];
+var KS=[{t:'Problem set 6',c:0,due:'Nov 11',d:0},{t:'Lab report 3',c:0,due:'Nov 14',d:0},{t:'Matrix exercises 4',c:1,due:'Nov 15',d:0},{t:'Re-read chapter 9',c:0,due:'',d:0},{t:'Pack lab coat',c:2,due:'Nov 10',d:1}];
+var NS=[{t:'Substitution reactions',c:0,k:'Exam note',x:'2 of 4 written'},{t:'Stereochemistry',c:0,k:'Exam note',x:'3 of 3 written'},{t:'Reaction cheat sheet',c:0,k:'Note',x:'Last week'},{t:'Eigenvalue shortcuts',c:1,k:'Note',x:'Today'},{t:'Lab 3 observations',c:2,k:'Note',x:'Last week'}];
+function renderPlan(){$('planChips').innerHTML=chipsHTML(pf,1);
+ var ex=EX.filter(function(x){return pf<0||x.c===pf});
+ $('exList').innerHTML=ex.map(function(x){var ix=EX.indexOf(x),o=ix===exOpen,co=COURSES[x.c],p=x.real?Math.round(ready()/TOP.length*100):x.pr;
+  var chips=x.real?TOP.map(function(t){return'<span class="pill st s'+t.s+'">'+esc(t.t)+'</span>'}).join(''):x.txt.map(function(t){return'<span class="pill st s0">'+esc(t)+'</span>'}).join('');
+  var n=x.real?TOP.length:x.txt.length;
+  return'<article class="exc'+(o?' open':'')+'"><div class="top"><div class="date"><small>'+x.m+'</small><b>'+x.d+'</b></div><div style="min-width:0"><div class="row" style="gap:6px;flex-wrap:nowrap"><i class="dot" style="background:'+co.c+'"></i><b>'+esc(co.n)+'</b></div><div class="mut sm">'+x.t+' · in '+x.left+' days</div></div><div class="pct"><b>'+p+'%</b><small>exam-ready</small></div></div><button class="opn" data-ex="'+ix+'" aria-expanded="'+o+'">'+n+' topics for this exam <b class="chev" aria-hidden="true">▾</b></button>'+(o?'<div class="tchips">'+chips+'</div>':'')+'</article>'}).join('')||'<p class="mut">No exams for this course yet.</p>';
+ $('kList').innerHTML=KS.filter(function(k){return pf<0||k.c===pf}).map(function(k){return'<div class="li'+(k.d?' dn':'')+'"><input type="checkbox"'+(k.d?' checked':'')+' aria-label="Done: '+esc(k.t)+'"><div style="min-width:0"><b>'+esc(k.t)+'</b><small><i class="dot" style="background:'+COURSES[k.c].c+';width:8px;height:8px"></i>'+esc(COURSES[k.c].n)+'</small></div>'+(k.due?'<span class="pill st s2">'+k.due+'</span>':'<span></span>')+'</div>'}).join('');
+ $('nList').innerHTML=NS.filter(function(k){return pf<0||k.c===pf}).map(function(k){return'<div class="li" style="grid-template-columns:minmax(0,1fr) auto"><div style="min-width:0"><b>'+esc(k.t)+'</b><small><i class="dot" style="background:'+COURSES[k.c].c+';width:8px;height:8px"></i>'+esc(COURSES[k.c].n)+' · '+k.x+'</small></div><span class="pill st '+(k.k==='Exam note'?'s1':'s0')+'">'+k.k+'</span></div>'}).join('')}
+$('planChips').onclick=function(e){var b=e.target.closest('[data-c]');if(b){pf=+b.dataset.c;renderPlan()}};
+$('exList').onclick=function(e){var b=e.target.closest('[data-ex]');if(b){var i=+b.dataset.ex;exOpen=exOpen===i?-1:i;renderPlan()}};
+
+$('tabs').onclick=function(e){var b=e.target.closest('.tab');if(!b)return;[].forEach.call(this.children,function(x){x.setAttribute('aria-selected',x===b)});['courses','tt','plan'].forEach(function(id){$(id).hidden=id!==b.dataset.p})};
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){['gpt','wo','pr'].forEach(function(i){$(i).hidden=true})}});
+
+
+// TIMETABLE
+var DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],todayIdx=0;
+var CL=[{c:0,d:0,s:9.5,e:11,p:'Hall B',t:'Dr. Rao'},{c:1,d:0,s:13,e:14.5,p:'Room 204',t:'Prof. Lim'},{c:2,d:0,s:15.25,e:17,p:'Lab 3',t:'Dr. Okafor'},{c:0,d:1,s:10,e:11.5,p:'Hall B',t:'Dr. Rao'},{c:1,d:2,s:9,e:10.5,p:'Room 204',t:'Prof. Lim'},{c:2,d:2,s:11,e:13,p:'Lab 3',t:'Dr. Okafor'},{c:0,d:3,s:11,e:12.5,p:'Hall B',t:'Dr. Rao'},{c:2,d:4,s:9,e:10,p:'Room 12',t:'Dr. Okafor'},{c:1,d:4,s:14,e:15.5,p:'Room 204',t:'Prof. Lim'}];
+var sel=-1,T={s0:8,s1:18,sl:60,nd:7,H:54};
+function hh(h){var H=Math.floor(h),M=Math.round((h-H)*60);return H+':'+('0'+M).slice(-2)}
+function hm(h){var H=Math.floor(h),M=Math.round((h-H)*60);return('0'+H).slice(-2)+':'+('0'+M).slice(-2)}
+function pm(v){var a=v.split(':');return +a[0]+(+a[1])/60}
+function fillSel(){var o='';for(var h=6;h<=22;h++)o+='<option value="'+h+'">'+h+':00</option>';$('t0').innerHTML=o;$('t1').innerHTML=o;$('t0').value=T.s0;$('t1').value=T.s1;$('eC').innerHTML=COURSES.map(function(c,i){return'<option value="'+i+'">'+esc(c.n)+'</option>'}).join('');$('eD').innerHTML=DAYS.map(function(d,i){return'<option value="'+i+'">'+d+'</option>'}).join('')}
+function renderTT(){var nd=T.nd,hrs=T.s1-T.s0,H=T.H,tot=hrs*H,g='<div class="wkg" style="grid-template-columns:54px repeat('+nd+',minmax(0,1fr))"><div class="wkh"><div style="background:var(--card2);border-bottom:1px solid var(--line)"></div>';
+ for(var d=0;d<nd;d++)g+='<div class="'+(d===todayIdx?'today':'')+'">'+DAYS[d]+(d===todayIdx?' · today':'')+'</div>';g+='</div>';
+ var lines='';for(var h=T.s0;h<=T.s1;h+=T.sl/60)lines+='<div class="tl" style="top:'+((h-T.s0)*H)+'px"></div>';
+ var lab='';for(var h2=T.s0;h2<T.s1;h2+=1)lab+='<div style="position:absolute;right:0;top:'+((h2-T.s0)*H)+'px;width:100%"><div class="tlabel" style="height:0"><span>'+h2+':00</span></div></div>';
+ g+='<div style="position:relative;height:'+tot+'px">'+lab+'</div>';
+ for(d=0;d<nd;d++){var b='';CL.forEach(function(c,i){if(c.d!==d||c.e<=T.s0||c.s>=T.s1)return;var col=COURSES[c.c].c;b+='<button class="blk" data-i="'+i+'" aria-pressed="'+(i===sel)+'" aria-label="'+esc(COURSES[c.c].n)+', '+DAYS[d]+' '+hh(c.s)+' to '+hh(c.e)+', '+esc(c.p)+'" style="top:'+((c.s-T.s0)*H+1)+'px;height:'+((c.e-c.s)*H-2)+'px;background:color-mix(in srgb,'+col+' 24%,var(--card));border-color:color-mix(in srgb,'+col+' 55%,transparent)"><b>'+esc(COURSES[c.c].n)+'</b><small>'+hh(c.s)+' to '+hh(c.e)+'</small>'+(c.e-c.s>=1?'<small>'+esc(c.p)+'</small>':'')+'</button>'});
+  if(d===todayIdx&&11.4>=T.s0&&11.4<=T.s1)b+='<div class="nowl" style="top:'+((11.4-T.s0)*H)+'px"></div>';
+  g+='<div class="tcol'+(d===todayIdx?' today':'')+'" data-d="'+d+'" style="height:'+tot+'px">'+lines+b+'</div>'}
+ $('wk').innerHTML=g+'</div>';
+ $('tLegend').innerHTML=COURSES.map(function(c){return'<span><i class="dot" style="background:'+c.c+';margin-right:6px"></i>'+esc(c.n)+'</span>'}).join('')+'<span>'+CL.length+' classes a week · click a block to edit, click an empty spot to add</span>'}
+function openEd(i){sel=i;var c=CL[i];$('edT').textContent=COURSES[c.c].n+' · '+DAYS[c.d];$('eC').value=c.c;$('eD').value=c.d;$('eS').value=hm(c.s);$('eE').value=hm(c.e);$('eP').value=c.p;$('eT').value=c.t;$('tEd').hidden=false;renderTT()}
+$('wk').addEventListener('click',function(e){var b=e.target.closest('.blk');if(b){openEd(+b.dataset.i);return}var col=e.target.closest('.tcol');if(col){var r=col.getBoundingClientRect(),y=e.clientY-r.top,s=T.s0+Math.floor(y/T.H*(60/T.sl))*(T.sl/60);CL.push({c:cur,d:+col.dataset.d,s:s,e:Math.min(s+T.sl/60,T.s1),p:'',t:''});openEd(CL.length-1)}});
+$('eSave').onclick=function(){var c=CL[sel];c.c=+$('eC').value;c.d=+$('eD').value;c.s=pm($('eS').value);c.e=pm($('eE').value);c.p=$('eP').value;c.t=$('eT').value;$('tEd').hidden=true;sel=-1;renderTT()};
+$('eDel').onclick=function(){CL.splice(sel,1);sel=-1;$('tEd').hidden=true;renderTT()};$('edX').onclick=function(){sel=-1;$('tEd').hidden=true;renderTT()};
+$('tAdd').onclick=function(){CL.push({c:cur,d:todayIdx,s:T.s0+1,e:T.s0+2,p:'',t:''});openEd(CL.length-1)};
+['t0','t1','tsl','tdays','tH'].forEach(function(id){$(id).onchange=function(){T.s0=+$('t0').value;T.s1=Math.max(T.s0+2,+$('t1').value);T.sl=+$('tsl').value;T.nd=+$('tdays').value;T.H=+$('tH').value;if(T.s1!==+$('t1').value)$('t1').value=T.s1;renderTT()}});
+$('tImp').onclick=function(){$('tImpBox').hidden=!$('tImpBox').hidden};
+$('tCopy').onclick=function(){var t=$('tPrompt').textContent;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){$('tCopied').textContent='Copied'},function(){var r=document.createRange();r.selectNodeContents($('tPrompt'));var s=getSelection();s.removeAllRanges();s.addRange(r);$('tCopied').textContent='Selected, press Ctrl+C'})};
+fillSel();renderChips();renderHead();renderTopics();renderTT();renderPlan();
+</script>
