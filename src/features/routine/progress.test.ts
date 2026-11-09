@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { REASON_CHOICES, dayStat, encouragement, reasonTip, reasonTotals, skippedOn, habitRates, nameOf, rangeTotals, roomLine, roomToGrow, weekLine, weekVsWeek } from "./progress";
+import { REASON_CHOICES, dayStat, lettersLine, encouragement, reasonTip, reasonTotals, skippedOn, habitRates, nameOf, rangeTotals, roomLine, roomToGrow, weekLine, weekVsWeek } from "./progress";
 import { addItem, emptyRoutine, parseRoutine, rollOver, setReason, toggle } from "./routine";
 
 /** Ten days of three routines: Stretch every day, Read on even days, Water only on the first two. */
@@ -126,5 +126,13 @@ describe("why a routine was skipped (owner 2026-11-09)", () => {
     const words = [reasonTip(undefined), reasonTip({ reason: "something unusual" }), ...REASON_CHOICES.map((r) => reasonTip({ reason: r }))];
     for (const w of words) expect(w).not.toMatch(/miss|fail|behind|lazy|worse|streak|lost|only|but |bad|should/i);
     expect(reasonTip({ reason: "TOO TIRED" })).toMatch(/Tired days happen/);
+  });
+});
+
+describe("Letters look", () => {
+  it("the week sentence stays kind with nothing recorded", () => {
+    const days = ["2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13", "2026-11-14", "2026-11-15"];
+    expect(lettersLine(emptyRoutine("2026-11-10"), days, "2026-11-10")).toBe("A fresh start. Tick a routine today and it shows here.");
+    expect(lettersLine(emptyRoutine("2026-11-20"), days, "2026-11-20")).toBe("Nothing was recorded in those days.");
   });
 });

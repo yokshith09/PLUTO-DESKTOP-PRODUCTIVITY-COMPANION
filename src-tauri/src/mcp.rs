@@ -575,7 +575,11 @@ const CHAT_GO: &str = "chat-go:";
 
 fn show_on_pet<R: Runtime>(app: &AppHandle<R>, message: PetMessage, go: bool) {
     let assistant = message.assistant.clone();
+    let sound = pluto_core::mcp::sound_kind(message.reaction);
     let mut say = serde_json::json!({ "text": bubble(message) });
+    if let Some(kind) = sound {
+        say["sound"] = kind.into();
+    }
     if go {
         say["actionId"] = format!("{CHAT_GO}{assistant}").into();
         say["actionLabel"] = "go to it".into();

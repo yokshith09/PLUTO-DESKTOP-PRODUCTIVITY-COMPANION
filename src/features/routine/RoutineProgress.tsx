@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { dayLabel, parseYmd, ymd } from "@/lib/dates";
 import { cn } from "@/lib/utils";
-import { REASON_CHOICES, dayStat, encouragement, habitRates, nameOf, reasonTip, reasonTotals, roomLine, roomToGrow, skippedOn, weekLine, weekVsWeek } from "./progress";
+import { REASON_CHOICES, dayStat, encouragement, habitRates, lettersLine, nameOf, reasonTip, reasonTotals, roomLine, roomToGrow, skippedOn, weekLine, weekVsWeek } from "./progress";
 import { REASON_MAX, setReason, type RoutineState } from "./routine";
 
-/** Days on one path of stepping stones. */
-const STONES = 14;
+/** Seven days, ending today (so the page is never empty on a Monday). */
+const WEEK = 7;
+const LETTERS = ["S", "M", "T", "W", "T", "F", "S"] as const;
+const letterOf = (day: string) => LETTERS[parseYmd(day).getDay()] ?? "";
 const addDays = (day: string, n: number): string => {
   const d = new Date(`${day}T12:00:00`);
   d.setDate(d.getDate() + n);
@@ -16,21 +18,23 @@ const addDays = (day: string, n: number): string => {
 };
 
 /**
- * Your routine over time (FR-114, U-8; the stepping-stones look chosen by the owner 2026-11-09):
- * one path of stones per routine, newest on the right. A filled stone is a day you did it; a hollow
- * one is a day it was skipped, and you can say why (optional). Below: the week against the week
+ * Your routine over time (FR-114, U-8). The Letters look (owner 2026-11-09: grids, stepping stones,
+ * waves and rings were all turned down; "you design this"): words first. One sentence says how the
+ * week went; each routine keeps its seven weekday letters, bold when done, struck through when
+ * skipped (tap to say why, optional), outlined for today. Below: the week against the week
  * before, each routine's last 30 days, and the reasons you gave. The words are only ever
  * encouraging: what went well, and one small next step.
  */
 export function RoutineProgress({ open, onClose, state, today, onChange }: {
   open: boolean; onClose: () => void; state: RoutineState; today: string; onChange: (fn: (s: RoutineState) => RoutineState) => void;
 }) {
-  // How many 14-day pages back the paths are showing (0 = ending today).
+  // How many 7-day pages back the letters are showing (0 = ending today).
   const [page, setPage] = useState(0);
   const [pick, setPick] = useState<{ day: string; id: string } | null>(null);
   const [draft, setDraft] = useState("");
-  const end = addDays(today, -page * STONES);
-  const days = Array.from({ length: STONES }, (_, i) => addDays(end, i - (STONES - 1)));
+  const end = addDays(today, -page * WEEK);
+  const days = Array.from({ length: WEEK }, (_, i) => addDays(end, i - (WEEK - 1)));
+  const start = days[0] ?? end;
   const week = weekVsWeek(state, today);
   const rates = habitRates(state, today);
   const room = roomToGrow(rates);
@@ -60,33 +64,30 @@ export function RoutineProgress({ open, onClose, state, today, onChange }: {
         </div>
 
         <div className="space-y-4 p-5">
-          <section aria-label="Stepping stones" className="rounded-xl border bg-card p-4">
+          <section aria-label="Week letters" className="rounded-xl border bg-card p-4">
             <div className="mb-1 flex flex-wrap items-center gap-2">
               <h3 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {page === 0 ? "Last 14 days" : `${dayLabel(parseYmd(days[0] ?? end))} to ${dayLabel(parseYmd(end))}`}, one path per routine
+                {page === 0 ? "Last 7 days" : `${dayLabel(parseYmd(start))} to ${dayLabel(parseYmd(end))}`}
               </h3>
               <span className="ml-auto flex gap-1">
-                <Button variant="ghost" size="sm" disabled={(days[0] ?? end) <= oldest} onClick={() => { setPage(page + 1); setPick(null); }}>Earlier</Button>
+                <Button variant="ghost" size="sm" disabled={start <= oldest} onClick={() => { setPage(page + 1); setPick(null); }}>Earlier</Button>
                 <Button variant="ghost" size="sm" disabled={page === 0} onClick={() => { setPage(page - 1); setPick(null); }}>Later</Button>
               </span>
             </div>
-            {state.items.length === 0 && <p className="py-3 text-[13px] text-muted-foreground">Add a routine and its path starts here.</p>}
+            <p className="mb-2 text-[15px] leading-snug">{lettersLine(state, days, today)}</p>
+            {state.items.length === 0 && <p className="py-3 text-[13px] text-muted-foreground">Add a routine and its days show here.</p>}
             <ul>
               {state.items.map((item) => {
                 const stats = days.map((d) => dayStat(state, d, today));
                 const planned = stats.filter((st, i) => st.planned?.includes(item.id) && (days[i] !== today || st.done.includes(item.id)));
                 const done = planned.filter((st) => st.done.includes(item.id)).length;
-                const y = (i: number) => 24 + Math.sin(i * 0.8 + (item.id.length % 5)) * 8;
                 return (
-                  <li key={item.id} className="grid grid-cols-[9.5rem_1fr_auto] items-center gap-3 border-t py-2.5 first:border-t-0 max-sm:grid-cols-[1fr_auto]">
+                  <li key={item.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t py-2.5 first:border-t-0">
                     <div className="min-w-0">
                       <p className="truncate text-[13.5px] font-semibold">{item.title}</p>
                       <p className="text-[11.5px] text-muted-foreground">{planned.length ? `${done} of ${planned.length} days` : "no days recorded"}</p>
                     </div>
-                    <div role="group" aria-label={`${item.title}, ${days.length} days`} className="relative h-12 min-w-0 max-sm:order-3 max-sm:col-span-2">
-                      <svg aria-hidden viewBox="0 0 100 48" preserveAspectRatio="none" className="absolute inset-0 size-full">
-                        <path d={days.map((_, i) => `${i ? "L" : "M"}${(2 + (i * 96) / (STONES - 1)).toFixed(2)} ${y(i).toFixed(2)}`).join(" ")} fill="none" stroke="currentColor" className="text-border" strokeWidth="2" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-                      </svg>
+                    <div role="group" aria-label={`${item.title}, 7 days to ${dayLabel(parseYmd(end))}`} className="flex gap-1">
                       {days.map((d, i) => {
                         const st = stats[i];
                         if (!st) return null;
@@ -96,30 +97,29 @@ export function RoutineProgress({ open, onClose, state, today, onChange }: {
                         const skipped = skippedOn(state, d, today).includes(item.id);
                         const reason = state.reasons[d]?.[item.id];
                         const when = dayLabel(parseYmd(d));
-                        const label = `${item.title}, ${when}: ${ok ? "done" : skipped ? (reason ? `skipped, ${reason}` : "skipped, add a reason") : isToday && wasPlanned ? "still open today" : "not recorded"}`;
-                        const pos = { left: `${2 + (i * 96) / (STONES - 1)}%`, top: `${(y(i) / 48) * 100}%` };
-                        const shape = cn("absolute grid size-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full",
-                          ok ? "bg-primary" : skipped ? "border-2 border-dashed border-muted-foreground/70 bg-card" : wasPlanned ? "border-2 border-primary/50 bg-card" : "size-2 bg-border",
-                          isToday && "ring-2 ring-primary/70 ring-offset-2 ring-offset-card",
-                          pick?.day === d && pick.id === item.id && "ring-2 ring-amber-400 ring-offset-2 ring-offset-card");
+                        const label = `${item.title}, ${when}: ${ok ? "done" : skipped ? (reason ? `skipped, ${reason}` : "skipped, add a reason") : isToday && wasPlanned ? "still open today" : d > today ? "still to come" : "not recorded"}`;
+                        const shape = cn("relative grid size-7 place-items-center rounded-md text-[13px] font-bold",
+                          ok ? "bg-primary/15 text-primary" : skipped ? "text-muted-foreground line-through decoration-1" : "text-muted-foreground/45",
+                          isToday && "ring-[1.5px] ring-primary",
+                          pick?.day === d && pick.id === item.id && "ring-2 ring-amber-400");
                         return skipped ? (
-                          <button key={d} type="button" aria-label={label} title={label} style={pos} onClick={() => choose(d, item.id)}
-                            className={cn(shape, "cursor-pointer outline-none hover:border-primary focus-visible:ring-2 focus-visible:ring-ring")}>
-                            {reason && <i aria-hidden className="absolute -right-0.5 -top-1 size-2 rounded-full bg-amber-400" />}
+                          <button key={d} type="button" aria-label={label} title={label} onClick={() => choose(d, item.id)}
+                            className={cn(shape, "cursor-pointer outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring")}>
+                            {letterOf(d)}
+                            {reason && <i aria-hidden className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-amber-400" />}
                           </button>
                         ) : (
-                          <span key={d} role="img" aria-label={label} title={label} style={pos} className={shape} />
+                          <span key={d} role="img" aria-label={label} title={label} className={shape}>{letterOf(d)}</span>
                         );
                       })}
                     </div>
-                    <p className="w-10 text-right text-[15px] font-bold tabular-nums">{planned.length ? `${Math.round((done / planned.length) * 100)}%` : ""}</p>
                   </li>
                 );
               })}
             </ul>
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-muted-foreground">
-              <span><i aria-hidden className="mr-1.5 inline-block size-2.5 rounded-full bg-primary align-[-1px]" />Done</span>
-              <span><i aria-hidden className="mr-1.5 inline-block size-2.5 rounded-full border border-dashed border-muted-foreground align-[-1px]" />Skipped: tap to say why (optional)</span>
+              <span><b className="mr-1 rounded bg-primary/15 px-1 text-primary">M</b>Done (letters are the weekdays)</span>
+              <span><s className="mr-1 font-bold">M</s>Skipped: tap to say why (optional)</span>
               <span><i aria-hidden className="mr-1.5 inline-block size-2.5 rounded-full bg-amber-400 align-[-1px]" />Has a reason</span>
             </div>
 
@@ -179,7 +179,7 @@ export function RoutineProgress({ open, onClose, state, today, onChange }: {
           <section aria-label="What got in the way" className="rounded-xl border bg-card p-4">
             <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">What got in the way, last 30 days</h3>
             {reasons.length === 0 ? (
-              <p className="text-[13px] text-muted-foreground">Nothing noted yet. When a day is skipped, tap its hollow stone to say why, only if you want to.</p>
+              <p className="text-[13px] text-muted-foreground">Nothing noted yet. When a day is skipped, tap its struck-through letter to say why, only if you want to.</p>
             ) : (
               <ul className="space-y-1.5">
                 {reasons.map((r) => (

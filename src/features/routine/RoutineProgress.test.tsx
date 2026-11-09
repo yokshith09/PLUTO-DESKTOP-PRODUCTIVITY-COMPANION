@@ -18,31 +18,37 @@ function story() {
 }
 const view = (state: RoutineState, onChange = vi.fn()) =>
   render(<RoutineProgress open onClose={vi.fn()} state={state} today={TODAY} onChange={onChange} />);
-const water = () => screen.getByRole("group", { name: /^Water, 14 days/ });
+const water = () => screen.getByRole("group", { name: /^Water, 7 days to/ });
+const earlier = () => fireEvent.click(screen.getByRole("button", { name: "Earlier" }));
 
-describe("RoutineProgress, stepping stones (U-8)", () => {
-  it("opens with kind words, one path per routine, and a next win", () => {
+describe("RoutineProgress, week letters (U-8)", () => {
+  it("opens with kind words, one sentence for the week, seven letters per routine, and a next win", () => {
     view(story());
     expect(screen.getByRole("dialog")).toBeTruthy();
-    expect(screen.getByRole("group", { name: /^Stretch, 14 days/ })).toBeTruthy();
-    expect(water()).toBeTruthy();
+    // Nov 4 to 10: Stretch done every day; Water skipped the 4th to the 9th and still open today.
+    expect(screen.getByText("Last 7 days: 7 of 13 done. Stretch was your steadiest.")).toBeTruthy();
+    const stretch = screen.getByRole("group", { name: /^Stretch, 7 days to Tuesday, November 10/ });
+    // The letters are the weekdays, ending today (a Tuesday).
+    expect(within(stretch).getAllByRole("img").map((l) => l.textContent).join("")).toBe("WTFSSMT");
+    expect(within(stretch).queryAllByRole("button")).toHaveLength(0);
     expect(screen.getByText(/is your next win/i)).toBeTruthy();
     expect(screen.getByText("This week and last week")).toBeTruthy();
-    // Stretch was done every day: no hollow stones on its path.
-    expect(within(screen.getByRole("group", { name: /^Stretch, 14 days/ })).queryAllByRole("button")).toHaveLength(0);
   });
 
-  it("skipped days are hollow stones you can tap; done days and today are not buttons", () => {
+  it("skipped days are struck-through letters you can tap; done days, today and days to come are not", () => {
     view(story());
     const skipped = within(water()).getAllByRole("button");
-    // Water was done on days 1 to 3 only: days 4 to 9 were skipped, today is still open.
     expect(skipped).toHaveLength(6);
-    expect(skipped[0]?.getAttribute("aria-label")).toMatch(/skipped, add a reason/);
+    expect(skipped[0]?.getAttribute("aria-label")).toMatch(/November 4.*skipped, add a reason/);
     expect(within(water()).getByRole("img", { name: /Tuesday, November 10.*still open today/ })).toBeTruthy();
-    expect(within(water()).getAllByRole("img", { name: /done/ }).length).toBe(3);
+    earlier();
+    // Oct 28 to Nov 3: Water done on the 1st to the 3rd, nothing recorded before.
+    expect(within(water()).queryAllByRole("button")).toHaveLength(0);
+    expect(within(water()).getAllByRole("img", { name: /done/ })).toHaveLength(3);
+    expect(screen.getByText(/^Those 7 days: /)).toBeTruthy();
   });
 
-  it("tapping a hollow stone offers quick reasons or your own words, and saves it (optional)", () => {
+  it("tapping a skipped letter offers quick reasons or your own words, and saves it (optional)", () => {
     const onChange = vi.fn();
     const s = story();
     view(s, onChange);
@@ -90,9 +96,13 @@ describe("RoutineProgress, stepping stones (U-8)", () => {
     expect(within(box).getByText(/Tired days happen/)).toBeTruthy();
   });
 
-  it("goes back 14 days at a time, never past the first recorded day, and returns", () => {
+  it("goes back 7 days at a time, never past the first recorded day, and returns", () => {
     view(story());
-    expect((screen.getByRole("button", { name: "Earlier" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "Later" }) as HTMLButtonElement).disabled).toBe(true);
+    earlier();
+    expect(screen.getByRole("group", { name: /^Water, 7 days to Tuesday, November 3/ })).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Earlier" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Later" }));
+    expect(screen.getByText(/^Last 7 days: /)).toBeTruthy();
   });
 });

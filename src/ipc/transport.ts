@@ -90,7 +90,7 @@ export function onTextBox(cb: (focused: boolean) => void): () => void {
 }
 
 /** Something the dashboard asks the pet to say above its head (FR-43), e.g. the routine reminder. */
-export interface PetSay { text: string; pose?: string; ms?: number; actionId?: string; actionLabel?: string; go?: string }
+export interface PetSay { text: string; pose?: string; ms?: number; actionId?: string; actionLabel?: string; go?: string; /** A-8: assistant moment for its sound (done, needs, permission, error). */ sound?: string }
 
 /**
  * Dashboard → pet window message (FR-85/FR-43). In the app it is a Tauri event to every window;

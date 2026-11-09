@@ -15,6 +15,7 @@ import { glanceText } from "./glance";
 import { WARDROBE_KEY, useWorn } from "@/features/wardrobe/useWardrobe";
 import { enqueue, isAsleep, reactionForSay, type Reaction } from "./reactions";
 import { parseReactionSettings, reactionWithSettings } from "./reactionSettings";
+import { SOUNDS_PREF, parseSounds, play, soundFor } from "./sounds";
 import { NO_COUNTS, advance, reactionForSpecial, type SpecialSignal } from "./special";
 import { useTypingAlong } from "./typing";
 import { WaitingBadge, WaitingList } from "./WaitingBadge";
@@ -193,6 +194,14 @@ export function PetApp() {
     void qc.invalidateQueries({ queryKey: WARDROBE_KEY });
     const r = reactionForSay(say, BEAR_POSES);
     if (r) reactRef.current(r);
+    // A-8: an assistant's moment has its own sound (read fresh, so a change in Settings applies at once).
+    if (r && say.sound) {
+      void ipc.prefsGet(SOUNDS_PREF).then((raw) => {
+        const p = parseSounds(raw);
+        const src = soundFor(p, say.sound);
+        if (src) play(src, p.volume);
+      }, () => undefined);
+    }
   }), [qc]);
   useEffect(() => onEvent((e) => {
     wake();

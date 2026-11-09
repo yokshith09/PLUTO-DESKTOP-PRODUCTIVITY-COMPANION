@@ -1629,3 +1629,13 @@ async fn switched_off_pet_reactions_keep_the_pet_quiet_without_touching_other_as
         "Codex is unaffected"
     );
 }
+
+#[test]
+fn each_assistant_moment_has_its_own_sound_and_others_none() {
+    assert_eq!(sound_kind(Some("agent_done")), Some("done"));
+    assert_eq!(sound_kind(Some("agent_needs_you")), Some("needs"));
+    assert_eq!(sound_kind(Some("agent_permission")), Some("permission"));
+    assert_eq!(sound_kind(Some("agent_error")), Some("error"));
+    assert_eq!(sound_kind(Some("git_commit")), None);
+    assert_eq!(sound_kind(None), None);
+}

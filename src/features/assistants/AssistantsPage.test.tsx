@@ -5,6 +5,9 @@ import { ipc, type AssistantInfo } from "@/ipc";
 import { AssistantsPage, SOON, programOf } from "./AssistantsPage";
 import { REACT_KEYS, TOOLS } from "./perms";
 
+// Radix Slider (the volume) measures itself; jsdom has no ResizeObserver.
+globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as never;
+
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const claude = (connected: boolean): AssistantInfo => ({
@@ -147,17 +150,14 @@ describe("Assistants page", () => {
     for (const id of ["claude", "codex", "opencode", "cursor"]) expect(REACT_KEYS[id]).toContain("needs");
   });
 
-  it("Coming lists the planned ideas and says none of them works yet", async () => {
+  it("everything planned has shipped, so the Coming list is gone; sounds have their own panel (A-8)", async () => {
     renderPage();
-    const coming = await screen.findByRole("region", { name: "Coming" });
-    expect(within(coming).getByText("Not working yet")).toBeTruthy();
-    expect(within(coming).getAllByRole("listitem")).toHaveLength(SOON.length);
-    expect(SOON).toHaveLength(1);
-    // A-6 shipped: it is no longer on the Coming list.
-    expect(within(coming).queryByText("Which tool it wants")).toBeNull();
-    // A-4 shipped too: clicking goes to the chat's window.
-    expect(within(coming).queryByText("Click to go there")).toBeNull();
+    await screen.findByRole("listitem", { name: "Codex" });
+    expect(SOON).toHaveLength(0);
+    expect(screen.queryByRole("region", { name: "Coming" })).toBeNull();
     expect(REACT_KEYS.claude).toContain("click");
+    expect(screen.getByRole("switch", { name: "Assistant sounds" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("combobox", { name: "Sound for Needs you" })).toBeTruthy();
   });
 
   it("says plainly what assistants can do and that the diary is never shared", async () => {

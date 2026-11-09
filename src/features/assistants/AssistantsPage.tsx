@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { usePref } from "@/features/guide/usePref";
 import { PageHeader, Panel } from "@/features/shell/PageHeader";
+import { SoundSettings } from "./SoundSettings";
 import { isOn, parsePerms, REACT_KEYS, REACTIONS, setOn, summary, TOOLS, type Perms } from "./perms";
 
 /** What assistants can do, in plain words. */
@@ -26,9 +27,8 @@ export const CAN = [
   { icon: Eye, text: "See if you are in a focus session, so they don't disturb you." },
 ] as const;
 /** Planned next (owner 2026-11-03, A-1..A-8). Shown so you know what is ahead; none of it works yet. */
-export const SOON = [
-  { title: "A different sound", text: "“Needs you” sounds different from “done”." },
-] as const;
+/** Planned next. Empty since A-8 shipped (2026-11-09); the Coming section hides itself when empty. */
+export const SOON: readonly { title: string; text: string }[] = [];
 
 export const COMING = { icon: Lock, text: "Turn assistants off, change tracking, shortcuts or start-up. Those stay with you." } as const;
 export const NEVER = { icon: Lock, text: "Your diary. Assistants can never see it." } as const;
@@ -96,6 +96,7 @@ export function AssistantsPage() {
       <TryIt />
       <Capabilities />
       <FocusGuard />
+      <SoundSettings />
       <DeveloperReactions />
       <DeveloperPreview on={on} />
 
@@ -190,7 +191,7 @@ function Capabilities() {
           </li>
         ))}
       </ul>
-      <section aria-label="Coming" className="mt-4 border-t pt-4">
+      {SOON.length > 0 && <section aria-label="Coming" className="mt-4 border-t pt-4">
         <h3 className="flex items-center gap-2 text-[13px] font-semibold">Coming <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">Not working yet</span></h3>
         <p className="mt-0.5 text-[12px] text-muted-foreground">Planned next. They show here so you know what is ahead; none of them is switched on.</p>
         <ul className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -201,7 +202,7 @@ function Capabilities() {
             </li>
           ))}
         </ul>
-      </section>
+      </section>}
       <div className="mt-4 grid gap-2 border-t pt-4 sm:grid-cols-2">
         <Note icon={COMING.icon} label="Not allowed" text={COMING.text} />
         <Note icon={NEVER.icon} label="Never" text={NEVER.text} />

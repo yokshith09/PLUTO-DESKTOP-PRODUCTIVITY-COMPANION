@@ -55,6 +55,18 @@ and meetings go to the Bin when deleted (`reminder_delete`, `meeting_delete`); n
 for good. `setting_change` asks the person to Allow on the pet first; `ask_person` asks them a short \
 question with buttons on the pet. The diary is private and never available. Calls are limited to 10 per minute per tool.";
 
+/// A-8: which sound an assistant's moment plays on the pet (the pet maps it to a file); `None` for
+/// moments without one (git, builds, `say`).
+pub fn sound_kind(reaction: Option<&str>) -> Option<&'static str> {
+    match reaction? {
+        "agent_done" => Some("done"),
+        "agent_needs_you" => Some("needs"),
+        "agent_permission" => Some("permission"),
+        "agent_error" => Some("error"),
+        _ => None,
+    }
+}
+
 /// What every tool answers while Pluto itself is not running.
 pub const NOT_RUNNING: &str = "Pluto is not running. Open Pluto and try again.";
 

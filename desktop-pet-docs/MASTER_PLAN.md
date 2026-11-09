@@ -392,3 +392,5 @@ Study hours: **partly solved** (app/site time + categories built; study hours pe
 ## Handover round K (2026-11-09)
 
 K-1 Timetable, K-2 Exams-notes-tasks tab, K-3 class reminders (one agent, in order); K-4 deterministic timing tests (any agent, parallel). Briefs in [handover/](handover/README.md). Course page on hold for an outside design ([brief](design/COURSE_PAGE_BRIEF.md)).
+
+- 2026-11-09: A-8 and the routine tracker (Letters) done. FS-1 and TT-1 previews published, awaiting the owner. Windsurf reactions need the owner's check. Friends and the release on hold.

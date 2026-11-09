@@ -140,3 +140,29 @@ export function reasonTip(top: { reason: string } | undefined): string {
   if (!top) return "Add a reason now and then, and Pluto will suggest one small adjustment.";
   return TIPS[top.reason.toLowerCase()] ?? "Thanks for noting that. It helps to see what gets in the way.";
 }
+
+/**
+ * The Letters look (owner 2026-11-09: "you design this"): one plain sentence about the 7 days shown.
+ * Counts only days that were planned and are over (today counts once it is done).
+ */
+export function lettersLine(s: RoutineState, days: string[], today: string): string {
+  const per = s.items.map((item) => {
+    let planned = 0;
+    let done = 0;
+    for (const d of days) {
+      const st = dayStat(s, d, today);
+      const wasDone = st.done.includes(item.id);
+      if (!st.planned?.includes(item.id) || (d === today && !wasDone)) continue;
+      planned++;
+      if (wasDone) done++;
+    }
+    return { title: item.title, planned, done };
+  });
+  const planned = per.reduce((a, r) => a + r.planned, 0);
+  const done = per.reduce((a, r) => a + r.done, 0);
+  const current = days.includes(today);
+  if (planned === 0) return current ? "A fresh start. Tick a routine today and it shows here." : "Nothing was recorded in those days.";
+  const best = per.filter((r) => r.planned > 0).sort((a, b) => b.done / b.planned - a.done / a.planned || b.done - a.done || a.title.localeCompare(b.title))[0];
+  const head = current ? `Last 7 days: ${done} of ${planned} done.` : `Those 7 days: ${done} of ${planned} done.`;
+  return best && best.done > 0 ? `${head} ${best.title} was your steadiest.` : head;
+}

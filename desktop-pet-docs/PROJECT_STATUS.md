@@ -350,3 +350,4 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-09: Course page preview (Notebook / Board) awaits the owner: https://claude.ai/artifact/PYg5kxDDs89V21N1wwqJJz
 - 2026-11-09: Course page waits for an outside design; feature brief in design/COURSE_PAGE_BRIEF.md.
 - 2026-11-09: Handover round K prepared (handover/K-1..K-4.md; design reference design/study-v3-preview.html). Nothing built yet for K.
+- 2026-11-09: Built (Unverified): A-8 sounds, routine tracker Letters look. Previews awaiting the owner: FS-1 full screen and TT-1 Tab Tantrum. Windsurf: needs a 10-minute check on the owner's PC (install Windsurf, look for a hooks setting or file, send me its text). Friends and the release stay on hold.
