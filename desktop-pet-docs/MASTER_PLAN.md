@@ -384,3 +384,5 @@ Study hours: **partly solved** (app/site time + categories built; study hours pe
 - Planned: FR-105 real pack animations (`docs/character/ANIMATION_PLAN.md`), FR-106 UI redesign pass (audit with screenshots first).
 
 - 2026-11-09: Antigravity connector done (tools only). Pending the owner's approval of previews: Student pack v2 (replaces the U-4 Study scope; no Home or Setup tab), tracker redesign, assistant reaction tiles.
+
+- 2026-11-09: Roles approved and Projects page gated by role (done). Awaiting owner: Study v3, routine Letters/Daylight, assistant editor. Friends tab planned (P9, on hold).

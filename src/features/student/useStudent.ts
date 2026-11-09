@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ipc } from "@/ipc";
 import type { Course, CourseLinks, Exam } from "@/ipc/types";
-import { ROLE_PREF, STUDENT_PACK_PREF, parseRole, parseStudentPack, studentPackOn } from "@/features/guide/roles";
+import { PROJECTS_PREF, ROLE_PREF, STUDENT_PACK_PREF, parseProjects, parseRole, parseStudentPack, projectsOn, studentPackOn } from "@/features/guide/roles";
 import { usePref } from "@/features/guide/usePref";
 import { ymd } from "@/lib/dates";
 
@@ -11,6 +11,14 @@ export function useStudentPack(): boolean {
   const pack = usePref(STUDENT_PACK_PREF, parseStudentPack);
   if (role.loading || pack.loading) return false;
   return studentPackOn(role.value ?? "general", pack.value);
+}
+
+/** Is the Projects page shown? The saved switch wins; otherwise everyone but a plain Student sees it. */
+export function useProjectsPage(): boolean {
+  const role = usePref(ROLE_PREF, parseRole);
+  const proj = usePref(PROJECTS_PREF, parseProjects);
+  if (role.loading || proj.loading) return true;
+  return projectsOn(role.value ?? "general", proj.value);
 }
 
 const KEY = ["courses"] as const;

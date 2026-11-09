@@ -5,7 +5,7 @@ import { GUIDE } from "./content";
 import { useStudentPack } from "@/features/student/useStudent";
 import { cn } from "@/lib/utils";
 import { LEARN_PREF, parseLearn } from "./learn";
-import { ROLES, ROLE_INFO, ROLE_PREF, STUDENT_PACK_FEATURES, STUDENT_PACK_PREF, parseRole, parseStudentPack, studentPackOn, type Role } from "./roles";
+import { PROJECTS_PREF, ROLES, ROLE_INFO, ROLE_PREF, STUDENT_PACK_FEATURES, STUDENT_PACK_PREF, parseProjects, parseRole, parseStudentPack, projectsOn, studentPackOn, type Role } from "./roles";
 import { TOUR_PREF, parseTour } from "./tourSteps";
 import { usePref } from "./usePref";
 
@@ -15,6 +15,8 @@ export function YourProfile() {
   const pack = usePref(STUDENT_PACK_PREF, parseStudentPack);
   const current: Role = role.value ?? "general";
   const packOn = studentPackOn(current, pack.value);
+  const proj = usePref(PROJECTS_PREF, parseProjects);
+  const projOn = projectsOn(current, proj.value);
 
   return (
     <Section title="You">
@@ -22,7 +24,7 @@ export function YourProfile() {
       <div className="space-y-4 py-4">
         <div>
           <p className="text-[13px] font-medium">What describes you best</p>
-          <p className="text-xs text-muted-foreground">This only changes what the tour and the quiz show first. It only sets the student pack default below and never turns on tracking.</p>
+          <p className="text-xs text-muted-foreground">This only changes what the tour and the quiz show first. It only sets the Student pack and Projects page defaults below and never turns on tracking.</p>
         </div>
         <div role="radiogroup" aria-label="What describes you best" className="grid gap-2 sm:grid-cols-2">
           {ROLES.map((r) => (
@@ -41,6 +43,14 @@ export function YourProfile() {
           <span>
             <span className="block font-medium">Student pack</span>
             <span className="block text-xs text-muted-foreground">{STUDENT_PACK_FEATURES.join(", ")}. On by default for students, off for everyone else. Every other feature is on for everyone.</span>
+          </span>
+        </label>
+
+        <label className="flex items-start gap-3 rounded-lg border p-3 text-[13px]">
+          <input type="checkbox" className="mt-0.5 size-4" checked={projOn} onChange={(e) => void proj.set(e.target.checked)} />
+          <span>
+            <span className="block font-medium">Projects page</span>
+            <span className="block text-xs text-muted-foreground">On for developers, students who code and everyone else; off for students (they get Study). Switch it on or off here any time. Nothing is deleted.</span>
           </span>
         </label>
       </div>

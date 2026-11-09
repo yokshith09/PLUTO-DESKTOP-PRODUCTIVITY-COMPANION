@@ -30,3 +30,13 @@ export const STUDENT_PACK_FEATURES = ["Course label on tasks and notes", "Exam c
 export const studentPackDefault = (role: Role): boolean => role === "student" || role === "student_dev";
 export const parseStudentPack = (raw: unknown): boolean | null => (typeof raw === "boolean" ? raw : null);
 export const studentPackOn = (role: Role, override: boolean | null | undefined): boolean => override ?? studentPackDefault(role);
+
+/**
+ * The Projects page (owner 2026-11-09: students get the Study pack, developers get Projects, a student who codes
+ * gets both, nothing to enable separately). Hidden only for the plain Student role; the data is never touched, and
+ * `ui.projects` (true/false) overrides the role default.
+ */
+export const PROJECTS_PREF = "ui.projects";
+export const projectsDefault = (role: Role): boolean => role !== "student";
+export const parseProjects = (raw: unknown): boolean | null => (typeof raw === "boolean" ? raw : null);
+export const projectsOn = (role: Role, override: boolean | null | undefined): boolean => override ?? projectsDefault(role);

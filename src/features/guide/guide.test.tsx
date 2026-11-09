@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ipc } from "@/ipc";
 import { BANK, QUIZ_ORDER, parseLearn, questionsFor } from "./learn";
 import { LearnCard } from "./LearnCard";
-import { ROLES, parseRole, parseStudentPack, studentPackOn } from "./roles";
+import { ROLES, parseProjects, parseRole, parseStudentPack, projectsOn, studentPackOn } from "./roles";
 import { Tour } from "./Tour";
 import { STEPS, TOUR_ORDER, stepsFor } from "./tourSteps";
 import { HelpSection, YourProfile } from "./YourProfile";
@@ -48,6 +48,11 @@ describe("what each role is shown (data)", () => {
     expect(ROLES.filter((r) => studentPackOn(r, null))).toEqual(["student", "student_dev"]);
     expect(studentPackOn("general", true)).toBe(true);
     expect(studentPackOn("student", false)).toBe(false);
+    // Projects: hidden only for a plain Student; a student who codes gets both; the saved switch wins.
+    expect(ROLES.filter((r) => projectsOn(r, null))).toEqual(["developer", "student_dev", "general"]);
+    expect(projectsOn("student", true)).toBe(true);
+    expect(projectsOn("developer", false)).toBe(false);
+    expect(parseProjects("x")).toBeNull();
     expect(parseStudentPack("yes")).toBeNull();
   });
   it("saved quiz answers drop anything unknown", () => {

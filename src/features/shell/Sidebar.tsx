@@ -2,7 +2,7 @@ import {
   Archive, BookHeart, CheckSquare, Clock3, FolderKanban, GraduationCap, LayoutDashboard, Moon, NotebookPen, PawPrint, Plug, Settings, Sun, Trash2, Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useStudentPack } from "@/features/student/useStudent";
+import { useProjectsPage, useStudentPack } from "@/features/student/useStudent";
 import { Bear } from "./Bear";
 
 export type Page = "today" | "tasks" | "time" | "notes" | "projects" | "study" | "diary" | "meetings" | "archive" | "bin" | "character" | "mcp" | "settings";
@@ -54,6 +54,7 @@ function Group({ title, children }: { title?: string; children: React.ReactNode 
 export function Sidebar({ page, counts, onPage, isDark, onToggleTheme }: Props) {
   const go = (p: Page) => () => onPage(p);
   const study = useStudentPack();
+  const projects = useProjectsPage();
   return (
     <aside className="flex w-14 shrink-0 flex-col border-r bg-[var(--sidebar)] px-2 pb-3 pt-3.5 lg:w-56 lg:px-3">
       <div className="mb-3 flex items-center justify-center gap-2.5 lg:justify-start lg:px-1.5">
@@ -69,7 +70,7 @@ export function Sidebar({ page, counts, onPage, isDark, onToggleTheme }: Props) 
         <Item active={page === "tasks"} onClick={go("tasks")} tour="nav-tasks" icon={<CheckSquare />}>Tasks</Item>
         <Item active={page === "time"} onClick={go("time")} tour="nav-time" icon={<Clock3 />}>Time</Item>
         <Item active={page === "notes"} onClick={go("notes")} tour="nav-notes" icon={<NotebookPen />} count={counts.notes}>Notes</Item>
-        <Item active={page === "projects"} onClick={go("projects")} tour="nav-projects" icon={<FolderKanban />}>Projects</Item>
+        {(projects || page === "projects") && <Item active={page === "projects"} onClick={go("projects")} tour="nav-projects" icon={<FolderKanban />}>Projects</Item>}
         {(study || page === "study") && <Item active={page === "study"} onClick={go("study")} icon={<GraduationCap />}>Study</Item>}
         <Item active={page === "diary"} onClick={go("diary")} icon={<BookHeart />}>Diary</Item>
         <Item active={page === "meetings"} onClick={go("meetings")} icon={<Users />}>Meetings</Item>
