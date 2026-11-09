@@ -348,3 +348,4 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-09: Projects page now follows the role (built, tests pass, Unverified). Previews awaiting the owner: Study v3 (https://claude.ai/artifact/BAc8dvB1DgTm381uQ7Y9QS), routine Letters/Daylight plus the assistant editor (https://claude.ai/artifact/5UmUhz2uMFcAMiDxY3WCXd).
 - 2026-11-09: Assistant permissions built (tools and pet reactions switchable per assistant in Edit setup; Unverified on a real PC). Study v4 preview awaits the owner: https://claude.ai/artifact/1U4fxWzXwTAiwMqUMExCwd
 - 2026-11-09: Course page preview (Notebook / Board) awaits the owner: https://claude.ai/artifact/PYg5kxDDs89V21N1wwqJJz
+- 2026-11-09: Course page waits for an outside design; feature brief in design/COURSE_PAGE_BRIEF.md.
