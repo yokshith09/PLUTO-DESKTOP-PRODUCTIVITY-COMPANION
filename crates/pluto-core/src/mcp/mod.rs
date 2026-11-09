@@ -8,6 +8,7 @@
 pub mod activity;
 pub mod ask;
 pub mod away;
+pub mod chat_events;
 pub mod hookctx;
 mod limit;
 pub mod link;
@@ -89,6 +90,8 @@ pub trait Host: Send + Sync {
     fn finished(&self, _assistant: String, _place: Option<String>, _kind: &'static str) {}
     // A-7
     fn working(&self, _change: WorkChange) {}
+    // A-2
+    fn chat_event(&self, _assistant: String, _place: Option<String>, _kind: &'static str) {}
     /// Note a call for the Assistants page (the host adds the time).
     fn record(&self, _tool: &'static str, _assistant: &str, _ok: bool, _detail: String) {}
 }
@@ -407,12 +410,21 @@ impl PlutoMcp {
                 _ => {}
             }
             match reaction {
-                "agent_resumed" => host.working(WorkChange::Start { assistant, place }),
+                "agent_resumed" => host.working(WorkChange::Start {
+                    assistant: assistant.clone(),
+                    place: place.clone(),
+                }),
                 "agent_done" | "agent_needs_you" | "agent_permission" | "agent_error" => host
                     .working(WorkChange::End {
-                        assistant: self.assistant.to_string(),
-                        place,
+                        assistant: assistant.clone(),
+                        place: place.clone(),
                     }),
+                _ => {}
+            }
+            match reaction {
+                "agent_done" => host.chat_event(assistant, place, "done"),
+                "agent_needs_you" => host.chat_event(assistant, place, "needs"),
+                "agent_permission" => host.chat_event(assistant, place, "permission"),
                 _ => {}
             }
         }

@@ -217,7 +217,7 @@ Order: FS-1 → TT-1, each with a preview first. Owner 2026-11-03: after the UI 
 
 Built 2026-11-03 (H-1 Codex, H-2 Cursor hooks, H-3 OpenCode, H-4 Windsurf tools only; preview approved by the owner without the ChatGPT and DeepSeek tiles). Unverified until run on the owner's PC. Windsurf pet reactions: check its hooks when the owner has it installed.
 
-## Handover to Codex and Antigravity (2026-11-04)
+## Handover to Codex and Antigravity (2026-11-04; done 2026-11-09, Codex only, all four merged)
 
 The owner is away for a while. Rules, split and per-task briefs are in [`handover/`](handover/README.md); root `AGENTS.md` / `GEMINI.md` point there. **Codex:** A-3 then A-7. **Antigravity:** A-2 then A-5 (A-5 needs A-2). Each works on its own branch, opens a draft PR, never merges, never releases, writes a report in `handover/reports/` instead of editing the five docs; Claude Code reviews, merges and copies the report lines into the docs and the Assistants page. **Not handed over:** FS-1 and TT-1 (preview first), A-8 (design choice), Study (on hold), Windsurf reactions (needs the owner's PC), the release.
 

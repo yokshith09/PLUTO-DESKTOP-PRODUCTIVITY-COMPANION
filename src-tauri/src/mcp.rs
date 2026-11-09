@@ -17,7 +17,7 @@ use pluto_core::mcp::activity::{Activity, Call};
 use pluto_core::mcp::ask::{Question, ANSWER_WAIT};
 use pluto_core::mcp::setup::{self, Format};
 use pluto_core::mcp::write::{self, Change};
-use pluto_core::mcp::{away, hookctx, link, waiting, working};
+use pluto_core::mcp::{away, chat_events, hookctx, link, waiting, working};
 use pluto_core::mcp::{Host, HostFuture, PetMessage, RateLimit, Status, WaitChange, WorkChange};
 use pluto_core::settings_service::SettingsService;
 use serde::Serialize;
@@ -322,6 +322,49 @@ struct ShellHost<R: Runtime> {
     waits: Arc<WaitList>,
     away: Arc<AwayList>,
     working: Arc<WorkList>,
+    chats: Arc<ChatEvents>,
+}
+
+#[derive(Default)]
+pub struct ChatEvents(Mutex<ChatEventState>);
+
+#[derive(Default)]
+struct ChatEventState {
+    events: Option<Vec<chat_events::ChatEvent>>,
+    pending: Vec<chat_events::ChatEvent>,
+    loading: bool,
+}
+
+impl ChatEvents {
+    /// Adds an event now when loaded, otherwise queues it behind the one lazy preference read.
+    fn add(&self, event: chat_events::ChatEvent) -> Option<Vec<chat_events::ChatEvent>> {
+        let mut state = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(events) = &mut state.events {
+            chat_events::remember(events, event);
+            return Some(events.clone());
+        }
+        state.pending.push(event);
+        if state.loading {
+            None
+        } else {
+            state.loading = true;
+            Some(Vec::new())
+        }
+    }
+
+    fn load(&self, saved: Option<&serde_json::Value>) -> Vec<chat_events::ChatEvent> {
+        let mut state = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(events) = &state.events {
+            return events.clone();
+        }
+        let mut events = chat_events::events_from(saved);
+        for event in std::mem::take(&mut state.pending) {
+            chat_events::remember(&mut events, event);
+        }
+        state.events = Some(events.clone());
+        state.loading = false;
+        events
+    }
 }
 
 /// Chats waiting for you (A-1), kept here so every hook sees the same list and the pet can ask
@@ -689,6 +732,46 @@ impl<R: Runtime> Host for ShellHost<R> {
         });
     }
 
+    fn chat_event(&self, assistant: String, place: Option<String>, kind: &'static str) {
+        let (folder, _) = waiting::from_place(place.as_deref());
+        if folder.is_empty() {
+            return;
+        }
+        let event = chat_events::ChatEvent {
+            assistant,
+            folder,
+            kind: kind.into(),
+            at_ms: now_ms(&self.app),
+        };
+        let Some(events) = self.chats.add(event) else {
+            return;
+        };
+        let app = self.app.clone();
+        let chats = self.chats.clone();
+        tauri::async_runtime::spawn(async move {
+            let events = if events.is_empty() {
+                let saved = if let Some(settings) = app.try_state::<Arc<SettingsService>>() {
+                    settings
+                        .get_pref(chat_events::EVENTS_PREF)
+                        .await
+                        .ok()
+                        .flatten()
+                } else {
+                    None
+                };
+                chats.load(saved.as_ref())
+            } else {
+                events
+            };
+            if let Some(settings) = app.try_state::<Arc<SettingsService>>() {
+                if let Ok(value) = serde_json::to_value(events) {
+                    let _ = settings.set_pref(chat_events::EVENTS_PREF, value).await;
+                }
+            }
+            let _ = app.emit("dev://chat", ());
+        });
+    }
+
     fn ask(&self, question: Question) -> HostFuture<'_, Option<String>> {
         Box::pin(async move {
             // Only a pet on screen can be asked.
@@ -800,6 +883,7 @@ pub struct Mcp {
     waits: Arc<WaitList>,
     away: Arc<AwayList>,
     working: Arc<WorkList>,
+    chats: Arc<ChatEvents>,
     listener: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
 }
 
@@ -835,6 +919,7 @@ pub fn shell_host<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp) -> Arc<dyn Host> {
         waits: mcp.waits.clone(),
         away: mcp.away.clone(),
         working: mcp.working.clone(),
+        chats: mcp.chats.clone(),
     })
 }
 
@@ -854,6 +939,7 @@ fn listen_now<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp, data_dir: &Path) {
         waits: mcp.waits.clone(),
         away: mcp.away.clone(),
         working: mcp.working.clone(),
+        chats: mcp.chats.clone(),
     });
     let limits = Arc::new(Limits::default());
     let dir = data_dir.to_owned();
@@ -1505,6 +1591,29 @@ pub async fn mcp_undo(app: AppHandle, mcp: State<'_, Mcp>, id: u64) -> Result<St
 #[tauri::command]
 pub fn mcp_activity(mcp: State<'_, Mcp>) -> Vec<Call> {
     mcp.activity.recent()
+}
+
+/// Assistant chat events saved for a project's Activity (A-2), newest first.
+#[tauri::command]
+pub async fn dev_chat_events(
+    mcp: State<'_, Mcp>,
+    settings: State<'_, Arc<SettingsService>>,
+) -> Result<Vec<chat_events::ChatEvent>, String> {
+    if let Some(events) = mcp
+        .chats
+        .0
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .events
+        .clone()
+    {
+        return Ok(events);
+    }
+    let saved = settings
+        .get_pref(chat_events::EVENTS_PREF)
+        .await
+        .map_err(|error| error.to_string())?;
+    Ok(mcp.chats.load(saved.as_ref()))
 }
 
 /// Runs `listen` for the life of the app: if the pipe ever stops (it used to, for good, after one

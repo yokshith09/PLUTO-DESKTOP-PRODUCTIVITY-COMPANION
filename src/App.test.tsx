@@ -1143,7 +1143,7 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     });
   });
 
-  it("Project Spaces: Activity shows Pushed and Committed for the project's folder, not commit messages", async () => {
+  it("Project Spaces: Activity shows git and assistant rows for the project's folder", async () => {
     const user = userEvent.setup();
     render(<App />);
     await goTo(user, /^Projects/);
@@ -1157,6 +1157,7 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     const feed = await within(project).findByRole("region", { name: "Activity" });
     expect(await within(feed).findByText("Pushed")).toBeTruthy();
     expect(within(feed).getByText("Committed")).toBeTruthy();
+    expect(within(feed).getByText("Claude Code finished")).toBeTruthy();
     // Back on the cards, the project shows its folder and last activity.
     await user.click(screen.getByRole("button", { name: "All projects" }));
     const card = await screen.findByRole("button", { name: "Open project Pluto v1" });

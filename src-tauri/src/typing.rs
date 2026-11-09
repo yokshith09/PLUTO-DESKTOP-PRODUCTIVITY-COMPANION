@@ -31,6 +31,14 @@ use tauri::{AppHandle, Emitter};
 pub const STOP_AFTER: Duration = Duration::from_secs(3);
 const POLL: Duration = Duration::from_millis(200);
 
+/// Whether a low-level key event counts as typing: key events another program sent (voice typing,
+/// remote desktop, macro tools, an on-screen keyboard) carry the "injected" flag and are not you
+/// at the keyboard. Only the flags are read, never which key. `LLKHF_INJECTED` is bit 4.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub fn counts_as_typing(flags: u32) -> bool {
+    flags & 0x10 == 0
+}
+
 /// Turns a growing key count into "started typing" / "stopped typing". Pure, so it is tested.
 #[derive(Debug, Default)]
 pub struct Detector {
@@ -124,8 +132,8 @@ mod os {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         CallNextHookEx, DispatchMessageW, GetGUIThreadInfo, GetMessageW, PeekMessageW,
         PostThreadMessageW, SetWindowsHookExW, TranslateMessage, UnhookWindowsHookEx,
-        GUITHREADINFO, HC_ACTION, MSG, PM_NOREMOVE, WH_KEYBOARD_LL, WM_KEYDOWN, WM_QUIT,
-        WM_SYSKEYDOWN, WM_USER,
+        GUITHREADINFO, HC_ACTION, KBDLLHOOKSTRUCT, MSG, PM_NOREMOVE, WH_KEYBOARD_LL, WM_KEYDOWN,
+        WM_QUIT, WM_SYSKEYDOWN, WM_USER,
     };
 
     static PRESSES: AtomicU64 = AtomicU64::new(0);
@@ -210,12 +218,18 @@ mod os {
         }
     }
 
-    /// Counts a key-down and passes it on untouched. The key itself (`lparam`) is never read.
+    /// Counts a key-down and passes it on untouched. Which key it is (`vkCode`) is never read, only
+    /// whether another program sent the event (then it is not you typing).
     unsafe extern "system" fn on_key(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
         if code == HC_ACTION as i32
             && (wparam == WM_KEYDOWN as WPARAM || wparam == WM_SYSKEYDOWN as WPARAM)
         {
-            PRESSES.fetch_add(1, Ordering::Relaxed);
+            // SAFETY: for a WH_KEYBOARD_LL action, `lparam` points to a KBDLLHOOKSTRUCT that is
+            // valid for the duration of this call.
+            let flags = unsafe { (*(lparam as *const KBDLLHOOKSTRUCT)).flags };
+            if super::counts_as_typing(flags) {
+                PRESSES.fetch_add(1, Ordering::Relaxed);
+            }
         }
         // SAFETY: forwarding the hook call unchanged, as Windows requires.
         unsafe { CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam) }
@@ -385,6 +399,14 @@ mod os {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn keys_another_program_sent_are_not_you_typing() {
+        assert!(counts_as_typing(0x00), "a real key press");
+        assert!(counts_as_typing(0x20), "alt held, still a real key");
+        assert!(!counts_as_typing(0x10), "injected by another program");
+        assert!(!counts_as_typing(0x30), "injected with alt held");
+    }
 
     #[test]
     fn the_first_reading_is_only_a_baseline() {

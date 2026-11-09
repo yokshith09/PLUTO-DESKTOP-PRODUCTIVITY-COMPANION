@@ -379,6 +379,7 @@ export function createMock() {
     mcp_listening: () => settings["mcp.enabled"] === true,
     mcp_undo: (a) => { const c = mcpCalls.find((x) => x.undoId === a.id); if (c) { c.undone = true; c.undoId = null; } return "Removed the task \"Call the bank\"."; },
     dev_git_events: () => [{ repo: "E:/Projects/pluto", kind: "git_push", atMs: now() - 12 * 60_000 }, { repo: "E:/Projects/pluto", kind: "git_commit", atMs: now() - 14 * 60_000 }],
+    dev_chat_events: () => [{ assistant: "Claude Code", folder: "pluto", kind: "done", atMs: now() - 10 * 60_000 }, { assistant: "Claude Code", folder: "pluto", kind: "needs", atMs: now() - 16 * 60_000 }, { assistant: "Cursor", folder: "other", kind: "permission", atMs: now() - 8 * 60_000 }],
     project_path_pick: (a) => (a.kind === "folder" ? "E:/Projects/pluto" : "E:/Projects/pluto/README.md"),
     project_path_open: () => null,
     dev_git_watch: () => ({ roots: [...gitRoots], repos: gitRoots.length ? gitRoots.map((r) => `${r}/pluto`) : ["E:/Projects/staysync"] }),

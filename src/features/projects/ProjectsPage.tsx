@@ -13,7 +13,7 @@ import { useAllTasks, useNotes, useTaskActions } from "@/hooks/usePluto";
 import { useFocus, useFocusLength } from "@/hooks/useFocus";
 import { ymd } from "@/lib/dates";
 import { STATUS_LABEL } from "@/lib/taskStatus";
-import { errorMessage, ipc, type GitEvent, type NoteSummary, type TaskRow } from "@/ipc";
+import { errorMessage, ipc, type ChatEvent, type GitEvent, type NoteSummary, type TaskRow } from "@/ipc";
 import { notify } from "@/lib/notify";
 import { timeAgo } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -54,6 +54,7 @@ export function ProjectsPage() {
   const { spaces, save } = useSpaces();
   const { data: watch } = useQuery({ queryKey: ["dev", "git"], queryFn: ipc.devGitWatch });
   const { data: events = [] } = useQuery({ queryKey: ["dev", "events"], queryFn: ipc.devGitEvents, refetchInterval: 15_000 });
+  const { data: chats = [] } = useQuery({ queryKey: ["dev", "chat"], queryFn: ipc.devChatEvents, refetchInterval: 15_000 });
   const names = useMemo(() => spaces.projects.map((p) => p.name), [spaces]);
   const projects = useMemo(() => projectsFrom(tasks, notes, names), [tasks, notes, names]);
   const found = unlinkedRepos(spaces, watch?.repos ?? []);
@@ -107,7 +108,7 @@ export function ProjectsPage() {
     <div className="mx-auto max-w-[1200px] space-y-6">
       {current ? (
         <ProjectSpace
-          project={current} space={spaceOf(spaces, current.name)} spaces={spaces} save={save} events={events}
+          project={current} space={spaceOf(spaces, current.name)} spaces={spaces} save={save} events={events} chats={chats}
           tab={tab} setTab={setTab} onBack={() => setChosen(null)} onRename={(to) => void rename(current.name, to)}
           onRemoved={() => setChosen(null)} onOpenTask={setOpenTask} onOpenNote={setOpenNote}
         />
@@ -254,8 +255,8 @@ function NewProject({ onCreate, onCancel }: { onCreate: (name: string, template:
 }
 
 /** A project's own screen: header, four numbers, tabs (owner-approved preview v2). */
-function ProjectSpace({ project, space, spaces, save, events, tab, setTab, onBack, onRename, onRemoved, onOpenTask, onOpenNote }: {
-  project: Project; space: Space; spaces: Spaces; save: (s: Spaces) => Promise<void>; events: GitEvent[];
+function ProjectSpace({ project, space, spaces, save, events, chats, tab, setTab, onBack, onRename, onRemoved, onOpenTask, onOpenNote }: {
+  project: Project; space: Space; spaces: Spaces; save: (s: Spaces) => Promise<void>; events: GitEvent[]; chats: ChatEvent[];
   tab: Tab; setTab: (t: Tab) => void; onBack: () => void; onRename: (to: string) => void; onRemoved: () => void;
   onOpenTask: (id: string) => void; onOpenNote: (id: string) => void;
 }) {
@@ -402,7 +403,7 @@ function ProjectSpace({ project, space, spaces, save, events, tab, setTab, onBac
                   </ul>}
             </Tile>
             <Tile title="Recent activity" action={seeAll("activity")}>
-              <RecentActivity space={space} project={project} events={events} />
+              <RecentActivity space={space} project={project} events={events} chats={chats} />
             </Tile>
             <Tile title="Notes" count={project.notes.length} action={project.notes.length ? seeAll("notes") : <Button size="sm" variant="ghost" className="h-7 text-[12px]" onClick={() => void addNote()}><Plus className="size-3.5" />Note</Button>}>
               {project.notes.length === 0
@@ -463,8 +464,8 @@ function NoteList({ notes, onOpen }: { notes: NoteSummary[]; onOpen: (id: string
   );
 }
 
-function RecentActivity({ space, project, events }: { space: Space; project: Project; events: GitEvent[] }) {
-  const list = activity(space.folder, events, project.tasks, project.notes.map((n) => ({ title: n.title, edited_at: n.edited_at })), 4);
+function RecentActivity({ space, project, events, chats }: { space: Space; project: Project; events: GitEvent[]; chats: ChatEvent[] }) {
+  const list = activity(space.folder, events, project.tasks, project.notes.map((n) => ({ title: n.title, edited_at: n.edited_at })), 4, chats);
   if (list.length === 0) return <p className="px-2 py-4 text-[12.5px] text-muted-foreground">{space.folder ? "Commits, pushes, finished tasks and edited notes show here." : "Finished tasks and edited notes show here. Link the folder to see commits and pushes."}</p>;
   return (
     <ol className="divide-y">
