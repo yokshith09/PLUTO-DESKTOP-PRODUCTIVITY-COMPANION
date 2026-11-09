@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { usePref } from "@/features/guide/usePref";
 import { PageHeader, Panel } from "@/features/shell/PageHeader";
+import { isOn, parsePerms, REACT_KEYS, REACTIONS, setOn, summary, TOOLS, type Perms } from "./perms";
 
 /** What assistants can do, in plain words. */
 export const CAN = [
@@ -28,14 +29,6 @@ export const CAN = [
 export const SOON = [
   { title: "A different sound", text: "“Needs you” sounds different from “done”." },
 ] as const;
-
-/** What the pet does on its own for each assistant, once connected (the rest only when it asks). */
-export const PET_REACTS: Record<string, readonly string[]> = {
-  claude: ["Done", "Needs you", "Names the chat", "Names the tool it asks to use", "Counts chats waiting for you", "Click goes to its window", "Welcome-back note", "Says when a chat runs long"],
-  codex: ["Done", "Needs you", "Names the chat", "Names the tool it asks to use", "Counts chats waiting for you", "Click goes to its window", "Welcome-back note"],
-  cursor: ["Done", "Needs you (questions)", "Names the folder", "Click goes to its window", "Welcome-back note"],
-  opencode: ["Done", "Needs you", "Names the folder", "Click goes to its window", "Welcome-back note"],
-};
 
 export const COMING = { icon: Lock, text: "Turn assistants off, change tracking, shortcuts or start-up. Those stay with you." } as const;
 export const NEVER = { icon: Lock, text: "Your diary. Assistants can never see it." } as const;
@@ -57,11 +50,23 @@ const parseDev = (raw: unknown) => raw === true;
 /** Who made a request, mapped to the assistant tile it belongs to. */
 const OWNER: Record<string, string> = { "Claude Code": "claude", Claude: "claude", "VS Code": "vscode", Cursor: "cursor", Codex: "codex", OpenCode: "opencode", Windsurf: "windsurf", Antigravity: "antigravity" };
 
+function usePerms() {
+  const qc = useQueryClient();
+  const key = ["mcp", "perms"] as const;
+  const { data } = useQuery({ queryKey: key, queryFn: async () => parsePerms(await ipc.mcpPermsGet()) });
+  const save = async (next: Perms) => {
+    qc.setQueryData(key, next);
+    try { await ipc.mcpPermsSet(next); } catch (e) { notify.error(errorMessage(e)); await qc.invalidateQueries({ queryKey: key }); }
+  };
+  return { perms: data ?? {}, save };
+}
+
 export function AssistantsPage() {
   const [enabled, setEnabled] = useSetting("mcp.enabled");
   const on = enabled === true;
   const { data: assistants = [] } = useQuery({ queryKey: ["mcp", "assistants"], queryFn: ipc.mcpAssistants });
   const [editing, setEditing] = useState<string | null>(null);
+  const { perms, save } = usePerms();
   const current = assistants.find((a) => a.id === editing) ?? null;
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -80,7 +85,7 @@ export function AssistantsPage() {
         <h2 className="text-[15px] font-semibold">Connect an assistant</h2>
         <p className="mt-0.5 text-[13px] text-muted-foreground">Press Connect, restart the assistant, then ask it: <q className="text-foreground">What's on my plan today in Pluto?</q></p>
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-          {assistants.map((a) => <AssistantTile key={a.id} a={a} on={on} onSettings={() => setEditing(a.id)} />)}
+          {assistants.map((a) => <AssistantTile key={a.id} a={a} on={on} perms={perms} onSettings={() => setEditing(a.id)} />)}
           <OtherTile onSettings={() => setEditing("other")} />
         </ul>
         {!on && assistants.some((a) => a.connected) && (
@@ -94,7 +99,7 @@ export function AssistantsPage() {
       <DeveloperReactions />
       <DeveloperPreview on={on} />
 
-      <AssistantEditor id={editing} a={current} onClose={() => setEditing(null)} />
+      <AssistantEditor id={editing} a={current} perms={perms} onPerms={save} onClose={() => setEditing(null)} />
     </div>
   );
 }
@@ -132,7 +137,7 @@ function subtitle(a: AssistantInfo) {
   return a.connected ? "Ready" : "Found on this computer";
 }
 
-function AssistantTile({ a, on, onSettings }: { a: AssistantInfo; on: boolean; onSettings: () => void }) {
+function AssistantTile({ a, on, perms, onSettings }: { a: AssistantInfo; on: boolean; perms: Perms; onSettings: () => void }) {
   const { busy, run } = useConnect();
   return (
     <li aria-label={a.name} className="flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors hover:border-foreground/20">
@@ -142,17 +147,18 @@ function AssistantTile({ a, on, onSettings }: { a: AssistantInfo; on: boolean; o
           <p className="text-[14px] font-semibold">{a.name}</p>
           <p className="truncate text-[12px] text-muted-foreground">{subtitle(a)}</p>
         </div>
-        <Button size="icon-sm" variant="ghost" aria-label={`${a.name} settings`} onClick={onSettings}><Settings2 className="size-4" /></Button>
       </div>
-      <ul aria-label={`${a.name} pet reactions`} className="flex flex-wrap gap-1.5">
-        {(PET_REACTS[a.id] ?? []).map((r) => <li key={r} className="rounded-md border px-1.5 py-0.5 text-[11px] text-foreground"><span aria-hidden className="text-primary">✓ </span>{r}</li>)}
-        {!PET_REACTS[a.id] && <li className="rounded-md border border-dashed px-1.5 py-0.5 text-[11px] text-muted-foreground">Pet reacts when it asks</li>}
-      </ul>
-      {a.connected
-        ? <p className="flex h-8 items-center gap-1.5 text-[13px] font-medium text-primary"><Check className="size-4" />{on ? "Connected" : "Connected (assistants are off)"}</p>
-        : !a.installed
-        ? <Button variant="outline" className="w-full" onClick={onSettings}>Set up by hand</Button>
-        : <Button className="w-full" disabled={busy} onClick={() => void run(() => ipc.mcpConnect(a.id), `${a.name} connected. Restart it to start.`)}>{busy ? "Connecting…" : "Connect"}</Button>}
+      {a.installed && <p className="text-[12px] text-muted-foreground">{summary(perms, a.id, REACT_KEYS[a.id]?.length ?? 0)}. Change them in Edit setup.</p>}
+      <div className="flex gap-2">
+        {a.connected
+          ? <p className="flex h-8 flex-1 items-center gap-1.5 text-[13px] font-medium text-primary"><Check className="size-4" />{on ? "Connected" : "Connected (assistants are off)"}</p>
+          : !a.installed
+          ? null
+          : <Button className="flex-1" disabled={busy} onClick={() => void run(() => ipc.mcpConnect(a.id), `${a.name} connected. Restart it to start.`)}>{busy ? "Connecting…" : "Connect"}</Button>}
+        <Button variant="outline" className={a.installed ? "" : "w-full"} aria-label={a.installed ? `${a.name} settings` : undefined} onClick={onSettings}>
+          {a.installed ? <><Settings2 className="size-4" />Edit setup</> : "Set up by hand"}
+        </Button>
+      </div>
     </li>
   );
 }
@@ -385,10 +391,12 @@ export function programOf(manual: string): string {
 
 const OTHER_MANUAL = (exe: string) => JSON.stringify({ mcpServers: { pluto: { command: exe, args: ["--mcp-bridge", "--assistant", "my-assistant"] } } }, null, 2);
 
-function AssistantEditor({ id, a, onClose }: { id: string | null; a: AssistantInfo | null; onClose: () => void }) {
+function AssistantEditor({ id, a, perms, onPerms, onClose }: { id: string | null; a: AssistantInfo | null; perms: Perms; onPerms: (p: Perms) => void; onClose: () => void }) {
   const { busy, run } = useConnect();
   const calls = useActivity(true, id !== null).filter((c) => a && OWNER[c.assistant] === a.id).slice(0, 5);
   const [manualOpen, setManualOpen] = useState(false);
+  const [tab, setTab] = useState<"connection" | "tools" | "reactions">("connection");
+  const shown = a ? tab : "connection";
   const name = a?.name ?? "Another assistant";
   const command = a?.places[0] ? programOf(a.places[0].manual) : "pluto";
   const { data: lines } = useQuery({ queryKey: ["mcp", "developer"], queryFn: ipc.mcpDeveloper, enabled: id !== null && !a });
@@ -396,7 +404,7 @@ function AssistantEditor({ id, a, onClose }: { id: string | null; a: AssistantIn
     try { await navigator.clipboard.writeText(text); notify.success("Setup copied"); } catch { notify.error("Could not copy"); }
   };
   return (
-    <Dialog open={id !== null} onOpenChange={(o) => { if (!o) { onClose(); setManualOpen(false); } }}>
+    <Dialog open={id !== null} onOpenChange={(o) => { if (!o) { onClose(); setManualOpen(false); setTab("connection"); } }}>
       <DialogContent className="max-w-lg gap-0 p-0">
         <div className="flex items-center gap-3 border-b p-5">
           <Monogram name={a ? a.name : "Another"} />
@@ -407,8 +415,18 @@ function AssistantEditor({ id, a, onClose }: { id: string | null; a: AssistantIn
             </DialogDescription>
           </div>
         </div>
+        {a && (
+          <div role="tablist" aria-label={`${a.name} sections`} className="flex gap-1 border-b px-3">
+            {([["connection", "Connection"], ["tools", "Tools"], ["reactions", "Pet reactions"]] as const).map(([k, label]) => (
+              <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+                className={`-mb-px border-b-2 px-3 py-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring ${tab === k ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{label}</button>
+            ))}
+          </div>
+        )}
         <div className="max-h-[65vh] space-y-5 overflow-y-auto p-5 text-[13px]">
-          {a && (
+          {a && tab === "tools" && <ToolsTab a={a} perms={perms} onPerms={onPerms} />}
+          {a && tab === "reactions" && <ReactionsTab a={a} perms={perms} onPerms={onPerms} />}
+          {a && shown === "connection" && (
             <section aria-label="Connection">
               <ul className="divide-y rounded-lg border">
                 {a.places.map((p) => (
@@ -430,7 +448,7 @@ function AssistantEditor({ id, a, onClose }: { id: string | null; a: AssistantIn
             </section>
           )}
 
-          <section aria-label="Manual setup">
+          {shown === "connection" && <section aria-label="Manual setup">
             {a && !manualOpen
               ? <Button variant="ghost" size="sm" className="-ml-2" onClick={() => setManualOpen(true)}>Show manual setup</Button>
               : (
@@ -447,7 +465,7 @@ function AssistantEditor({ id, a, onClose }: { id: string | null; a: AssistantIn
                   {!a && <p className="mt-2 text-[12px] text-muted-foreground">Change "my-assistant" to its name; the pet shows it with every message.</p>}
                 </>
               )}
-          </section>
+          </section>}
 
           {!a && lines && (
             <section aria-label="Pet reactions from any app">
@@ -463,7 +481,7 @@ function AssistantEditor({ id, a, onClose }: { id: string | null; a: AssistantIn
             </section>
           )}
 
-          {a && (
+          {a && shown === "connection" && (
             <section aria-label="Recent requests">
               <h3 className="text-xs font-medium text-muted-foreground">Recent requests</h3>
               {calls.length === 0
@@ -484,5 +502,57 @@ function AssistantEditor({ id, a, onClose }: { id: string | null; a: AssistantIn
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ToolsTab({ a, perms, onPerms }: { a: AssistantInfo; perms: Perms; onPerms: (p: Perms) => void }) {
+  const group = (changes: boolean, title: string, text: string) => (
+    <section aria-label={title}>
+      <h3 className="text-xs font-medium text-muted-foreground">{title}</h3>
+      <p className="mt-0.5 text-[12px] text-muted-foreground">{text}</p>
+      <ul className="mt-2 divide-y rounded-lg border">
+        {TOOLS.filter((t) => t.changes === changes).map((t) => (
+          <li key={t.name} className="flex items-center gap-3 px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium">{t.label}</p>
+              <p className="font-mono text-[11px] text-muted-foreground">{t.name}</p>
+            </div>
+            <Switch checked={isOn(perms, a.id, "tools", t.name)} onCheckedChange={(v) => onPerms(setOn(perms, a.id, "tools", t.name, v))} aria-label={`${t.label} for ${a.name}`} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+  return (
+    <div className="space-y-5">
+      <p className="text-[12px] text-muted-foreground">What {a.name} may do in Pluto. Switched off, it is told you turned it off and cannot use it. Applies at once.</p>
+      {group(false, "Reads and pet", "Looking at your day, and the pet.")}
+      {group(true, "Changes", "Every change shows in Pluto with an Undo.")}
+    </div>
+  );
+}
+
+function ReactionsTab({ a, perms, onPerms }: { a: AssistantInfo; perms: Perms; onPerms: (p: Perms) => void }) {
+  const can = REACT_KEYS[a.id] ?? [];
+  return (
+    <div className="space-y-3">
+      <p className="text-[12px] text-muted-foreground">
+        {can.length > 0 ? `What your pet does for ${a.name} on its own.` : `${a.name} has no hook Pluto can use yet, so the pet only reacts when it asks (the Tools tab). Nothing to switch here.`}
+      </p>
+      <ul className="divide-y rounded-lg border">
+        {REACTIONS.map((r) => {
+          const works = can.includes(r.key);
+          return (
+            <li key={r.key} className={`flex items-center gap-3 px-3 py-2 ${works ? "" : "opacity-60"}`}>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium">{r.label}</p>
+                <p className="text-[12px] text-muted-foreground">{works ? r.text : `Not available for ${a.name} yet.`}</p>
+              </div>
+              <Switch disabled={!works} checked={works && isOn(perms, a.id, "reactions", r.key)} onCheckedChange={(v) => onPerms(setOn(perms, a.id, "reactions", r.key, v))} aria-label={`${r.label} for ${a.name}`} />
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

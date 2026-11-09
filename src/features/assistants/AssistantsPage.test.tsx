@@ -2,7 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ipc, type AssistantInfo } from "@/ipc";
-import { AssistantsPage, PET_REACTS, SOON, programOf } from "./AssistantsPage";
+import { AssistantsPage, SOON, programOf } from "./AssistantsPage";
+import { REACT_KEYS, TOOLS } from "./perms";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
@@ -25,6 +26,8 @@ function renderPage({ enabled = false, connected = false, dev = false } = {}) {
   vi.spyOn(ipc, "settingSet").mockResolvedValue(null);
   vi.spyOn(ipc, "prefsGet").mockResolvedValue(dev as never);
   const prefsSet = vi.spyOn(ipc, "prefsSet").mockResolvedValue(null);
+  vi.spyOn(ipc, "mcpPermsGet").mockResolvedValue({});
+  const permsSet = vi.spyOn(ipc, "mcpPermsSet").mockResolvedValue(null);
   vi.spyOn(ipc, "mcpAssistants").mockResolvedValue([claude(connected), codex, cursor, windsurf]);
   const connect = vi.spyOn(ipc, "mcpConnect").mockResolvedValue(["Claude Code", "Claude app"]);
   const disconnect = vi.spyOn(ipc, "mcpDisconnect").mockResolvedValue(null);
@@ -36,7 +39,7 @@ function renderPage({ enabled = false, connected = false, dev = false } = {}) {
   vi.spyOn(ipc, "mcpDeveloper").mockResolvedValue({ gitCommit: "#!/bin/sh\npluto --react git_commit", gitPush: "x", build: "make && pluto --react build_ok", agentDone: "pluto --react agent_done --assistant my-app", agentNeedsYou: "pluto --react agent_needs_you --assistant my-app", agentPermission: "pluto --react agent_permission --assistant my-app" });
   if (!vi.isMockFunction(ipc.devGitWatch)) vi.spyOn(ipc, "devGitWatch").mockResolvedValue({ roots: [], repos: [] });
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><AssistantsPage /></QueryClientProvider>);
-  return { connect, disconnect, prefsSet, activity };
+  return { connect, disconnect, prefsSet, activity, permsSet };
 }
 
 describe("Assistants page", () => {
@@ -72,16 +75,49 @@ describe("Assistants page", () => {
     await waitFor(() => expect(disconnect).toHaveBeenCalledWith("claude"));
   });
 
-  it("lists Codex and Windsurf, shows what the pet does for each, and has no ChatGPT or DeepSeek tile (owner 2026-11-03)", async () => {
+  it("lists Codex and Windsurf with only a summary and Edit setup outside; no tools or reaction chips on the tile (owner 2026-11-09)", async () => {
     renderPage();
     const tile = await screen.findByRole("listitem", { name: "Codex" });
-    expect(tile.textContent).toContain("Codex");
-    const reacts = within(tile).getByRole("list", { name: "Codex pet reactions" });
-    expect(within(reacts).getAllByRole("listitem").map((l) => l.textContent)).toEqual(PET_REACTS.codex?.map((r) => `✓ ${r}`));
-    expect(within(await screen.findByRole("listitem", { name: "Windsurf" })).getByText("Pet reacts when it asks")).toBeTruthy();
+    expect(tile.textContent).toContain(`${TOOLS.length} of ${TOOLS.length} tools · 4 of 4 pet reactions`);
+    expect(within(tile).getByRole("button", { name: "Codex settings" }).textContent).toContain("Edit setup");
+    expect(within(tile).queryByRole("list", { name: "Codex pet reactions" })).toBeNull();
+    expect(within(await screen.findByRole("listitem", { name: "Windsurf" })).getByRole("button", { name: "Set up by hand" }).textContent).toBe("Set up by hand");
     expect(screen.queryByRole("listitem", { name: "ChatGPT" })).toBeNull();
     expect(screen.queryByRole("listitem", { name: "DeepSeek" })).toBeNull();
     expect(screen.queryByText(/DeepSeek/)).toBeNull();
+  });
+
+  it("Edit setup holds the tools: switching one off is saved as an off-list for that assistant", async () => {
+    const { permsSet } = renderPage({ connected: true });
+    fireEvent.click(await screen.findByRole("button", { name: "Claude settings" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("tab", { name: "Tools" }));
+    const add = within(dialog).getByRole("switch", { name: "Add a task for Claude" });
+    expect(add.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(add);
+    await waitFor(() => expect(permsSet).toHaveBeenCalledWith({ claude: { tools: ["task_add"], reactions: [] } }));
+    expect(within(dialog).getByRole("switch", { name: "Add a task for Claude" }).getAttribute("aria-checked")).toBe("false");
+    expect(within(dialog).getAllByRole("switch")).toHaveLength(TOOLS.length);
+  });
+
+  it("Edit setup holds the pet reactions: only what the assistant can really send is switchable", async () => {
+    const { permsSet } = renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Codex settings" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("tab", { name: "Pet reactions" }));
+    expect((within(dialog).getByRole("switch", { name: "Says when a chat runs long for Codex" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(dialog).getByText("Not available for Codex yet.")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("switch", { name: "Welcome-back note for Codex" }));
+    await waitFor(() => expect(permsSet).toHaveBeenCalledWith({ codex: { tools: [], reactions: ["away"] } }));
+  });
+
+  it("an assistant with no hook says so in its reactions tab", async () => {
+    renderPage();
+    fireEvent.click(within(await screen.findByRole("listitem", { name: "Windsurf" })).getByRole("button", { name: "Set up by hand" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("tab", { name: "Pet reactions" }));
+    expect(within(dialog).getByText(/has no hook Pluto can use yet/)).toBeTruthy();
+    expect(within(dialog).getAllByRole("switch").every((x) => (x as HTMLButtonElement).disabled)).toBe(true);
   });
 
   it("Codex's settings open with its TOML setup and name the program from it", async () => {
@@ -108,8 +144,7 @@ describe("Assistants page", () => {
   });
 
   it("every assistant that reacts on its own lists Needs you, as the owner asked", () => {
-    for (const id of ["claude", "codex", "opencode"]) expect(PET_REACTS[id]).toContain("Needs you");
-    expect(PET_REACTS.cursor?.some((r) => r.startsWith("Needs you"))).toBe(true);
+    for (const id of ["claude", "codex", "opencode", "cursor"]) expect(REACT_KEYS[id]).toContain("needs");
   });
 
   it("Coming lists the planned ideas and says none of them works yet", async () => {
@@ -122,7 +157,7 @@ describe("Assistants page", () => {
     expect(within(coming).queryByText("Which tool it wants")).toBeNull();
     // A-4 shipped too: clicking goes to the chat's window.
     expect(within(coming).queryByText("Click to go there")).toBeNull();
-    expect(PET_REACTS.claude).toContain("Click goes to its window");
+    expect(REACT_KEYS.claude).toContain("click");
   });
 
   it("says plainly what assistants can do and that the diary is never shared", async () => {

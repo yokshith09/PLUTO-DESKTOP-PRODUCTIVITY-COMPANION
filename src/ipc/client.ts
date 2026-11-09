@@ -37,6 +37,9 @@ export const ipc = {
   mcpUndo: (id: number) => call<string>("mcp_undo", { id }),
   /** Lines to copy for git and build reactions. */
   mcpDeveloper: () => call<DeveloperLines>("mcp_developer"),
+  /** What is switched off per assistant (tools and pet reactions), as saved; applied at once. */
+  mcpPermsGet: () => call<unknown>("mcp_perms_get"),
+  mcpPermsSet: (value: unknown) => call<null>("mcp_perms_set", { value }),
   devGitWatch: () => call<GitWatchInfo>("dev_git_watch"),
   devGitAddFolder: () => call<GitWatchInfo | null>("dev_git_add_folder"),
   devGitEvents: () => call<GitEvent[]>("dev_git_events"),

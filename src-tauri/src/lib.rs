@@ -172,6 +172,8 @@ pub fn run() {
             mcp::pet_waiting,
             mcp::pet_focus_chat,
             mcp::mcp_developer,
+            mcp::mcp_perms_get,
+            mcp::mcp_perms_set,
             devwatch::dev_git_watch,
             devwatch::dev_git_add_folder,
             devwatch::dev_git_remove_folder,

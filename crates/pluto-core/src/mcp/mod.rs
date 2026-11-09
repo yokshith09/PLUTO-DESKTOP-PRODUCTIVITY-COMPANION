@@ -12,6 +12,7 @@ pub mod chat_events;
 pub mod hookctx;
 mod limit;
 pub mod link;
+pub mod perms;
 pub mod read;
 pub mod setup;
 pub mod status;
@@ -92,6 +93,14 @@ pub trait Host: Send + Sync {
     fn working(&self, _change: WorkChange) {}
     // A-2
     fn chat_event(&self, _assistant: String, _place: Option<String>, _kind: &'static str) {}
+    /// May this assistant call this tool? The person can switch tools off per assistant (Edit setup).
+    fn tool_allowed(&self, _assistant: &str, _tool: &str) -> bool {
+        true
+    }
+    /// Should the pet react in this way for this assistant? Keys are in [`perms::REACTIONS`].
+    fn reaction_allowed(&self, _assistant: &str, _key: &str) -> bool {
+        true
+    }
     /// Note a call for the Assistants page (the host adds the time).
     fn record(&self, _tool: &'static str, _assistant: &str, _ok: bool, _detail: String) {}
 }
@@ -386,40 +395,51 @@ impl PlutoMcp {
         if let Some(host) = &self.host {
             let assistant = self.assistant.to_string();
             let place = place.map(str::to_owned);
+            let on = |key: &str| host.reaction_allowed(&assistant, key);
+            // "Click goes to its window" off: keep no window with the waiting chat.
+            let window = if on("click") { window } else { None };
             match reaction {
-                "agent_needs_you" | "agent_permission" => host.waiting(WaitChange::Raise {
-                    assistant: assistant.clone(),
-                    place: place.clone(),
-                    kind: if reaction == "agent_permission" {
-                        waiting::Kind::Permission
-                    } else {
-                        waiting::Kind::Needs
-                    },
-                    window,
-                }),
+                "agent_needs_you" | "agent_permission" if on("needs") => {
+                    host.waiting(WaitChange::Raise {
+                        assistant: assistant.clone(),
+                        place: place.clone(),
+                        kind: if reaction == "agent_permission" {
+                            waiting::Kind::Permission
+                        } else {
+                            waiting::Kind::Needs
+                        },
+                        window,
+                    });
+                }
                 "agent_done" | "agent_resumed" => host.waiting(WaitChange::Clear {
                     assistant: assistant.clone(),
                     place: place.clone(),
                 }),
                 _ => {}
             }
-            match reaction {
-                "agent_done" => host.finished(assistant.clone(), place.clone(), "done"),
-                "agent_needs_you" => host.finished(assistant.clone(), place.clone(), "needs"),
-                "agent_permission" => host.finished(assistant.clone(), place.clone(), "permission"),
-                _ => {}
+            if on("away") {
+                match reaction {
+                    "agent_done" => host.finished(assistant.clone(), place.clone(), "done"),
+                    "agent_needs_you" => host.finished(assistant.clone(), place.clone(), "needs"),
+                    "agent_permission" => {
+                        host.finished(assistant.clone(), place.clone(), "permission");
+                    }
+                    _ => {}
+                }
             }
-            match reaction {
-                "agent_resumed" => host.working(WorkChange::Start {
-                    assistant: assistant.clone(),
-                    place: place.clone(),
-                }),
-                "agent_done" | "agent_needs_you" | "agent_permission" | "agent_error" => host
-                    .working(WorkChange::End {
+            if on("long_run") {
+                match reaction {
+                    "agent_resumed" => host.working(WorkChange::Start {
                         assistant: assistant.clone(),
                         place: place.clone(),
                     }),
-                _ => {}
+                    "agent_done" | "agent_needs_you" | "agent_permission" | "agent_error" => host
+                        .working(WorkChange::End {
+                            assistant: assistant.clone(),
+                            place: place.clone(),
+                        }),
+                    _ => {}
+                }
             }
             match reaction {
                 "agent_done" => host.chat_event(assistant, place, "done"),
@@ -428,10 +448,21 @@ impl PlutoMcp {
                 _ => {}
             }
         }
+        // The bubble itself: switched off per reaction, never an error for the hook.
+        if let Some(host) = &self.host {
+            let key = match reaction {
+                "agent_needs_you" | "agent_permission" => Some("needs"),
+                "agent_done" => Some("done"),
+                _ => None,
+            };
+            if key.is_some_and(|k| !host.reaction_allowed(&self.assistant, k)) {
+                return "The person switched this pet reaction off for this assistant.".to_owned();
+            }
+        }
         if reaction == "agent_resumed" {
             return "Noted.".to_owned();
         }
-        let result = match (self.over_limit("react"), &self.host) {
+        let result = match (self.rate_limited("react"), &self.host) {
             (Some(refused), _) => refused,
             (None, None) => Self::refused(NOT_RUNNING),
             (None, Some(host)) => {
@@ -484,7 +515,21 @@ impl PlutoMcp {
         result
     }
 
+    /// Refuses a tool the person switched off for this assistant, otherwise applies the rate limit.
     fn over_limit(&self, tool: &'static str) -> Option<CallToolResult> {
+        if let Some(host) = &self.host {
+            if !host.tool_allowed(&self.assistant, tool) {
+                return Some(Self::refused(format!(
+                    "The person turned `{tool}` off for {} in Pluto (Assistants, Edit setup). Do not try it again; ask them to turn it back on if you need it.",
+                    self.assistant
+                )));
+            }
+        }
+        self.rate_limited(tool)
+    }
+
+    /// Only the rate limit (hook reactions are not tools and are switched per reaction instead).
+    fn rate_limited(&self, tool: &'static str) -> Option<CallToolResult> {
         (!self.limit.allow(tool)).then(|| {
             Self::refused(format!(
                 "Too many `{tool}` calls: Pluto allows {CALLS_PER_MINUTE} a minute. Try again in a minute."
@@ -1060,6 +1105,18 @@ impl ServerHandler for PlutoMcp {
             .host
             .as_ref()
             .ok_or_else(|| refused(NOT_RUNNING.into()))?;
+        let tool = match uri.as_str() {
+            "pluto://today" => "today",
+            "pluto://status" => "status",
+            u if u.starts_with("pluto://note/") => "note_get",
+            _ => "task_get",
+        };
+        if !host.tool_allowed(&self.assistant, tool) {
+            return Err(refused(format!(
+                "The person turned `{tool}` off for {} in Pluto.",
+                self.assistant
+            )));
+        }
         let data = host
             .data()
             .ok_or_else(|| refused("Pluto is still starting. Try again in a moment.".into()))?;

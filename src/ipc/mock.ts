@@ -407,6 +407,8 @@ export function createMock() {
     dev_git_watch: () => ({ roots: [...gitRoots], repos: gitRoots.length ? gitRoots.map((r) => `${r}/pluto`) : ["E:/Projects/staysync"] }),
     dev_git_add_folder: () => { gitRoots.push("E:/Projects"); return { roots: [...gitRoots], repos: gitRoots.map((r) => `${r}/pluto`) }; },
     dev_git_remove_folder: (a) => { gitRoots = gitRoots.filter((r) => r !== a.path); return { roots: [...gitRoots], repos: gitRoots.map((r) => `${r}/pluto`) }; },
+    mcp_perms_get: () => prefs.get("mcp.perms") ?? {},
+    mcp_perms_set: (a) => { prefs.set("mcp.perms", a.value); return null; },
     mcp_developer: () => ({ gitCommit: `#!/bin/sh\n"${exe}" --react git_commit --assistant git\n`, gitPush: `#!/bin/sh\n"${exe}" --react git_push --assistant git\n`, build: `<your build> && "${exe}" --react build_ok --assistant build || "${exe}" --react build_failed --assistant build`, agentDone: `"${exe}" --react agent_done --assistant my-app`, agentNeedsYou: `"${exe}" --react agent_needs_you --assistant my-app`, agentPermission: `"${exe}" --react agent_permission --assistant my-app` }),
     mcp_activity: () => (settings["mcp.enabled"] === true ? mcpCalls.map((c) => ({ ...c })) : []),
     setting_set: (a) => { settings[String(a.key)] = a.value; emit("SettingChanged"); return null; },

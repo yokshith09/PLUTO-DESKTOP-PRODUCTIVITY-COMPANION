@@ -17,7 +17,7 @@ use pluto_core::mcp::activity::{Activity, Call};
 use pluto_core::mcp::ask::{Question, ANSWER_WAIT};
 use pluto_core::mcp::setup::{self, Format};
 use pluto_core::mcp::write::{self, Change};
-use pluto_core::mcp::{away, chat_events, hookctx, link, waiting, working};
+use pluto_core::mcp::{away, chat_events, hookctx, link, perms, waiting, working};
 use pluto_core::mcp::{Host, HostFuture, PetMessage, RateLimit, Status, WaitChange, WorkChange};
 use pluto_core::settings_service::SettingsService;
 use serde::Serialize;
@@ -323,6 +323,7 @@ struct ShellHost<R: Runtime> {
     away: Arc<AwayList>,
     working: Arc<WorkList>,
     chats: Arc<ChatEvents>,
+    perms: Arc<std::sync::RwLock<perms::Perms>>,
 }
 
 #[derive(Default)]
@@ -825,6 +826,20 @@ impl<R: Runtime> Host for ShellHost<R> {
         })
     }
 
+    fn tool_allowed(&self, assistant: &str, tool: &str) -> bool {
+        self.perms
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .tool_on(assistant, tool)
+    }
+
+    fn reaction_allowed(&self, assistant: &str, key: &str) -> bool {
+        self.perms
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .reaction_on(assistant, key)
+    }
+
     fn record(&self, tool: &'static str, assistant: &str, ok: bool, detail: String) {
         self.activity.record(Call {
             at_ms: now_ms(&self.app),
@@ -884,6 +899,7 @@ pub struct Mcp {
     away: Arc<AwayList>,
     working: Arc<WorkList>,
     chats: Arc<ChatEvents>,
+    perms: Arc<std::sync::RwLock<perms::Perms>>,
     listener: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
 }
 
@@ -920,6 +936,7 @@ pub fn shell_host<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp) -> Arc<dyn Host> {
         away: mcp.away.clone(),
         working: mcp.working.clone(),
         chats: mcp.chats.clone(),
+        perms: mcp.perms.clone(),
     })
 }
 
@@ -940,6 +957,7 @@ fn listen_now<R: Runtime>(app: &AppHandle<R>, mcp: &Mcp, data_dir: &Path) {
         away: mcp.away.clone(),
         working: mcp.working.clone(),
         chats: mcp.chats.clone(),
+        perms: mcp.perms.clone(),
     });
     let limits = Arc::new(Limits::default());
     let dir = data_dir.to_owned();
@@ -968,6 +986,10 @@ pub fn start(app: AppHandle, settings: Arc<SettingsService>, bus: &EventBus, dat
         // The log from last time, with its Undo.
         if let Ok(Some(saved)) = settings.get_pref(ACTIVITY_PREF).await {
             mcp.activity.restore(&saved);
+        }
+        if let Ok(saved) = settings.get_pref(perms::PERMS_PREF).await {
+            *mcp.perms.write().unwrap_or_else(PoisonError::into_inner) =
+                perms::Perms::parse(saved.as_ref());
         }
         let mut on = false;
         if let Some(core) = app.try_state::<crate::Core>() {
@@ -1624,6 +1646,33 @@ pub async fn dev_chat_events(
         .await
         .map_err(|error| error.to_string())?;
     Ok(mcp.chats.load(saved.as_ref()))
+}
+
+/// What the person has switched off per assistant (tools and pet reactions), as saved.
+#[tauri::command]
+pub async fn mcp_perms_get(
+    settings: State<'_, Arc<SettingsService>>,
+) -> Result<serde_json::Value, String> {
+    Ok(settings
+        .get_pref(perms::PERMS_PREF)
+        .await
+        .map_err(|error| error.to_string())?
+        .unwrap_or_else(|| serde_json::json!({})))
+}
+
+/// Saves what is switched off and applies it at once, to connections already open.
+#[tauri::command]
+pub async fn mcp_perms_set(
+    value: serde_json::Value,
+    mcp: State<'_, Mcp>,
+    settings: State<'_, Arc<SettingsService>>,
+) -> Result<(), String> {
+    settings
+        .set_pref(perms::PERMS_PREF, value.clone())
+        .await
+        .map_err(|error| error.to_string())?;
+    *mcp.perms.write().unwrap_or_else(PoisonError::into_inner) = perms::Perms::parse(Some(&value));
+    Ok(())
 }
 
 /// Runs `listen` for the life of the app: if the pipe ever stops (it used to, for good, after one

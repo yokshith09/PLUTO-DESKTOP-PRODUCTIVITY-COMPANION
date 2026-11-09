@@ -22,6 +22,7 @@ struct FakeHost {
     finished: Mutex<Vec<(String, Option<String>, &'static str)>>,
     working: Mutex<Vec<WorkChange>>,
     chats: Mutex<Vec<(String, Option<String>, &'static str)>>,
+    perms: perms::Perms,
 }
 
 impl Host for FakeHost {
@@ -70,6 +71,12 @@ impl Host for FakeHost {
     }
     fn chat_event(&self, assistant: String, place: Option<String>, kind: &'static str) {
         self.chats.lock().unwrap().push((assistant, place, kind));
+    }
+    fn tool_allowed(&self, assistant: &str, tool: &str) -> bool {
+        self.perms.tool_on(assistant, tool)
+    }
+    fn reaction_allowed(&self, assistant: &str, key: &str) -> bool {
+        self.perms.reaction_on(assistant, key)
     }
     fn record(&self, tool: &'static str, assistant: &str, ok: bool, detail: String) {
         self.recorded
@@ -1509,5 +1516,116 @@ fn git_reactions_name_the_project() {
     assert_eq!(
         super::reaction_line("git_commit", "StaySync").map(|(_, l)| l),
         Some("StaySync: committed".to_owned())
+    );
+}
+
+#[tokio::test]
+async fn the_editor_list_of_tools_is_the_list_the_server_offers() {
+    let (client, _) = connect(newest()).await;
+    let mut offered: Vec<String> = client
+        .list_all_tools()
+        .await
+        .unwrap()
+        .iter()
+        .map(|t| t.name.to_string())
+        .collect();
+    offered.sort_unstable();
+    let mut listed: Vec<String> = perms::TOOLS.iter().map(|t| t.0.to_owned()).collect();
+    listed.sort_unstable();
+    assert_eq!(
+        offered, listed,
+        "Edit setup must list every tool, and only real ones"
+    );
+}
+
+#[tokio::test]
+async fn a_tool_switched_off_for_an_assistant_is_refused_and_the_rest_still_work() {
+    let host = FakeHost {
+        perms: perms::Perms::parse(Some(&json!({"claude": {"tools": ["task_add", "status"]}}))),
+        ..FakeHost::default()
+    };
+    let (client, host) = connect_to(host, newest()).await;
+    let refused = call(&client, "task_add", json!({"title": "x"})).await;
+    assert_eq!(refused.is_error, Some(true));
+    assert!(
+        text(&refused).contains("turned `task_add` off"),
+        "{}",
+        text(&refused)
+    );
+    assert!(
+        host.changes.lock().unwrap().is_empty(),
+        "nothing was changed"
+    );
+    let status = call(&client, "status", json!({})).await;
+    assert_eq!(
+        status.is_error,
+        Some(true),
+        "a read tool can be switched off too"
+    );
+    let say = call(&client, "say", json!({"text": "hi"})).await;
+    assert_ne!(say.is_error, Some(true), "other tools are untouched");
+}
+
+#[tokio::test]
+async fn a_switched_off_tool_also_closes_its_resource() {
+    let host = FakeHost {
+        perms: perms::Perms::parse(Some(&json!({"claude": {"tools": ["status"]}}))),
+        ..FakeHost::default()
+    };
+    let (client, _) = connect_to(host, newest()).await;
+    let read = client
+        .read_resource(rmcp::model::ReadResourceRequestParams::new(
+            "pluto://status",
+        ))
+        .await;
+    assert!(read.is_err(), "pluto://status follows the `status` switch");
+}
+
+#[tokio::test]
+async fn switched_off_pet_reactions_keep_the_pet_quiet_without_touching_other_assistants() {
+    let host = Arc::new(FakeHost {
+        perms: perms::Perms::parse(Some(
+            &json!({"claude": {"reactions": ["needs", "away", "long_run"]}}),
+        )),
+        ..FakeHost::default()
+    });
+    let claude = PlutoMcp::new(host.clone(), "Claude Code", Arc::new(RateLimit::default()));
+    claude.react_once("agent_resumed", Some("app"));
+    claude.react_once("agent_needs_you", Some("app"));
+    claude.react_once("agent_done", Some("app"));
+    assert!(
+        host.waits
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|w| !matches!(w, WaitChange::Raise { .. })),
+        "no waiting chat"
+    );
+    assert!(
+        host.finished.lock().unwrap().is_empty(),
+        "no welcome-back note"
+    );
+    assert!(host.working.lock().unwrap().is_empty(), "no working notice");
+    let shown: Vec<_> = host
+        .shown
+        .lock()
+        .unwrap()
+        .iter()
+        .filter_map(|m| m.reaction)
+        .collect();
+    assert_eq!(
+        shown,
+        ["agent_done"],
+        "Done still shows; Needs you does not"
+    );
+    let codex = PlutoMcp::new(host.clone(), "Codex", Arc::new(RateLimit::default()));
+    codex.react_once("agent_needs_you", Some("app"));
+    assert!(
+        host.waits
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|w| matches!(w, WaitChange::Raise { .. })),
+        "Codex is unaffected"
     );
 }
