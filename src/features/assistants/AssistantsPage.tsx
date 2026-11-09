@@ -55,7 +55,7 @@ const DEV_PREF = "assistants.devPreview";
 const parseDev = (raw: unknown) => raw === true;
 
 /** Who made a request, mapped to the assistant tile it belongs to. */
-const OWNER: Record<string, string> = { "Claude Code": "claude", Claude: "claude", "VS Code": "vscode", Cursor: "cursor", Codex: "codex", OpenCode: "opencode", Windsurf: "windsurf" };
+const OWNER: Record<string, string> = { "Claude Code": "claude", Claude: "claude", "VS Code": "vscode", Cursor: "cursor", Codex: "codex", OpenCode: "opencode", Windsurf: "windsurf", Antigravity: "antigravity" };
 
 export function AssistantsPage() {
   const [enabled, setEnabled] = useSetting("mcp.enabled");

@@ -1062,6 +1062,7 @@ const ASSISTANTS: &[(&str, &str)] = &[
     ("vscode", "VS Code"),
     ("opencode", "OpenCode"),
     ("windsurf", "Windsurf"),
+    ("antigravity", "Antigravity"),
 ];
 
 /// Where each assistant keeps its settings under these folders (home, and the OS's config folder:
@@ -1145,6 +1146,15 @@ fn places_in(id: &str, home: &Path, config: &Path, local: Option<&Path>) -> Vec<
             });
             list
         }
+        // Google Antigravity (IDE, CLI and 2.0 share one global file; its docs name
+        // `~/.gemini/config/mcp_config.json`). Tools only for now: its hook format is not known yet.
+        "antigravity" => vec![Place {
+            label: "Antigravity",
+            path: home.join(".gemini").join("config").join("mcp_config.json"),
+            format: Format::McpServers,
+            id: "antigravity",
+            needs_file: false,
+        }],
         _ => Vec::new(),
     }
 }
@@ -2030,12 +2040,12 @@ mod tests {
     }
 
     #[test]
-    fn codex_opencode_and_windsurf_connect_in_their_own_files_and_come_out_again() {
+    fn codex_opencode_windsurf_and_antigravity_connect_in_their_own_files_and_come_out_again() {
         let dir = tempfile::tempdir().unwrap();
         let home = dir.path().to_path_buf();
         let config = dir.path().join("AppData");
         // Nothing installed yet: not found.
-        for id in ["codex", "opencode", "windsurf"] {
+        for id in ["codex", "opencode", "windsurf", "antigravity"] {
             assert!(
                 !places_in(id, &home, &config, None)
                     .iter()
@@ -2047,9 +2057,10 @@ mod tests {
         std::fs::write(home.join(".codex").join("config.toml"), "model = \"o3\"\n").unwrap();
         std::fs::create_dir_all(home.join(".config").join("opencode")).unwrap();
         std::fs::create_dir_all(home.join(".codeium").join("windsurf")).unwrap();
+        std::fs::create_dir_all(home.join(".gemini").join("config")).unwrap();
 
         let program = "/opt/pluto";
-        for id in ["codex", "opencode", "windsurf"] {
+        for id in ["codex", "opencode", "windsurf", "antigravity"] {
             let places = places_in(id, &home, &config, None);
             let done = connect_places(&places, program).unwrap();
             assert!(!done.is_empty(), "{id}");
@@ -2067,6 +2078,13 @@ mod tests {
         )
         .unwrap();
         assert_eq!(opencode["mcp"]["pluto"]["command"][0], program);
+        // Antigravity's one global file is written.
+        let ag: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(home.join(".gemini").join("config").join("mcp_config.json"))
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(ag["mcpServers"]["pluto"]["args"][2], "antigravity");
         // Windsurf's editor file is written; the Devin one only where its folder exists.
         assert!(home
             .join(".codeium")
@@ -2074,7 +2092,7 @@ mod tests {
             .join("mcp_config.json")
             .is_file());
 
-        for id in ["codex", "opencode", "windsurf"] {
+        for id in ["codex", "opencode", "windsurf", "antigravity"] {
             disconnect_places(&places_in(id, &home, &config, None)).unwrap();
             assert!(
                 !describe(id, id, &places_in(id, &home, &config, None), program).connected,

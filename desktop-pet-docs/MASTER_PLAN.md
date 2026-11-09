@@ -382,3 +382,5 @@ Study hours: **partly solved** (app/site time + categories built; study hours pe
 - Fixed (Unverified): pet-visibility bugs B1-B6 + S1.
 - Built (Unverified): macOS Arc / Firefox / Safari (opt-in) for website time and open tabs (FR-104).
 - Planned: FR-105 real pack animations (`docs/character/ANIMATION_PLAN.md`), FR-106 UI redesign pass (audit with screenshots first).
+
+- 2026-11-09: Antigravity connector done (tools only). Pending the owner's approval of previews: Student pack v2 (replaces the U-4 Study scope; no Home or Setup tab), tracker redesign, assistant reaction tiles.

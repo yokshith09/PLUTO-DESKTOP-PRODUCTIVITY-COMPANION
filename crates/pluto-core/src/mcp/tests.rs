@@ -770,6 +770,7 @@ mod link_tests {
         assert_eq!(link::display_name("opencode"), "OpenCode");
         assert_eq!(link::display_name("codex"), "Codex");
         assert_eq!(link::display_name("windsurf"), "Windsurf");
+        assert_eq!(link::display_name("antigravity"), "Antigravity");
     }
 
     /// Assistant ⇄ bridge (stdio) ⇄ pipe ⇄ Pluto, all in memory: the whole path an assistant uses.

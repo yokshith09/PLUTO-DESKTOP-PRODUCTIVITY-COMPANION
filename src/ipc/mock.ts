@@ -366,6 +366,9 @@ export function createMock() {
     { id: "windsurf", name: "Windsurf", installed: false, connected: false, places: [
       { label: "Windsurf", path: "C:\\Users\\you\\.codeium\\windsurf\\mcp_config.json", installed: false, connected: false, manual: manual("mcpServers", "windsurf") },
     ] },
+    { id: "antigravity", name: "Antigravity", installed: false, connected: false, places: [
+      { label: "Antigravity", path: "C:\\Users\\you\\.gemini\\config\\mcp_config.json", installed: false, connected: false, manual: manual("mcpServers", "antigravity") },
+    ] },
   ];
 
   const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
