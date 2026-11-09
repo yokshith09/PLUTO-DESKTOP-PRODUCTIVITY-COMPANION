@@ -4,6 +4,7 @@ import { useRoutineReminder } from "@/features/routine/useRoutine";
 import { useDailyGreeting } from "@/features/companion/useCompanion";
 import { useWellbeingNudges } from "@/features/wellbeing/useWellbeing";
 import { useRepeatReminder } from "@/features/tasks/useRepeatReminder";
+import { useDayWithAssistants } from "@/features/assistants/useDayWithAssistants";
 import { Notices } from "@/components/Notices";
 import { useAutoDelete } from "@/features/settings/autoDelete";
 import { setPetShown } from "@/lib/notify";
@@ -58,6 +59,7 @@ function Screen() {
   useDailyGreeting();
   // FR-109: in the evening, repeating tasks still open today.
   useRepeatReminder();
+  useDayWithAssistants();
   useWellbeingNudges();
   // FR-46: auto-delete by the user's rules (never by default).
   useAutoDelete();
