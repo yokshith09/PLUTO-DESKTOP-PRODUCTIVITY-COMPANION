@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, ExternalLink, File, Folder, GitCommitHorizontal, Globe, NotebookPen, Plus, Upload, X } from "lucide-react";
+import { Bot, CheckCircle2, ExternalLink, File, Folder, GitCommitHorizontal, Globe, Hand, NotebookPen, Plus, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { errorMessage, ipc, type NoteSummary, type TaskRow } from "@/ipc";
@@ -70,12 +70,13 @@ export function LinksPanel({ space, spaces, save }: { space: Space; spaces: Spac
   );
 }
 
-const ACT_ICON = { committed: GitCommitHorizontal, pushed: Upload, "task-done": CheckCircle2, note: NotebookPen } as const;
+const ACT_ICON = { committed: GitCommitHorizontal, pushed: Upload, "task-done": CheckCircle2, note: NotebookPen, "chat-done": Bot, "chat-needs": Hand, "chat-permission": Hand } as const;
 
 /** Activity: commits and pushes in the project's folder, tasks finished and notes edited. */
 export function ActivityPanel({ space, tasks, notes }: { space: Space; tasks: TaskRow[]; notes: NoteSummary[] }) {
   const { data: events = [] } = useQuery({ queryKey: ["dev", "events"], queryFn: ipc.devGitEvents, refetchInterval: 15_000 });
-  const list = activity(space.folder, events, tasks, notes.map((n) => ({ title: n.title, edited_at: n.edited_at })));
+  const { data: chats = [] } = useQuery({ queryKey: ["dev", "chat"], queryFn: ipc.devChatEvents, refetchInterval: 15_000 });
+  const list = activity(space.folder, events, tasks, notes.map((n) => ({ title: n.title, edited_at: n.edited_at })), 50, chats);
   return (
     <section aria-label="Activity" className="rounded-xl border bg-card">
       {list.length === 0 ? (

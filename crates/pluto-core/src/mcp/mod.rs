@@ -7,6 +7,8 @@
 
 pub mod activity;
 pub mod ask;
+pub mod away;
+pub mod chat_events;
 pub mod hookctx;
 mod limit;
 pub mod link;
@@ -16,6 +18,7 @@ pub mod status;
 #[cfg(test)]
 mod tests;
 pub mod waiting;
+pub mod working;
 pub mod write;
 
 use std::future::Future;
@@ -83,6 +86,12 @@ pub trait Host: Send + Sync {
     }
     /// A chat started or stopped waiting for you (A-1): the host keeps the list and tells the pet.
     fn waiting(&self, _change: WaitChange) {}
+    // A-3
+    fn finished(&self, _assistant: String, _place: Option<String>, _kind: &'static str) {}
+    // A-7
+    fn working(&self, _change: WorkChange) {}
+    // A-2
+    fn chat_event(&self, _assistant: String, _place: Option<String>, _kind: &'static str) {}
     /// Note a call for the Assistants page (the host adds the time).
     fn record(&self, _tool: &'static str, _assistant: &str, _ok: bool, _detail: String) {}
 }
@@ -129,6 +138,19 @@ pub enum WaitChange {
     },
     /// The chat replied (`agent_resumed`) or finished.
     Clear {
+        assistant: String,
+        place: Option<String>,
+    },
+}
+
+/// A chat began or ended work (A-7). `place` is parsed by the shell into its folder only.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WorkChange {
+    Start {
+        assistant: String,
+        place: Option<String>,
+    },
+    End {
         assistant: String,
         place: Option<String>,
     },
@@ -366,8 +388,8 @@ impl PlutoMcp {
             let place = place.map(str::to_owned);
             match reaction {
                 "agent_needs_you" | "agent_permission" => host.waiting(WaitChange::Raise {
-                    assistant,
-                    place,
+                    assistant: assistant.clone(),
+                    place: place.clone(),
                     kind: if reaction == "agent_permission" {
                         waiting::Kind::Permission
                     } else {
@@ -375,9 +397,34 @@ impl PlutoMcp {
                     },
                     window,
                 }),
-                "agent_done" | "agent_resumed" => {
-                    host.waiting(WaitChange::Clear { assistant, place })
-                }
+                "agent_done" | "agent_resumed" => host.waiting(WaitChange::Clear {
+                    assistant: assistant.clone(),
+                    place: place.clone(),
+                }),
+                _ => {}
+            }
+            match reaction {
+                "agent_done" => host.finished(assistant.clone(), place.clone(), "done"),
+                "agent_needs_you" => host.finished(assistant.clone(), place.clone(), "needs"),
+                "agent_permission" => host.finished(assistant.clone(), place.clone(), "permission"),
+                _ => {}
+            }
+            match reaction {
+                "agent_resumed" => host.working(WorkChange::Start {
+                    assistant: assistant.clone(),
+                    place: place.clone(),
+                }),
+                "agent_done" | "agent_needs_you" | "agent_permission" | "agent_error" => host
+                    .working(WorkChange::End {
+                        assistant: assistant.clone(),
+                        place: place.clone(),
+                    }),
+                _ => {}
+            }
+            match reaction {
+                "agent_done" => host.chat_event(assistant, place, "done"),
+                "agent_needs_you" => host.chat_event(assistant, place, "needs"),
+                "agent_permission" => host.chat_event(assistant, place, "permission"),
                 _ => {}
             }
         }

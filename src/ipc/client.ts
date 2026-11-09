@@ -17,6 +17,8 @@ export type DeveloperLines = { gitCommit: string; gitPush: string; build: string
 export type GitWatchInfo = { roots: string[]; repos: string[] };
 /** A commit or push the folder watcher saw. */
 export type GitEvent = { repo: string; kind: "git_commit" | "git_push"; atMs: number };
+/** An assistant chat event saved for a project's Activity. */
+export type ChatEvent = { assistant: string; folder: string; kind: "done" | "needs" | "permission"; atMs: number };
 
 export const ipc = {
   settingsGetAll: () => call<Settings>("settings_get_all"),
@@ -38,6 +40,7 @@ export const ipc = {
   devGitWatch: () => call<GitWatchInfo>("dev_git_watch"),
   devGitAddFolder: () => call<GitWatchInfo | null>("dev_git_add_folder"),
   devGitEvents: () => call<GitEvent[]>("dev_git_events"),
+  devChatEvents: () => call<ChatEvent[]>("dev_chat_events"),
   /** Folder or file picker for a project; `null` if cancelled. */
   projectPathPick: (kind: "folder" | "file") => call<string | null>("project_path_pick", { kind }),
   /** Opens a project's folder or file link (only saved ones; programs are shown, not run). */

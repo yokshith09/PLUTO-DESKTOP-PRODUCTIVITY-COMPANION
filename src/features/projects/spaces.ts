@@ -130,7 +130,7 @@ export function nameFor(folder: string, taken: string[]): string {
   return name;
 }
 
-export interface ActivityItem { at: number; kind: "committed" | "pushed" | "task-done" | "note"; text: string }
+export interface ActivityItem { at: number; kind: "committed" | "pushed" | "task-done" | "note" | "chat-done" | "chat-needs" | "chat-permission"; text: string }
 
 /**
  * A project's Activity: commits and pushes in its folder ("Committed" / "Pushed" and the time,
@@ -142,6 +142,7 @@ export function activity(
   tasks: TaskRow[],
   notes: { title: string; edited_at: number }[],
   max = 50,
+  chats: { assistant: string; folder: string; kind: string; atMs: number }[] = [],
 ): ActivityItem[] {
   const out: ActivityItem[] = [];
   if (folder) {
@@ -149,6 +150,15 @@ export function activity(
       if (!samePath(e.repo, folder)) continue;
       if (e.kind === "git_commit") out.push({ at: e.atMs, kind: "committed", text: "Committed" });
       if (e.kind === "git_push") out.push({ at: e.atMs, kind: "pushed", text: "Pushed" });
+    }
+  }
+  if (folder) {
+    const name = shortName(folder).toLowerCase();
+    for (const event of chats) {
+      if (event.folder.toLowerCase() !== name) continue;
+      if (event.kind === "done") out.push({ at: event.atMs, kind: "chat-done", text: `${event.assistant} finished` });
+      if (event.kind === "needs") out.push({ at: event.atMs, kind: "chat-needs", text: `${event.assistant} needed you` });
+      if (event.kind === "permission") out.push({ at: event.atMs, kind: "chat-permission", text: `${event.assistant} asked for permission` });
     }
   }
   for (const r of tasks) {

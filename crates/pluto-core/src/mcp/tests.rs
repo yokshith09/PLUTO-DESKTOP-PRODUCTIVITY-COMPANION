@@ -19,6 +19,9 @@ struct FakeHost {
     answer: Option<String>,
     asked: Mutex<Vec<ask::Question>>,
     waits: Mutex<Vec<WaitChange>>,
+    finished: Mutex<Vec<(String, Option<String>, &'static str)>>,
+    working: Mutex<Vec<WorkChange>>,
+    chats: Mutex<Vec<(String, Option<String>, &'static str)>>,
 }
 
 impl Host for FakeHost {
@@ -58,6 +61,15 @@ impl Host for FakeHost {
     }
     fn waiting(&self, change: WaitChange) {
         self.waits.lock().unwrap().push(change);
+    }
+    fn finished(&self, assistant: String, place: Option<String>, kind: &'static str) {
+        self.finished.lock().unwrap().push((assistant, place, kind));
+    }
+    fn working(&self, change: WorkChange) {
+        self.working.lock().unwrap().push(change);
+    }
+    fn chat_event(&self, assistant: String, place: Option<String>, kind: &'static str) {
+        self.chats.lock().unwrap().push((assistant, place, kind));
     }
     fn record(&self, tool: &'static str, assistant: &str, ok: bool, detail: String) {
         self.recorded
@@ -289,6 +301,7 @@ async fn hooks_keep_the_waiting_list_and_a_reply_is_silent() {
     server.react_once("agent_permission", Some("to use Bash · app"));
     server.react_once("agent_resumed", Some("app"));
     server.react_once("agent_done", Some("app"));
+    server.react_once("agent_error", Some("app"));
     let waits = host.waits.lock().unwrap().clone();
     assert_eq!(waits.len(), 4);
     assert!(matches!(
@@ -303,12 +316,356 @@ async fn hooks_keep_the_waiting_list_and_a_reply_is_silent() {
     );
     assert!(matches!(&waits[2], WaitChange::Clear { place: Some(p), .. } if p == "app"));
     assert!(matches!(&waits[3], WaitChange::Clear { .. }));
-    // Only the first, second and last made a bubble: a reply shows nothing and is not logged.
+    assert_eq!(
+        *host.chats.lock().unwrap(),
+        vec![
+            (
+                "Claude Code".into(),
+                Some("app · “fix tray”".into()),
+                "needs"
+            ),
+            (
+                "Claude Code".into(),
+                Some("to use Bash · app".into()),
+                "permission"
+            ),
+            ("Claude Code".into(), Some("app".into()), "done"),
+        ]
+    );
+    // Needs, permission, done and error made bubbles; a reply remains silent and unlogged.
     let shown = host.shown.lock().unwrap().clone();
-    assert_eq!(shown.len(), 3);
+    assert_eq!(shown.len(), 4);
     assert!(shown.iter().all(|m| !m.text.is_empty()));
     let logged = host.recorded.lock().unwrap().len();
-    assert_eq!(logged, 3);
+    assert_eq!(logged, 4);
+    assert_eq!(
+        *host.finished.lock().unwrap(),
+        vec![
+            (
+                "Claude Code".into(),
+                Some("app · “fix tray”".into()),
+                "needs"
+            ),
+            (
+                "Claude Code".into(),
+                Some("to use Bash · app".into()),
+                "permission"
+            ),
+            ("Claude Code".into(), Some("app".into()), "done"),
+        ]
+    );
+    assert_eq!(
+        *host.chats.lock().unwrap(),
+        vec![
+            (
+                "Claude Code".into(),
+                Some("app · “fix tray”".into()),
+                "needs"
+            ),
+            (
+                "Claude Code".into(),
+                Some("to use Bash · app".into()),
+                "permission"
+            ),
+            ("Claude Code".into(), Some("app".into()), "done"),
+        ]
+    );
+    assert_eq!(
+        *host.working.lock().unwrap(),
+        vec![
+            WorkChange::End {
+                assistant: "Claude Code".into(),
+                place: Some("app · “fix tray”".into()),
+            },
+            WorkChange::End {
+                assistant: "Claude Code".into(),
+                place: Some("to use Bash · app".into()),
+            },
+            WorkChange::Start {
+                assistant: "Claude Code".into(),
+                place: Some("app".into()),
+            },
+            WorkChange::End {
+                assistant: "Claude Code".into(),
+                place: Some("app".into()),
+            },
+            // The error at the end also ends the run.
+            WorkChange::End {
+                assistant: "Claude Code".into(),
+                place: Some("app".into()),
+            },
+        ]
+    );
+}
+
+#[test]
+fn working_tracker_notifies_once_at_each_threshold_with_exact_text() {
+    use working::Working;
+
+    let mut working = Working::default();
+    working.start("Claude Code".into(), "DESKTOP-PET".into(), 0);
+    assert!(working.should_tick());
+    assert!(working.due(25 * 60 * 1_000 - 1).is_empty());
+    let first = working.due(25 * 60 * 1_000);
+    assert_eq!(first.len(), 1);
+    assert_eq!(
+        first[0].text(),
+        Some("Claude Code has been working 25 min · DESKTOP-PET".into())
+    );
+    assert!(working.due(30 * 60 * 1_000).is_empty());
+    let second = working.due(60 * 60 * 1_000);
+    assert_eq!(second.len(), 1);
+    assert_eq!(
+        second[0].text(),
+        Some("Claude Code has been working 60 min · DESKTOP-PET".into())
+    );
+    assert!(working.due(2 * 60 * 60 * 1_000).is_empty());
+}
+
+#[test]
+fn working_tracker_keeps_chats_separate_and_a_new_prompt_restarts_one() {
+    use working::Working;
+
+    let mut working = Working::default();
+    working.start("Claude Code".into(), "one".into(), 0);
+    working.start("Claude Code".into(), "two".into(), 10);
+    assert!(working.end("Claude Code", "one"));
+    assert!(!working.end("Claude Code", "one"));
+    assert_eq!(
+        working.due(25 * 60 * 1_000 + 10),
+        vec![working::Notice {
+            assistant: "Claude Code".into(),
+            folder: "two".into(),
+            minutes: 25,
+        }]
+    );
+    working.start("Claude Code".into(), "two".into(), 30 * 60 * 1_000);
+    assert!(working.due(54 * 60 * 1_000 + 59_999).is_empty());
+    assert_eq!(
+        working.due(55 * 60 * 1_000),
+        vec![working::Notice {
+            assistant: "Claude Code".into(),
+            folder: "two".into(),
+            minutes: 25,
+        }]
+    );
+}
+
+#[test]
+fn working_tracker_expires_and_only_ticks_while_it_has_runs() {
+    use working::Working;
+
+    let mut working = Working::default();
+    assert!(!working.should_tick());
+    working.start("Claude Code".into(), String::new(), 0);
+    assert!(working.should_tick());
+    assert_eq!(
+        working.due(25 * 60 * 1_000),
+        vec![working::Notice {
+            assistant: "Claude Code".into(),
+            folder: String::new(),
+            minutes: 25,
+        }]
+    );
+    assert_eq!(
+        working.due(3 * 60 * 60 * 1_000 + 1),
+        Vec::<working::Notice>::new()
+    );
+    assert!(!working.should_tick());
+}
+
+#[test]
+fn working_tracker_keeps_at_most_twenty_runs() {
+    use working::Working;
+
+    let mut working = Working::default();
+    for number in 0..21 {
+        working.start(
+            format!("assistant {number}"),
+            format!("folder {number}"),
+            number,
+        );
+    }
+    assert_eq!(working.len(), 20);
+    let notices = working.due(25 * 60 * 1_000 + 20);
+    assert_eq!(notices.len(), 20);
+    assert_eq!(notices[0].folder, "folder 1");
+}
+
+#[test]
+fn away_tracker_keeps_only_chats_that_spoke_while_away() {
+    use crate::usage::IDLE_THRESHOLD_MS;
+    use away::{Away, Kind, Missed};
+
+    let mut away = Away::default();
+    let missed = |assistant: &str, folder: &str, kind| Missed {
+        assistant: assistant.into(),
+        folder: folder.into(),
+        kind,
+        at_ms: 10,
+    };
+    away.note(
+        missed("Claude Code", "DESKTOP-PET", Kind::Finished),
+        IDLE_THRESHOLD_MS - 1,
+        10,
+    );
+    assert!(away.is_empty());
+    away.note(
+        missed("Claude Code", "DESKTOP-PET", Kind::Finished),
+        IDLE_THRESHOLD_MS,
+        10,
+    );
+    assert!(away.back(3_000, 11).is_none());
+    assert_eq!(
+        away.back(2_999, 11),
+        Some("Welcome back. Claude Code finished in DESKTOP-PET while you were away.".into())
+    );
+    assert!(away.back(0, 12).is_none());
+}
+
+#[test]
+fn away_tracker_replaces_a_chat_with_its_strongest_newest_word() {
+    use crate::usage::IDLE_THRESHOLD_MS;
+    use away::{Away, Kind, Missed};
+
+    let mut away = Away::default();
+    let note = |away: &mut Away, kind, at_ms| {
+        away.note(
+            Missed {
+                assistant: "Claude Code".into(),
+                folder: "DESKTOP-PET".into(),
+                kind,
+                at_ms,
+            },
+            IDLE_THRESHOLD_MS,
+            at_ms,
+        )
+    };
+    note(&mut away, Kind::Finished, 1);
+    note(&mut away, Kind::Permission, 2);
+    note(&mut away, Kind::Needs, 3);
+    assert_eq!(
+        away.back(0, 3),
+        Some("Welcome back. Claude Code asked for permission in DESKTOP-PET.".into())
+    );
+}
+
+#[test]
+fn away_tracker_formats_many_empty_and_expired_chats() {
+    use crate::usage::IDLE_THRESHOLD_MS;
+    use away::{Away, Kind, Missed};
+
+    let mut away = Away::default();
+    for (assistant, folder) in [("Claude Code", "one"), ("Codex", "two")] {
+        away.note(
+            Missed {
+                assistant: assistant.into(),
+                folder: folder.into(),
+                kind: Kind::Finished,
+                at_ms: 1,
+            },
+            IDLE_THRESHOLD_MS,
+            1,
+        );
+    }
+    assert_eq!(
+        away.back(0, 2),
+        Some("Welcome back. 2 chats spoke while you were away: one, two.".into())
+    );
+
+    for (assistant, folder) in [
+        ("Claude Code", "one"),
+        ("Codex", "two"),
+        ("Cursor", "three"),
+    ] {
+        away.note(
+            Missed {
+                assistant: assistant.into(),
+                folder: folder.into(),
+                kind: Kind::Finished,
+                at_ms: 1,
+            },
+            IDLE_THRESHOLD_MS,
+            1,
+        );
+    }
+    assert_eq!(
+        away.back(0, 2),
+        Some("Welcome back. 3 chats spoke while you were away: one, two, three.".into())
+    );
+
+    for (assistant, folder) in [
+        ("Claude Code", "one"),
+        ("Codex", "two"),
+        ("Cursor", "three"),
+        ("OpenCode", "four"),
+        ("Windsurf", ""),
+    ] {
+        away.note(
+            Missed {
+                assistant: assistant.into(),
+                folder: folder.into(),
+                kind: Kind::Finished,
+                at_ms: 1,
+            },
+            IDLE_THRESHOLD_MS,
+            1,
+        );
+    }
+    assert_eq!(
+        away.back(0, 2),
+        Some("Welcome back. 5 chats spoke while you were away: one, two, three and 2 more.".into())
+    );
+
+    away.note(
+        Missed {
+            assistant: "Codex".into(),
+            folder: "".into(),
+            kind: Kind::Needs,
+            at_ms: 1,
+        },
+        IDLE_THRESHOLD_MS,
+        1,
+    );
+    assert_eq!(
+        away.back(0, 2),
+        Some("Welcome back. Codex needs you.".into())
+    );
+
+    away.note(
+        Missed {
+            assistant: "Claude Code".into(),
+            folder: "old".into(),
+            kind: Kind::Finished,
+            at_ms: 1,
+        },
+        IDLE_THRESHOLD_MS,
+        1,
+    );
+    assert!(away.back(0, 8 * 60 * 60 * 1_000 + 2).is_none());
+}
+
+#[test]
+fn away_tracker_keeps_at_most_ten_chats() {
+    use crate::usage::IDLE_THRESHOLD_MS;
+    use away::{Away, Kind, Missed};
+
+    let mut away = Away::default();
+    for number in 0..11 {
+        away.note(
+            Missed {
+                assistant: format!("assistant {number}"),
+                folder: format!("folder {number}"),
+                kind: Kind::Finished,
+                at_ms: number,
+            },
+            IDLE_THRESHOLD_MS,
+            number,
+        );
+    }
+    assert_eq!(away.len(), 10);
+    let text = away.back(0, 11).unwrap();
+    assert!(text.starts_with("Welcome back. 10 chats spoke while you were away: folder 1, folder 2, folder 3 and 7 more."));
 }
 
 #[tokio::test]

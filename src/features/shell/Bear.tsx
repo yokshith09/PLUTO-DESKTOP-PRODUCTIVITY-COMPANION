@@ -25,7 +25,9 @@ const LOOKS: Record<FrontPose, Look> = {
   idle: { eyes: "open", mouth: "smile", arms: "down", prop: null, body: "bear-breathe" },
   wave: { eyes: "happy", mouth: "open", arms: "wave", prop: null, body: "bear-breathe" },
   sleep: { eyes: "closed", mouth: "smile", arms: "down", prop: "zzz", body: "bear-breathe-slow" },
-  work: { eyes: "down", mouth: "smile", arms: "reach", prop: "laptop", body: "bear-breathe" },
+  // A task is in progress: reads over a clipboard. It must NOT look like typing (laptop, tapping
+  // paws): that pose is only for when the keyboard is really being used (pet.typing).
+  work: { eyes: "down", mouth: "smile", arms: "hold", prop: "clipboard", body: "bear-breathe" },
   // Typing along (pet.typing): out of the pocket, lid up, paws on the keys while you type;
   // when you stop it looks up at you and waits; then it puts the laptop away.
   type: { eyes: "down", mouth: "smile", arms: "reach", prop: "laptop", body: "bear-breathe" },
@@ -237,7 +239,7 @@ export function Bear({ pose = "idle", animated = false, className, style, wear =
           const ax = side === "l" ? 68 : 132;
           const px = side === "l" ? 86 : 114;
           return (
-            <g key={side} className={anim(pose === "type" || pose === "work" ? (side === "l" ? "pet-tap-l" : "pet-tap-r") : undefined)}>
+            <g key={side} className={anim(pose === "type" ? (side === "l" ? "pet-tap-l" : "pet-tap-r") : undefined)}>
               <ellipse cx={ax} cy="134" rx="13" ry="19" transform={`rotate(${71 * s} ${ax} 134)`} fill={url("dark")} />
               <ellipse cx={ax} cy="134" rx="13" ry="19" transform={`rotate(${71 * s} ${ax} 134)`} fill={url("shade")} />
               <ellipse cx={ax - 2 * s} cy="129" rx="9" ry="4" transform={`rotate(${-18 * s} ${ax} 129)`} fill={url("gloss")} opacity=".5" />

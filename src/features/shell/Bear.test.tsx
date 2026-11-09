@@ -12,6 +12,17 @@ describe("Bear views", () => {
     }
   });
 
+  it("a task in progress ('work') does not look like typing: no tapping paws, and typing-along is the only pose with them", () => {
+    const taps = (pose: "work" | "type") => {
+      const { container, unmount } = render(<Bear pose={pose} animated />);
+      const n = container.querySelectorAll(".pet-tap-l, .pet-tap-r").length;
+      unmount();
+      return n;
+    };
+    expect(taps("work")).toBe(0);
+    expect(taps("type")).toBeGreaterThan(0);
+  });
+
   it("the back view has no face; three-quarter and look-back do", () => {
     const face = (pose: (typeof TURNED_POSES)[number]) => {
       const { container, unmount } = render(<Bear pose={pose} />);

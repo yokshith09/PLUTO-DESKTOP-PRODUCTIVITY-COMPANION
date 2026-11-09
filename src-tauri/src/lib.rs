@@ -176,6 +176,7 @@ pub fn run() {
             devwatch::dev_git_add_folder,
             devwatch::dev_git_remove_folder,
             devwatch::dev_git_events,
+            mcp::dev_chat_events,
             devwatch::project_path_pick,
             devwatch::project_path_open,
             mcp::mcp_activity,

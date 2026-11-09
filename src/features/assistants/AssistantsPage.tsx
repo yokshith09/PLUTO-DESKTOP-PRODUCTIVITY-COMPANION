@@ -27,18 +27,14 @@ export const CAN = [
 /** Planned next (owner 2026-11-03, A-1..A-8). Shown so you know what is ahead; none of it works yet. */
 export const SOON = [
   { title: "A different sound", text: "“Needs you” sounds different from “done”." },
-  { title: "Finished while you were away", text: "Told once, when you come back." },
-  { title: "Still working", text: "“DESKTOP-PET has been working 25 min”." },
-  { title: "Chats in your projects", text: "A project’s Activity lists the chats that finished in its folder." },
-  { title: "Your day with assistants", text: "An evening line: chats finished, per project." },
 ] as const;
 
 /** What the pet does on its own for each assistant, once connected (the rest only when it asks). */
 export const PET_REACTS: Record<string, readonly string[]> = {
-  claude: ["Done", "Needs you", "Names the chat", "Names the tool it asks to use", "Counts chats waiting for you", "Click goes to its window"],
-  codex: ["Done", "Needs you", "Names the chat", "Names the tool it asks to use", "Counts chats waiting for you", "Click goes to its window"],
-  cursor: ["Done", "Needs you (questions)", "Names the folder", "Click goes to its window"],
-  opencode: ["Done", "Needs you", "Names the folder", "Click goes to its window"],
+  claude: ["Done", "Needs you", "Names the chat", "Names the tool it asks to use", "Counts chats waiting for you", "Click goes to its window", "Welcome-back note", "Says when a chat runs long"],
+  codex: ["Done", "Needs you", "Names the chat", "Names the tool it asks to use", "Counts chats waiting for you", "Click goes to its window", "Welcome-back note"],
+  cursor: ["Done", "Needs you (questions)", "Names the folder", "Click goes to its window", "Welcome-back note"],
+  opencode: ["Done", "Needs you", "Names the folder", "Click goes to its window", "Welcome-back note"],
 };
 
 export const COMING = { icon: Lock, text: "Turn assistants off, change tracking, shortcuts or start-up. Those stay with you." } as const;
