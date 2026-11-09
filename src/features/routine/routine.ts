@@ -8,6 +8,8 @@ export const MAX_ITEMS = 30;
 export const TITLE_MAX = 60;
 /** How long a past day is kept (owner 2026-11-04: 365). */
 export const HISTORY_DAYS = 365;
+/** The longest note on why a routine was skipped (owner 2026-11-09: an optional reason). */
+export const REASON_MAX = 60;
 export const DEFAULT_REMIND_AT = "18:00";
 
 export interface RoutineItem { id: string; title: string }
@@ -23,13 +25,15 @@ export interface RoutineState {
   planned: Record<string, string[]>;
   /** Every routine's last title by id, so a past day still names a routine that was renamed or removed. */
   names: Record<string, string>;
+  /** Past days: day → routine id → why it was skipped, only when you chose to say. */
+  reasons: Record<string, Record<string, string>>;
   remind: { on: boolean; at: string };
   /** The day the pending reminder was last shown, so it fires at most once a day. */
   remindedOn: string | null;
 }
 
 export const emptyRoutine = (day: string): RoutineState => ({
-  items: [], day, done: [], history: {}, planned: {}, names: {}, remind: { on: true, at: DEFAULT_REMIND_AT }, remindedOn: null,
+  items: [], day, done: [], history: {}, planned: {}, names: {}, reasons: {}, remind: { on: true, at: DEFAULT_REMIND_AT }, remindedOn: null,
 });
 
 /** Read whatever is stored; anything broken falls back to an empty routine. */
@@ -47,9 +51,31 @@ export function parseRoutine(raw: unknown, today: string): RoutineState {
     history: r.history && typeof r.history === "object" ? r.history : {},
     planned: r.planned && typeof r.planned === "object" ? r.planned : {},
     names: r.names && typeof r.names === "object" ? Object.fromEntries(Object.entries(r.names).filter(([, v]) => typeof v === "string")) : {},
+    reasons: cleanReasons(r.reasons),
     remind: { on: r.remind?.on !== false, at },
     remindedOn: typeof r.remindedOn === "string" ? r.remindedOn : null,
   }, today);
+}
+
+/** Stored reasons with anything that is not day → id → short text dropped. */
+function cleanReasons(raw: unknown): Record<string, Record<string, string>> {
+  const out: Record<string, Record<string, string>> = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [day, byId] of Object.entries(raw)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !byId || typeof byId !== "object") continue;
+    const kept = Object.fromEntries(Object.entries(byId).flatMap(([id, t]) => (typeof t === "string" && t.trim() ? [[id, t.trim().slice(0, REASON_MAX)]] : [])));
+    if (Object.keys(kept).length) out[day] = kept;
+  }
+  return out;
+}
+
+/** Say why a routine was skipped on a past day (empty or null clears it). */
+export function setReason(s: RoutineState, day: string, id: string, text: string | null): RoutineState {
+  const t = (text ?? "").trim().slice(0, REASON_MAX);
+  const others = Object.fromEntries(Object.entries(s.reasons[day] ?? {}).filter(([k]) => k !== id));
+  const forDay = t ? { ...others, [id]: t } : others;
+  const reasons = Object.fromEntries(Object.entries(s.reasons).filter(([d]) => d !== day));
+  return { ...s, reasons: Object.keys(forDay).length ? { ...reasons, [day]: forDay } : reasons };
 }
 
 /** A new day: yesterday's ticks and plan move to history (a year of days) and today starts empty. */
@@ -64,7 +90,8 @@ export function rollOver(s: RoutineState, today: string): RoutineState {
   // Names are kept for every routine that is still listed or appears in a kept day.
   const used = new Set([...s.items.map((i) => i.id), ...Object.values(hist).flat(), ...Object.values(plan).flat()]);
   const names = Object.fromEntries(Object.entries({ ...s.names, ...Object.fromEntries(s.items.map((i) => [i.id, i.title])) }).filter(([id]) => used.has(id)));
-  return { ...s, day: today, done: [], history: hist, planned: plan, names };
+  const reasons = Object.fromEntries(Object.entries(s.reasons).filter(([d]) => keepDays.has(d)));
+  return { ...s, day: today, done: [], history: hist, planned: plan, names, reasons };
 }
 
 export const addItem = (s: RoutineState, title: string, id: string): RoutineState => {

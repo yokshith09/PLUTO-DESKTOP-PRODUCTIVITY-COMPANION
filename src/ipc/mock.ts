@@ -323,6 +323,25 @@ export function createMock() {
       diary.entries.set(day, Array.from({ length: n }, (_, i) => ({ id: `e${i}`, at: d.getTime() - i * 3_600_000, text: Array.from({ length: 1 + Math.floor(rnd() * 12) }, () => lines[Math.floor(rnd() * lines.length)]).join(" ") })));
     }
   }
+  // Browser preview only: `?demo=routine` seeds three weeks of routine days (some skipped, a few with a reason).
+  if (typeof location !== "undefined" && location.search.includes("demo=routine")) {
+    const ids = ["a", "b", "c", "d"];
+    const names: Record<string, string> = { a: "Stretch", b: "Read 20 pages", c: "Water", d: "Plan tomorrow" };
+    const history: Record<string, string[]> = {};
+    const planned: Record<string, string[]> = {};
+    const reasons: Record<string, Record<string, string>> = {};
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    for (let back = 24; back >= 1; back--) {
+      const d = new Date(); d.setDate(d.getDate() - back);
+      const day = fmt(d);
+      const done = ids.filter((id, h) => Math.sin((back + 1) * (h + 2.3) * 1.7) + Math.cos(back * 0.9 + h) > -0.15 + h * 0.12 || (id === "a" && back % 9 !== 4));
+      history[day] = done;
+      planned[day] = ids;
+      const skipped = ids.filter((id) => !done.includes(id));
+      if (skipped[0] && back % 3 === 0) reasons[day] = { [skipped[0]]: ["Too tired", "Busy day", "Forgot"][back % 3 === 0 ? (back / 3) % 3 : 0] ?? "Busy day" };
+    }
+    prefs.set("ui.routine", { items: ids.map((id) => ({ id, title: names[id] })), day: fmt(new Date()), done: ["a"], history, planned, names, reasons, remind: { on: true, at: "18:00" }, remindedOn: null });
+  }
   const mcpCalls = [
     { atMs: now() - 120_000, assistant: "Claude Code", tool: "task_add", ok: true, detail: "Added the task \"Call the bank\".", changed: true, undoId: 1 as number | null, undone: false },
     { atMs: now() - 60_000, assistant: "Claude Code", tool: "react", ok: true, detail: "The pet showed agent_done.", changed: false, undoId: null as number | null, undone: false },

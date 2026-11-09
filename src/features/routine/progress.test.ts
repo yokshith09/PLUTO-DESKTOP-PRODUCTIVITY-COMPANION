@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { dayStat, encouragement, habitRates, nameOf, rangeTotals, roomLine, roomToGrow, weekLine, weekVsWeek } from "./progress";
-import { addItem, emptyRoutine, rollOver, toggle } from "./routine";
+import { REASON_CHOICES, dayStat, encouragement, reasonTip, reasonTotals, skippedOn, habitRates, nameOf, rangeTotals, roomLine, roomToGrow, weekLine, weekVsWeek } from "./progress";
+import { addItem, emptyRoutine, parseRoutine, rollOver, setReason, toggle } from "./routine";
 
 /** Ten days of three routines: Stretch every day, Read on even days, Water only on the first two. */
 function story() {
@@ -81,5 +81,50 @@ describe("routine progress (FR-114, U-8)", () => {
     expect(encouragement(flat, "2026-11-11")).toBe("Stretch: 6 of the last 6 days. That is real consistency.");
     s = emptyRoutine("2026-11-11");
     expect(encouragement(addItem(s, "Walk", "k"), "2026-11-11")).toBe("A fresh day. Pick one routine and tick it; that is a good start.");
+  });
+});
+
+describe("why a routine was skipped (owner 2026-11-09)", () => {
+  it("only past, planned, unticked routines count as skipped; today is still open", () => {
+    const s = story();
+    expect(skippedOn(s, "2026-11-03", TODAY)).toEqual(["r", "w"]);
+    expect(skippedOn(s, "2026-11-01", TODAY)).toEqual(["r"]);
+    expect(skippedOn(s, "2026-11-02", TODAY)).toEqual([]);
+    expect(skippedOn(s, TODAY, TODAY)).toEqual([]);
+    expect(skippedOn(s, "2026-11-20", TODAY)).toEqual([]);
+  });
+
+  it("a reason is saved per day and routine, trimmed and capped, and can be cleared", () => {
+    let s = story();
+    s = setReason(s, "2026-11-03", "w", "  Too tired  ");
+    expect(s.reasons["2026-11-03"]).toEqual({ w: "Too tired" });
+    expect(setReason(s, "2026-11-03", "w", "x".repeat(200)).reasons["2026-11-03"]?.w).toHaveLength(60);
+    expect(setReason(s, "2026-11-03", "w", "   ").reasons).toEqual({});
+    expect(setReason(s, "2026-11-03", "w", null).reasons).toEqual({});
+  });
+
+  it("reasons survive a reload and a new day, and junk is dropped", () => {
+    const s = setReason(story(), "2026-11-03", "w", "Busy day");
+    const again = parseRoutine(JSON.parse(JSON.stringify(s)), TODAY);
+    expect(again.reasons).toEqual({ "2026-11-03": { w: "Busy day" } });
+    expect(parseRoutine({ ...s, reasons: { "not a day": { a: "x" }, "2026-11-02": { a: 5, b: "ok" }, "2026-11-04": "junk" } }, TODAY).reasons).toEqual({ "2026-11-02": { b: "ok" } });
+    expect(rollOver(s, "2026-11-11").reasons).toEqual({ "2026-11-03": { w: "Busy day" } });
+  });
+
+  it("counts the reasons you gave, most often first, same words in any case together", () => {
+    let s = story();
+    s = setReason(s, "2026-11-03", "w", "Too tired");
+    s = setReason(s, "2026-11-05", "w", "too tired");
+    s = setReason(s, "2026-11-07", "w", "Busy day");
+    // A reason on a day the routine was actually done is ignored: it was not skipped.
+    s = setReason(s, "2026-11-04", "r", "Forgot");
+    expect(reasonTotals(s, TODAY)).toEqual([{ reason: "too tired", count: 2 }, { reason: "Busy day", count: 1 }]);
+    expect(reasonTotals(setReason(s, "2026-11-03", "w", null), TODAY)).toEqual([{ reason: "Busy day", count: 1 }, { reason: "too tired", count: 1 }]);
+  });
+
+  it("the suggestions are kind and only for what you noted; nothing noted gives an invitation, not a fault", () => {
+    const words = [reasonTip(undefined), reasonTip({ reason: "something unusual" }), ...REASON_CHOICES.map((r) => reasonTip({ reason: r }))];
+    for (const w of words) expect(w).not.toMatch(/miss|fail|behind|lazy|worse|streak|lost|only|but |bad|should/i);
+    expect(reasonTip({ reason: "TOO TIRED" })).toMatch(/Tired days happen/);
   });
 });

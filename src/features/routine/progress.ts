@@ -100,3 +100,43 @@ export function encouragement(s: RoutineState, today: string): string {
   if (best && best.planned >= 5 && best.rate >= 0.6) return `${best.title}: ${best.done} of the last ${best.planned} days. That is real consistency.`;
   return "A fresh day. Pick one routine and tick it; that is a good start.";
 }
+
+/** Quick answers offered for "What got in the way?" (all optional; you can also write your own). */
+export const REASON_CHOICES = ["Too tired", "Busy day", "Forgot", "Not feeling well", "Travelling", "Needed rest"] as const;
+
+/** The routines planned on a past day and not ticked (today is still open, so it has none). */
+export function skippedOn(s: RoutineState, day: string, today: string): string[] {
+  if (day >= today) return [];
+  const st = dayStat(s, day, today);
+  return (st.planned ?? []).filter((id) => !st.done.includes(id));
+}
+
+/** Reasons you chose to add over the last `days` days, most often first (same words in any letter case count together). */
+export function reasonTotals(s: RoutineState, today: string, days = 30): { reason: string; count: number }[] {
+  const tally = new Map<string, { reason: string; count: number }>();
+  for (let i = 1; i <= days; i++) {
+    const day = addDays(today, -i);
+    for (const [id, text] of Object.entries(s.reasons[day] ?? {})) {
+      if (!skippedOn(s, day, today).includes(id)) continue;
+      const key = text.toLowerCase();
+      const hit = tally.get(key);
+      if (hit) hit.count += 1; else tally.set(key, { reason: text, count: 1 });
+    }
+  }
+  return [...tally.values()].sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason));
+}
+
+const TIPS: Record<string, string> = {
+  "too tired": "Tired days happen. On those days a tiny version still counts: one glass of water, two minutes of stretching.",
+  "busy day": "Busy days come in clusters. Pick the one routine that matters most on them and let the rest wait.",
+  "forgot": "A reminder time helps with this one. Pluto can nudge you at the hour you pick.",
+  "not feeling well": "Rest comes first. Your routines will be here when you are ready.",
+  "travelling": "Away from home, a shorter version is plenty.",
+  "needed rest": "Rest is part of any good routine.",
+};
+
+/** One kind suggestion for the reason you note most. */
+export function reasonTip(top: { reason: string } | undefined): string {
+  if (!top) return "Add a reason now and then, and Pluto will suggest one small adjustment.";
+  return TIPS[top.reason.toLowerCase()] ?? "Thanks for noting that. It helps to see what gets in the way.";
+}

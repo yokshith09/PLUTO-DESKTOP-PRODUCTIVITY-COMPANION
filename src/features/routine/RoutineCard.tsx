@@ -147,7 +147,7 @@ export function RoutineCard({ className }: { className?: string }) {
         )}
       </div>
     </Tile>
-    <RoutineProgress open={progress} onClose={() => setProgress(false)} state={state} today={today} />
+    <RoutineProgress open={progress} onClose={() => setProgress(false)} state={state} today={today} onChange={(fn) => void apply(fn)} />
     </>
   );
 }
