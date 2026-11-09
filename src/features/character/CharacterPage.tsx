@@ -13,6 +13,7 @@ import { NudgeSettings } from "@/features/settings/NudgeSettings";
 import { CompanionPanel } from "@/features/companion/CompanionPanel";
 import { WardrobePanel } from "@/features/wardrobe/WardrobePanel";
 import { useWorn } from "@/features/wardrobe/useWardrobe";
+import { TabTantrumRow } from "./TabTantrumRow";
 import { ReactionsPanel } from "@/features/companion/ReactionsPanel";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -132,6 +133,7 @@ export function CharacterPage({ onOpenProfile }: { onOpenProfile?: () => void } 
           <Row label="Get out of the way in full screen" hint="Hide while a game, a film, a presentation or a shared screen fills the display. The pet comes back by itself.">
             <Switch checked={hideFullscreen ?? true} onCheckedChange={(v) => void setHideFullscreen(v)} aria-label="Get out of the way in full screen" />
           </Row>
+          <TabTantrumRow />
           <Row label="Always on top" hint="Keep the companion above other windows.">
             <Switch checked={onTop ?? true} onCheckedChange={(v) => void setOnTop(v)} aria-label="Always on top" />
           </Row>

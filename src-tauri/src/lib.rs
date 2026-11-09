@@ -16,6 +16,7 @@ mod pets;
 mod shortcuts;
 mod sites;
 mod tabs;
+mod tantrum;
 mod tracking;
 mod tray;
 mod typing;
@@ -445,6 +446,7 @@ pub fn run() {
             pet::start(app.handle().clone(), settings.clone(), &bus);
             shortcuts::start(app.handle().clone(), settings.clone(), &bus);
             typing::start(app.handle().clone(), settings.clone(), &bus);
+            tantrum::start(app.handle().clone(), settings.clone());
             // MCP: the private pipe for assistants, only while switched on (off by default).
             app.manage(mcp::Mcp::default());
             mcp::start(app.handle().clone(), settings.clone(), &bus, data_dir.clone());

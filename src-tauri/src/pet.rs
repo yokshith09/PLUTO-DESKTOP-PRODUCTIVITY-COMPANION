@@ -199,6 +199,9 @@ pub struct PetState {
     solid: Mutex<Option<Vec<[f64; 4]>>>,
     /// A drag is on: the whole window keeps the pointer until it ends.
     holding: AtomicBool,
+    /// Tab Tantrum has moved the pet aside: moves are not saved, and `home` is where it goes back to.
+    parked: AtomicBool,
+    home: Mutex<Option<(i32, i32)>>,
 }
 
 /// Is the point (CSS pixels from the window's top-left) on a drawn part of the window?
@@ -222,7 +225,7 @@ fn internal(_: tauri::Error) -> AppError {
     AppError::internal("The pet window couldn't do that.")
 }
 
-fn window<R: Runtime>(app: &AppHandle<R>) -> Option<WebviewWindow<R>> {
+pub fn window<R: Runtime>(app: &AppHandle<R>) -> Option<WebviewWindow<R>> {
     app.get_webview_window(LABEL)
 }
 
@@ -717,11 +720,44 @@ pub fn flip_setting<R: Runtime>(app: &AppHandle<R>, key: &'static str, default: 
 
 // ---- placement, visibility, saving ---------------------------------------------------------
 
+/// Tab Tantrum (TT-1): `away` moves the pet to the top middle of its screen, out of the way of
+/// the video and in sight of the tab strip; `false` puts it back exactly where it was. The
+/// person's own spot is never overwritten (see `on_moved`). Does nothing while the card is open.
+pub fn tantrum_move<R: Runtime>(app: &AppHandle<R>, away: bool) {
+    let (Some(w), Some(state)) = (window(app), app.try_state::<Arc<PetState>>()) else {
+        return;
+    };
+    if away {
+        if state.parked.load(Ordering::SeqCst) || state.expanded.load(Ordering::SeqCst) {
+            return;
+        }
+        let (Ok(p), Ok(Some(m)), Ok(size)) =
+            (w.outer_position(), w.current_monitor(), w.outer_size())
+        else {
+            return;
+        };
+        let a = m.work_area();
+        let x = a.position.x + (a.size.width as i32 - size.width as i32) / 2;
+        let y = a.position.y + MARGIN;
+        *lock(&state.home) = Some((p.x, p.y));
+        state.parked.store(true, Ordering::SeqCst);
+        warn_on("set_position", w.set_position(PhysicalPosition::new(x, y)));
+    } else if state.parked.swap(false, Ordering::SeqCst) {
+        if let Some((x, y)) = lock(&state.home).take() {
+            warn_on("set_position", w.set_position(PhysicalPosition::new(x, y)));
+        }
+    }
+}
+
 /// A drag ended somewhere: remember it (debounced, so a drag is one write).
 pub fn on_moved<R: Runtime>(app: &AppHandle<R>, x: i32, y: i32) {
     let Some(state) = app.try_state::<Arc<PetState>>().map(|s| Arc::clone(&s)) else {
         return;
     };
+    // Tab Tantrum moved the pet aside: that is not where the person put it.
+    if state.parked.load(Ordering::SeqCst) {
+        return;
+    }
     // Moves while the window is grown are saved too (as the pet's own spot, see `pet_spot`).
     if !state.expanded.load(Ordering::SeqCst) {
         *lock(&state.base) = None;
@@ -824,7 +860,10 @@ async fn apply<R: Runtime>(app: &AppHandle<R>, settings: &SettingsService, reset
             },
         ))
     });
-    if let Some((x, y)) = spot {
+    let parked = app
+        .try_state::<Arc<PetState>>()
+        .is_some_and(|s| s.parked.load(Ordering::SeqCst));
+    if let (Some((x, y)), false) = (spot, parked) {
         warn_on("set_position", w.set_position(PhysicalPosition::new(x, y)));
     }
     let on_screen = pet_on_screen(

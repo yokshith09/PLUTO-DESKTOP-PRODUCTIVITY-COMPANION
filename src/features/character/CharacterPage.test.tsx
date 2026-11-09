@@ -90,6 +90,18 @@ describe("Character page preview (F1/F2)", () => {
     await waitFor(() => expect(set).toHaveBeenCalledWith("pet.hide_fullscreen", false));
   });
 
+  it("Tab Tantrum is off to begin with; switched on it has a limit you can change (TT-1)", async () => {
+    renderPage();
+    const prefsSet = vi.mocked(ipc.prefsSet);
+    const sw = await screen.findByRole("switch", { name: "Tab Tantrum" });
+    expect(sw.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(sw);
+    await waitFor(() => expect(prefsSet).toHaveBeenCalledWith("pet.tantrum", { on: true, limit: 15 }));
+    fireEvent.click(await screen.findByRole("button", { name: "More tabs" }));
+    await waitFor(() => expect(prefsSet).toHaveBeenCalledWith("pet.tantrum", { on: true, limit: 16 }));
+    expect(screen.getByLabelText("Tab limit").textContent).toBe("16");
+  });
+
   it("previews the character in use, not always the bear, and follows a new choice", async () => {
     vi.spyOn(ipc, "settingsGetAll").mockResolvedValue({ "pet.pack": "boba", "pet.media": false } as never);
     vi.spyOn(ipc, "petsList").mockResolvedValue([boba, short]);

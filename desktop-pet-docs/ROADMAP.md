@@ -469,3 +469,4 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-09: Done: assistant permissions (storage `mcp.perms`, enforcement, editor tabs). Next: Study v4 build once approved (data model first), then the routine tracker.
 - 2026-11-09: Next (other agents): K-1 Timetable → K-2 Exams, notes, tasks → K-3 class reminders; K-4 test hardening in parallel. Claude Code reviews and merges. Course page waits for the design.
 - 2026-11-09: Done: A-8, Letters tracker. Next: owner approves FS-1 / TT-1 previews, then build FS-1 then TT-1; K-1..K-4 with other agents; Study waits for the outside design; Windsurf after the owner's check.
+- 2026-11-09: Done: TT-1 Tab Tantrum; FS-1 reduced to the existing hide-in-full-screen. Next: owner checks both on Windows and Mac (count against a real browser, pet returning to its spot).

@@ -48,6 +48,21 @@ pub async fn pet_open_tabs(settings: State<'_, Arc<SettingsService>>) -> Result<
         .unwrap_or_default())
 }
 
+/// The most tabs any one browser window has right now (the front window on Windows; on macOS, the
+/// fullest window), or `None` when nothing can be read: the switches are off, no supported browser
+/// is open, or it is not the window in front. Used by Tab Tantrum; the list itself is not kept.
+pub async fn busiest_window(settings: &SettingsService) -> Option<u32> {
+    if !allowed(settings).await {
+        return None;
+    }
+    let tabs = tauri::async_runtime::spawn_blocking(os::list).await.ok()?;
+    let mut per: std::collections::BTreeMap<(String, u32), u32> = std::collections::BTreeMap::new();
+    for t in &tabs {
+        *per.entry((t.browser.clone(), t.window_index)).or_default() += 1;
+    }
+    per.values().copied().max()
+}
+
 /// Close one tab. `false` if it couldn't be found or closed (it may have changed since the list
 /// was read) or the switches are off; never an error for that — the panel just re-reads the list.
 #[tauri::command]
