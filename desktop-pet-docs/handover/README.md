@@ -1,6 +1,8 @@
 # Handover to other coding agents
 
-**Current round (2026-11-09), for any agent (Kimi, Codex, others):** tasks [K-1 Timetable](K-1.md), [K-2 Exams, notes, tasks](K-2.md), [K-3 Class reminders](K-3.md) — in this order, one agent — and [K-4 Deterministic tests](K-4.md), independent, can run in parallel on another agent. Branch names `<agent>/<id>` (for example `kimi/k-1`). The rules below apply unchanged; where they say "Codex or Antigravity" read "any agent". Rule 9 (do not edit the Assistants page) still applies. Rule 4: K-1 is allowed exactly one migration (013) and one dependency (`calamine`); K-1 and K-2 may add the prefs keys their briefs name.
+**Round K status (2026-11-18): the other agent did not deliver, so Claude Code built K-1, K-2 and K-3 itself (see CHANGELOG); K-1 used migration 014 (013 went to the Course page). K-4 is open: its flaky tests could not be reproduced (see PROJECT_STATUS). Nothing here is waiting on another agent unless the owner hands it out again.**
+
+**Original round (2026-11-09), for any agent (Kimi, Codex, others):** tasks [K-1 Timetable](K-1.md), [K-2 Exams, notes, tasks](K-2.md), [K-3 Class reminders](K-3.md) — in this order, one agent — and [K-4 Deterministic tests](K-4.md), independent, can run in parallel on another agent. Branch names `<agent>/<id>` (for example `kimi/k-1`). The rules below apply unchanged; where they say "Codex or Antigravity" read "any agent". Rule 9 (do not edit the Assistants page) still applies. Rule 4: K-1 is allowed exactly one migration (013) and one dependency (`calamine`); K-1 and K-2 may add the prefs keys their briefs name.
 
 **Not handed over this round:** Course page (waits for an outside design: `../design/COURSE_PAGE_BRIEF.md`), routine tracker redesign (no look chosen), A-8 sounds (design choice), FS-1 / TT-1 (preview first), Windsurf reactions (owner's PC), Friends (P9, on hold), the release.
 

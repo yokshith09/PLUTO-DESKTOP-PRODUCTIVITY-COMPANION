@@ -355,3 +355,4 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-18: Course page built to the owner's design (Unverified in the real app). Tests: core `syllabus` 10, UI `courseLogic` 8 and `CoursesTab` 8, Study page 2. Next: K-1 timetable.
 - 2026-11-18: Timetable built (Unverified in the real app; .xlsx reading untested on a real workbook). Tests: core `classes` 8, shell `xlsx` 3, UI `timetableLogic` 7, `TimetableTab` 7. Next: K-2.
 - 2026-11-18: Exams, notes, tasks tab built (Unverified in the real app). Tests: `planLogic` 5, `PlanTab` 4. Next: K-3.
+- 2026-11-18: Class reminders built (Unverified on a real PC). Core 643 tests, UI 657 (one load-dependent App.test failure, see ROADMAP), shell 70. K-4: not reproducible, nothing changed. Windows-target clippy was not re-run this session (disk); run it before a release.

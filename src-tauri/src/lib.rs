@@ -2,6 +2,7 @@
 //! here; logic lives in `pluto-core` (ADR-002).
 
 mod autostart;
+mod class_alerts;
 mod devwatch;
 mod earlier_app;
 mod ipc;
@@ -459,6 +460,9 @@ pub fn run() {
             shortcuts::start(app.handle().clone(), settings.clone(), &bus);
             typing::start(app.handle().clone(), settings.clone(), &bus);
             tantrum::start(app.handle().clone(), settings.clone());
+            let class_rearm = class_alerts::Rearm::default();
+            app.manage(class_rearm.clone());
+            class_alerts::start(app.handle().clone(), class_rearm);
             // MCP: the private pipe for assistants, only while switched on (off by default).
             app.manage(mcp::Mcp::default());
             mcp::start(app.handle().clone(), settings.clone(), &bus, data_dir.clone());

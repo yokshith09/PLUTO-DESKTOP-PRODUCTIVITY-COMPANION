@@ -399,3 +399,4 @@ K-1 Timetable, K-2 Exams-notes-tasks tab, K-3 class reminders (one agent, in ord
 - 2026-11-18: Owner supplied the Course page design; built (migration 013, `syllabus.rs`, `CoursesTab`). Friends tab = "Planned for later". Handover round K cancelled as a handover: Claude builds K-1..K-4 itself, in order K-1, K-2 (with the Friends note), K-3, K-4. Left from the brief for the Course page: ChatGPT notes, write-out mode, notebook sheet.
 - 2026-11-18: K-1 Timetable built (migration 014, `classes.rs`, `calamine` for .xlsx in the shell). Excel import needs a real-file check.
 - 2026-11-18: K-2 built (PlanTab); the old Exams tab is gone from Study.
+- 2026-11-18: K-3 class reminders built (`class_alerts.rs` + shell loop). K-4 open: not reproducible. Round K is closed as a handover.

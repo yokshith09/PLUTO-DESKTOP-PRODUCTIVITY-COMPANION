@@ -445,18 +445,37 @@ pub async fn classes_list(core: State<'_, Core>) -> Result<Vec<Class>> {
 }
 
 #[tauri::command]
-pub async fn class_add(input: ClassInput, core: State<'_, Core>) -> Result<Class> {
-    classes::add(&core.db, &*core.clock, input).await
+pub async fn class_add(
+    input: ClassInput,
+    core: State<'_, Core>,
+    rearm: State<'_, crate::class_alerts::Rearm>,
+) -> Result<Class> {
+    let c = classes::add(&core.db, &*core.clock, input).await;
+    rearm.0.notify_one();
+    c
 }
 
 #[tauri::command]
-pub async fn class_update(id: String, input: ClassInput, core: State<'_, Core>) -> Result<Class> {
-    classes::update(&core.db, &id, input).await
+pub async fn class_update(
+    id: String,
+    input: ClassInput,
+    core: State<'_, Core>,
+    rearm: State<'_, crate::class_alerts::Rearm>,
+) -> Result<Class> {
+    let c = classes::update(&core.db, &id, input).await;
+    rearm.0.notify_one();
+    c
 }
 
 #[tauri::command]
-pub async fn class_delete(id: String, core: State<'_, Core>) -> Result<()> {
-    classes::delete(&core.db, &id).await
+pub async fn class_delete(
+    id: String,
+    core: State<'_, Core>,
+    rearm: State<'_, crate::class_alerts::Rearm>,
+) -> Result<()> {
+    let r = classes::delete(&core.db, &id).await;
+    rearm.0.notify_one();
+    r
 }
 
 /// What a CSV would import, before anything changes.
