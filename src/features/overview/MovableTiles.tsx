@@ -113,6 +113,10 @@ function ResizeGrip({ title, size, box, onDraft, onCommit }: {
 }) {
   const start = useRef<{ x: number; y: number; w: number; h: number; colW: number; rowH: number; last: TileSize } | null>(null);
   const rootPx = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  // The newest size, kept here too: saving is asynchronous, so fast key presses must build on the
+  // previous press, not on the size the page last drew.
+  const latest = useRef(size);
+  latest.current = size;
   const rows = size.r;
   const label = `Resize ${title}: ${size.c} of 12 columns${rows ? `, ${rows} ${rows === 1 ? "row" : "rows"}` : ""}. Drag, or use the arrow keys.`;
   return (
@@ -144,7 +148,10 @@ function ResizeGrip({ title, size, box, onDraft, onCommit }: {
         const step = d[e.key];
         if (!step) return;
         e.preventDefault();
-        onCommit(snap(step[1] || size.r ? { c: size.c + step[0], r: (size.r ?? 2) + step[1] } : { c: size.c + step[0] }));
+        const now = latest.current;
+        const next = snap(step[1] || now.r ? { c: now.c + step[0], r: (now.r ?? 2) + step[1] } : { c: now.c + step[0] });
+        latest.current = next;
+        onCommit(next);
       }}
       className="absolute bottom-1 right-1 z-10 hidden size-6 cursor-nwse-resize touch-none place-items-center rounded text-muted-foreground/60 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring lg:grid"
     >
