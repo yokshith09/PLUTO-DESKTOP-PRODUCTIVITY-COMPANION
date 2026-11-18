@@ -354,3 +354,4 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-09: Tab Tantrum built (rule tested, shell and pet movement Unverified on a real PC). Full screen: hide is the existing default. FS-1 three-way dropped.
 - 2026-11-18: Course page built to the owner's design (Unverified in the real app). Tests: core `syllabus` 10, UI `courseLogic` 8 and `CoursesTab` 8, Study page 2. Next: K-1 timetable.
 - 2026-11-18: Timetable built (Unverified in the real app; .xlsx reading untested on a real workbook). Tests: core `classes` 8, shell `xlsx` 3, UI `timetableLogic` 7, `TimetableTab` 7. Next: K-2.
+- 2026-11-18: Exams, notes, tasks tab built (Unverified in the real app). Tests: `planLogic` 5, `PlanTab` 4. Next: K-3.

@@ -1,20 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import { useState } from "react";
-import { ConfirmAction } from "@/components/ConfirmAction";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/features/shell/PageHeader";
 import { ipc } from "@/ipc";
 import type { WeeklyReport } from "@/ipc/types";
 import { notify } from "@/lib/notify";
-import { daysBetween, parseYmd, ymd } from "@/lib/dates";
+import { parseYmd, ymd } from "@/lib/dates";
 import { hoursLabel } from "@/lib/focus";
-import { countdownLabel } from "./ExamCountdown";
 import { cn } from "@/lib/utils";
 import { CoursesTab } from "./course/CoursesTab";
+import { PlanTab } from "./plan/PlanTab";
 import { TimetableTab } from "./timetable/TimetableTab";
-import { useCourses, useExams } from "./useStudent";
 
 /** The seven days ending on the given day, as the first day. */
 export const weekStart = (end: Date): string => { const d = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 6); return ymd(d); };
@@ -24,43 +21,6 @@ export const shiftWeek = (from: string, weeks: number): string => { const d = pa
 export function reportText(r: WeeklyReport): string {
   const rows = r.courses.map((c) => `- ${c.course?.name ?? "No course"}: ${hoursLabel(c.focus_ms)} focus, ${c.tasks_done} ${c.tasks_done === 1 ? "task" : "tasks"} done`);
   return [`Week ${r.from} to ${r.to}`, ...rows, `Total: ${hoursLabel(r.total_focus_ms)} focus, ${r.total_tasks_done} done`].join("\n");
-}
-
-function Exams() {
-  const { courses } = useCourses();
-  const { exams, add, remove } = useExams();
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState("");
-  const [course, setCourse] = useState("");
-  const today = ymd(new Date());
-  const name = (id: string | null) => courses.find((c) => c.id === id)?.name;
-  return (
-    <section aria-label="Exams" className="rounded-xl border bg-card p-5">
-      <h2 className="mb-3 text-sm font-semibold">Exams</h2>
-      <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); add.mutate({ course: course || null, title, date }, { onSuccess: () => { setTitle(""); setDate(""); } }); }}>
-        <Input value={title} maxLength={100} onChange={(e) => setTitle(e.target.value)} placeholder="Exam, e.g. Mid-term" aria-label="Exam name" className="w-48" />
-        <Input type="date" value={date} min={today} onChange={(e) => setDate(e.target.value)} aria-label="Exam date" className="w-40" />
-        <select aria-label="Exam course" value={course} onChange={(e) => setCourse(e.target.value)} className="h-9 rounded-md border border-input bg-card px-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <option value="">No course</option>
-          {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <Button type="submit" variant="secondary" disabled={!title.trim() || !date}><Plus />Add exam</Button>
-      </form>
-      <ul className="mt-3 divide-y">
-        {exams.map((e) => (
-          <li key={e.id} className="flex h-10 items-center gap-3 text-[13px]">
-            <span className="w-20 font-semibold tabular-nums">{countdownLabel(daysBetween(today, e.on_date))}</span>
-            <span className="flex-1 truncate">{e.title}{name(e.course_id) && <span className="text-muted-foreground"> · {name(e.course_id)}</span>}</span>
-            <span className="text-xs tabular-nums text-muted-foreground">{e.on_date}</span>
-            <ConfirmAction message={`Delete ${e.title}?`} onConfirm={() => remove.mutate(e.id)}>
-              <Button variant="ghost" size="icon" aria-label={`Delete ${e.title}`}><Trash2 /></Button>
-            </ConfirmAction>
-          </li>
-        ))}
-        {exams.length === 0 && <li className="py-3 text-[13px] text-muted-foreground">No exams coming up.</li>}
-      </ul>
-    </section>
-  );
 }
 
 function Report() {
@@ -103,7 +63,7 @@ type Tab = "courses" | "timetable" | "exams" | "report" | "friends";
 const TABS: { id: Tab; label: string }[] = [
   { id: "courses", label: "Courses" },
   { id: "timetable", label: "Timetable" },
-  { id: "exams", label: "Exams" },
+  { id: "exams", label: "Exams, notes, tasks" },
   { id: "report", label: "Weekly report" },
   { id: "friends", label: "Friends" },
 ];
@@ -131,7 +91,7 @@ export function StudyPage() {
       </div>
       {tab === "courses" && <CoursesTab />}
       {tab === "timetable" && <TimetableTab />}
-      {tab === "exams" && <Exams />}
+      {tab === "exams" && <PlanTab />}
       {tab === "report" && <Report />}
       {tab === "friends" && <Friends />}
     </div>

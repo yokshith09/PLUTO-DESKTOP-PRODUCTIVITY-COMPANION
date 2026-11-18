@@ -122,10 +122,11 @@ describe("the Study page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
     expect(await screen.findByRole("heading", { name: /Biology/ })).toBeTruthy();
 
-    openTab("Exams");
+    openTab("Exams, notes, tasks");
+    fireEvent.click(await screen.findByRole("button", { name: "Add exam" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Exam name" }), { target: { value: "Lab exam" } });
     fireEvent.change(screen.getByLabelText("Exam date"), { target: { value: inDays(9) } });
-    fireEvent.click(screen.getByRole("button", { name: /Add exam/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("9 days")).toBeTruthy();
 
     openTab("Weekly report");
