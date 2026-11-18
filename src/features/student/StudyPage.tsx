@@ -13,6 +13,7 @@ import { hoursLabel } from "@/lib/focus";
 import { countdownLabel } from "./ExamCountdown";
 import { cn } from "@/lib/utils";
 import { CoursesTab } from "./course/CoursesTab";
+import { TimetableTab } from "./timetable/TimetableTab";
 import { useCourses, useExams } from "./useStudent";
 
 /** The seven days ending on the given day, as the first day. */
@@ -98,9 +99,10 @@ function Report() {
   );
 }
 
-type Tab = "courses" | "exams" | "report" | "friends";
+type Tab = "courses" | "timetable" | "exams" | "report" | "friends";
 const TABS: { id: Tab; label: string }[] = [
   { id: "courses", label: "Courses" },
+  { id: "timetable", label: "Timetable" },
   { id: "exams", label: "Exams" },
   { id: "report", label: "Weekly report" },
   { id: "friends", label: "Friends" },
@@ -128,6 +130,7 @@ export function StudyPage() {
         ))}
       </div>
       {tab === "courses" && <CoursesTab />}
+      {tab === "timetable" && <TimetableTab />}
       {tab === "exams" && <Exams />}
       {tab === "report" && <Report />}
       {tab === "friends" && <Friends />}

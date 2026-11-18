@@ -3,7 +3,7 @@ import { call, type WaitingChat } from "./transport";
 import type {
   UsageSummary, TimeRange, TrackingStatus, OpenTab, PetPack, BinNote, DailyLog, Reminder, ReminderInput, ReminderPatch, Label, LabelCount, Note, NoteInput, NotePatch, NoteSort, NoteSummary, Task, TaskEdit, TaskEvent, TaskFilters, TaskRow,
   TaskStatus, TaskView, WorkUpdate, LinkInput, TaskPlan, RepeatDay, FocusSession, FocusStart, RetentionRules, RetentionCounts, Meeting, MeetingFilters, MeetingInput, MeetingSummary,
-  Course, CourseCard, CourseDetail, CourseLinks, SyllabusEdit, DayInfo, DiaryEntry, DiaryHit, DiaryStatus, Exam, WeeklyReport, AssistantCall, BinMeeting,
+  TimetableClass, ClassInput, ClassPreview, Course, CourseCard, CourseDetail, CourseLinks, SyllabusEdit, DayInfo, DiaryEntry, DiaryHit, DiaryStatus, Exam, WeeklyReport, AssistantCall, BinMeeting,
 } from "./types";
 import type { Settings, SettingsKey } from "./settings";
 
@@ -108,6 +108,17 @@ export const ipc = {
   courseDetail: (id: string, today: string) => call<CourseDetail>("course_detail", { id, today }),
   /** Topics, subtopics, short notes, exams and dates of a course: one change at a time. */
   courseEdit: (edit: SyllabusEdit) => call<unknown>("course_edit", { edit }),
+  classesList: () => call<TimetableClass[]>("classes_list"),
+  classAdd: (input: ClassInput) => call<TimetableClass>("class_add", { input }),
+  classUpdate: (id: string, input: ClassInput) => call<TimetableClass>("class_update", { id, input }),
+  classDelete: (id: string) => call<unknown>("class_delete", { id }),
+  /** What a CSV would import (rows and bad lines), before anything changes. */
+  classesPreview: (csv: string) => call<ClassPreview>("classes_preview", { csv }),
+  /** Import the good rows; `replace` clears the old timetable first. Returns how many were added. */
+  classesImport: (csv: string, replace: boolean) => call<number>("classes_import", { csv, replace }),
+  classesExport: () => call<string>("classes_export"),
+  /** The first sheet of an Excel file as CSV text. */
+  classesXlsxToCsv: (bytes: number[]) => call<string>("classes_xlsx_to_csv", { bytes }),
   weeklyReport: (from: string) => call<WeeklyReport>("weekly_report", { from }),
   labelsList: () => call<LabelCount[]>("labels_list"),
   labelCreate: (name: string) => call<Label>("label_create", { name }),

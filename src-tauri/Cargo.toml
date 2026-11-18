@@ -29,6 +29,7 @@ base64 = "0.22"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-window-state = "2"
 tracing = "0.1"
+calamine = { version = "0.38.0", default-features = false }
 
 # The Windows foreground-app collector (src/tracking.rs). Only the features it calls.
 [target.'cfg(windows)'.dependencies]

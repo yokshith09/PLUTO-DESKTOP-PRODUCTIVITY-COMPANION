@@ -3,6 +3,7 @@ import { daysAgo, ymd } from "../lib/dates";
 import { repeatDays, taskOccurs } from "../lib/repeat";
 import { remainingMs } from "../lib/focus";
 import { makeSyllabus } from "./mockSyllabus";
+import { makeClasses } from "./mockClasses";
 import type {
   AppUsage, DomainUsage, TimeRange, UsageSummary,
   AppError, BinNote, DailyLog, LogEntry, Meeting, MeetingInput, MeetingSummary, Reminder, Label, PlutoEvent, Note, NoteColor, NoteSummary, Task, TaskEvent, TaskRow, TaskStatus, WorkUpdate, FocusSession,
@@ -32,6 +33,7 @@ export function createMock() {
   const courses: { id: string; name: string }[] = [];
   const exams: { id: string; course_id: string | null; title: string; on_date: string; at_time?: string; place?: string }[] = [];
   const syllabus = makeSyllabus(courses, exams, fail, () => `s${++seq}`);
+  const timetable = makeClasses(courses, fail, () => `k${++seq}`, (name) => { const c = { id: `c${++seq}`, name }; courses.push(c); return c; });
   const taskCourse = new Map<string, string>();
   const noteCourse = new Map<string, string>();
   const L = (...ids: string[]) => labels.filter((l) => ids.includes(l.id));
@@ -329,6 +331,7 @@ export function createMock() {
   if (typeof location !== "undefined" && location.search.includes("demo=course")) {
     prefs.set("ui.role", "student");
     syllabus.seedDemo((name) => { const c = { id: `c${++seq}`, name }; courses.push(c); return c; });
+    timetable.seedDemo();
   }
   // Browser preview only: `?demo=routine` seeds three weeks of routine days (some skipped, a few with a reason).
   if (typeof location !== "undefined" && location.search.includes("demo=routine")) {
@@ -595,6 +598,14 @@ export function createMock() {
       for (let j = exams.length - 1; j >= 0; j--) if (exams[j]?.course_id === a.id) exams.splice(j, 1);
       return null;
     },
+    classes_list: () => timetable.classes_list(),
+    class_add: (a) => timetable.class_add(a),
+    class_update: (a) => timetable.class_update(a),
+    class_delete: (a) => timetable.class_delete(a),
+    classes_preview: (a) => timetable.classes_preview(a),
+    classes_import: (a) => timetable.classes_import(a),
+    classes_export: () => timetable.classes_export(),
+    classes_xlsx_to_csv: () => timetable.classes_xlsx_to_csv(),
     course_cards: () => syllabus.course_cards(),
     course_detail: (a) => syllabus.course_detail(a),
     course_edit: (a) => syllabus.course_edit(a),

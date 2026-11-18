@@ -4,6 +4,7 @@
 //! run on any machine. `scripts/check-core-no-tauri.mjs` enforces that in CI.
 
 pub mod bus;
+pub mod classes;
 pub mod clock;
 pub mod courses;
 pub mod daily_log;

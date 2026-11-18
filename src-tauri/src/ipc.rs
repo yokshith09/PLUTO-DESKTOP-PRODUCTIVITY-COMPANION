@@ -4,6 +4,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use pluto_core::classes::{self, Class, ClassInput, ClassPreview};
 use pluto_core::clock::Clock;
 use pluto_core::courses::{self, Course, CourseLinks, Exam, WeeklyReport};
 use pluto_core::daily_log::{self, DailyLog};
@@ -434,6 +435,57 @@ pub async fn course_detail(
 #[tauri::command]
 pub async fn course_edit(edit: SyllabusEdit, core: State<'_, Core>) -> Result<()> {
     syllabus::apply(&core.db, &*core.clock, edit).await
+}
+
+// ---- timetable ------------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn classes_list(core: State<'_, Core>) -> Result<Vec<Class>> {
+    classes::list(&core.db).await
+}
+
+#[tauri::command]
+pub async fn class_add(input: ClassInput, core: State<'_, Core>) -> Result<Class> {
+    classes::add(&core.db, &*core.clock, input).await
+}
+
+#[tauri::command]
+pub async fn class_update(id: String, input: ClassInput, core: State<'_, Core>) -> Result<Class> {
+    classes::update(&core.db, &id, input).await
+}
+
+#[tauri::command]
+pub async fn class_delete(id: String, core: State<'_, Core>) -> Result<()> {
+    classes::delete(&core.db, &id).await
+}
+
+/// What a CSV would import, before anything changes.
+#[tauri::command]
+pub fn classes_preview(csv: String) -> ClassPreview {
+    classes::parse_csv(&csv)
+}
+
+/// Import the good rows of a CSV; `replace` clears the old timetable first. Returns how many were added.
+#[tauri::command]
+pub async fn classes_import(csv: String, replace: bool, core: State<'_, Core>) -> Result<u32> {
+    classes::import(
+        &core.db,
+        &*core.clock,
+        classes::parse_csv(&csv).rows,
+        replace,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn classes_export(core: State<'_, Core>) -> Result<String> {
+    classes::export_csv(&core.db).await
+}
+
+/// The first sheet of an Excel file as CSV text, for the same preview and import.
+#[tauri::command]
+pub fn classes_xlsx_to_csv(bytes: Vec<u8>) -> Result<String> {
+    crate::xlsx::xlsx_to_csv(bytes)
 }
 
 // ---- labels ---------------------------------------------------------------------------------

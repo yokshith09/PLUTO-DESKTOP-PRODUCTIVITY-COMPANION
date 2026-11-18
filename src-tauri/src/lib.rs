@@ -20,6 +20,7 @@ mod tantrum;
 mod tracking;
 mod tray;
 mod typing;
+mod xlsx;
 
 use std::sync::Arc;
 
@@ -219,6 +220,14 @@ pub fn run() {
             ipc::course_cards,
             ipc::course_detail,
             ipc::course_edit,
+            ipc::classes_list,
+            ipc::class_add,
+            ipc::class_update,
+            ipc::class_delete,
+            ipc::classes_preview,
+            ipc::classes_import,
+            ipc::classes_export,
+            ipc::classes_xlsx_to_csv,
             ipc::diary_status,
             ipc::diary_setup,
             ipc::diary_unlock,

@@ -471,3 +471,4 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-09: Done: A-8, Letters tracker. Next: owner approves FS-1 / TT-1 previews, then build FS-1 then TT-1; K-1..K-4 with other agents; Study waits for the outside design; Windsurf after the owner's check.
 - 2026-11-09: Done: TT-1 Tab Tantrum; FS-1 reduced to the existing hide-in-full-screen. Next: owner checks both on Windows and Mac (count against a real browser, pet returning to its spot).
 - 2026-11-18: Done: Course page (K work resumed by Claude because the other agent did not deliver). Next: timetable (K-1), Exams-notes-tasks tab (K-2), class reminders (K-3), deterministic timing tests (K-4), generic pet-reaction commands for Windsurf/VS Code/Antigravity; then write-out mode, ChatGPT notes, notebook sheet.
+- 2026-11-18: Done: Timetable (K-1). Next: Exams-notes-tasks tab (K-2), class reminders (K-3), K-4.
