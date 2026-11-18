@@ -396,3 +396,4 @@ K-1 Timetable, K-2 Exams-notes-tasks tab, K-3 class reminders (one agent, in ord
 - 2026-11-09: A-8 and the routine tracker (Letters) done. FS-1 and TT-1 previews published, awaiting the owner. Windsurf reactions need the owner's check. Friends and the release on hold.
 
 - 2026-11-09: TT-1 built; FS-1 reduced to existing hide-in-full-screen. Both need the owner's PC and Mac.
+- 2026-11-18: Owner supplied the Course page design; built (migration 013, `syllabus.rs`, `CoursesTab`). Friends tab = "Planned for later". Handover round K cancelled as a handover: Claude builds K-1..K-4 itself, in order K-1, K-2 (with the Friends note), K-3, K-4. Left from the brief for the Course page: ChatGPT notes, write-out mode, notebook sheet.

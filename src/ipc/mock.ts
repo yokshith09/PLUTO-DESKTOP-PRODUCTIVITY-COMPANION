@@ -2,6 +2,7 @@
 import { daysAgo, ymd } from "../lib/dates";
 import { repeatDays, taskOccurs } from "../lib/repeat";
 import { remainingMs } from "../lib/focus";
+import { makeSyllabus } from "./mockSyllabus";
 import type {
   AppUsage, DomainUsage, TimeRange, UsageSummary,
   AppError, BinNote, DailyLog, LogEntry, Meeting, MeetingInput, MeetingSummary, Reminder, Label, PlutoEvent, Note, NoteColor, NoteSummary, Task, TaskEvent, TaskRow, TaskStatus, WorkUpdate, FocusSession,
@@ -29,7 +30,8 @@ export function createMock() {
   const flatten = (e: { text: string }[]) => (e.length === 1 ? (e[0]?.text ?? "") : e.map((x) => x.text.trimEnd()).join("\n\n"));
   const diary = { password: null as string | null, recovery: "ABCD-EFGH-JKLM-NPQR-STUV-WXYZ-2345-6789", open: false, entries: new Map<string, { id: string; at: number; text: string }[]>() };
   const courses: { id: string; name: string }[] = [];
-  const exams: { id: string; course_id: string | null; title: string; on_date: string }[] = [];
+  const exams: { id: string; course_id: string | null; title: string; on_date: string; at_time?: string; place?: string }[] = [];
+  const syllabus = makeSyllabus(courses, exams, fail, () => `s${++seq}`);
   const taskCourse = new Map<string, string>();
   const noteCourse = new Map<string, string>();
   const L = (...ids: string[]) => labels.filter((l) => ids.includes(l.id));
@@ -323,6 +325,11 @@ export function createMock() {
       diary.entries.set(day, Array.from({ length: n }, (_, i) => ({ id: `e${i}`, at: d.getTime() - i * 3_600_000, text: Array.from({ length: 1 + Math.floor(rnd() * 12) }, () => lines[Math.floor(rnd() * lines.length)]).join(" ") })));
     }
   }
+  // Browser preview only: `?demo=course` seeds the course from the owner's design.
+  if (typeof location !== "undefined" && location.search.includes("demo=course")) {
+    prefs.set("ui.role", "student");
+    syllabus.seedDemo((name) => { const c = { id: `c${++seq}`, name }; courses.push(c); return c; });
+  }
   // Browser preview only: `?demo=routine` seeds three weeks of routine days (some skipped, a few with a reason).
   if (typeof location !== "undefined" && location.search.includes("demo=routine")) {
     const ids = ["a", "b", "c", "d"];
@@ -583,11 +590,14 @@ export function createMock() {
     course_delete: (a) => {
       const i = courses.findIndex((x) => x.id === a.id);
       if (i < 0) fail("NOT_FOUND", "That course no longer exists.");
-      courses.splice(i, 1);
+      courses.splice(i, 1); syllabus.forget(String(a.id));
       for (const m of [taskCourse, noteCourse]) for (const [k, v] of m) if (v === a.id) m.delete(k);
       for (let j = exams.length - 1; j >= 0; j--) if (exams[j]?.course_id === a.id) exams.splice(j, 1);
       return null;
     },
+    course_cards: () => syllabus.course_cards(),
+    course_detail: (a) => syllabus.course_detail(a),
+    course_edit: (a) => syllabus.course_edit(a),
     exams_from: (a) => exams.filter((e) => e.on_date >= String(a.from)).sort((x, y) => x.on_date.localeCompare(y.on_date) || x.title.localeCompare(y.title)),
     exam_add: (a) => {
       const title = String(a.title).trim();

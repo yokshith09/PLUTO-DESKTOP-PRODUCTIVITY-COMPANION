@@ -3,7 +3,7 @@ import { call, type WaitingChat } from "./transport";
 import type {
   UsageSummary, TimeRange, TrackingStatus, OpenTab, PetPack, BinNote, DailyLog, Reminder, ReminderInput, ReminderPatch, Label, LabelCount, Note, NoteInput, NotePatch, NoteSort, NoteSummary, Task, TaskEdit, TaskEvent, TaskFilters, TaskRow,
   TaskStatus, TaskView, WorkUpdate, LinkInput, TaskPlan, RepeatDay, FocusSession, FocusStart, RetentionRules, RetentionCounts, Meeting, MeetingFilters, MeetingInput, MeetingSummary,
-  Course, CourseLinks, DayInfo, DiaryEntry, DiaryHit, DiaryStatus, Exam, WeeklyReport, AssistantCall, BinMeeting,
+  Course, CourseCard, CourseDetail, CourseLinks, SyllabusEdit, DayInfo, DiaryEntry, DiaryHit, DiaryStatus, Exam, WeeklyReport, AssistantCall, BinMeeting,
 } from "./types";
 import type { Settings, SettingsKey } from "./settings";
 
@@ -102,6 +102,12 @@ export const ipc = {
   taskSetCourse: (taskId: string, courseId: string | null) => call<unknown>("task_set_course", { taskId, courseId }),
   noteSetCourse: (noteId: string, courseId: string | null) => call<unknown>("note_set_course", { noteId, courseId }),
   courseLinks: () => call<CourseLinks>("course_links"),
+  /** The sidebar of the Course page: every course with its subtitle, colour and archived flag. */
+  courseCards: () => call<CourseCard[]>("course_cards"),
+  /** Everything the Course page shows for one course; `today` is `YYYY-MM-DD`. */
+  courseDetail: (id: string, today: string) => call<CourseDetail>("course_detail", { id, today }),
+  /** Topics, subtopics, short notes, exams and dates of a course: one change at a time. */
+  courseEdit: (edit: SyllabusEdit) => call<unknown>("course_edit", { edit }),
   weeklyReport: (from: string) => call<WeeklyReport>("weekly_report", { from }),
   labelsList: () => call<LabelCount[]>("labels_list"),
   labelCreate: (name: string) => call<Label>("label_create", { name }),

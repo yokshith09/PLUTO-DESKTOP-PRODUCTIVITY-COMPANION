@@ -112,25 +112,39 @@ describe("the exam countdown", () => {
 });
 
 describe("the Study page", () => {
-  it("adds a course and an exam, asks before deleting, and shows the weekly report", async () => {
+  const openTab = (name: string) => fireEvent.click(screen.getByRole("tab", { name }));
+
+  it("adds a course, adds an exam, shows the weekly report and deletes the course after asking", async () => {
     prefs({ "ui.role": "student" });
     render(wrap(<StudyPage />));
-    fireEvent.change(await screen.findByRole("textbox", { name: "New course" }), { target: { value: "Biology" } });
-    fireEvent.click(screen.getByRole("button", { name: "Add course" }));
-    expect(await screen.findByRole("button", { name: "Biology" })).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Add Course" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "New course name" }), { target: { value: "Biology" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(await screen.findByRole("heading", { name: /Biology/ })).toBeTruthy();
 
+    openTab("Exams");
     fireEvent.change(screen.getByRole("textbox", { name: "Exam name" }), { target: { value: "Lab exam" } });
     fireEvent.change(screen.getByLabelText("Exam date"), { target: { value: inDays(9) } });
     fireEvent.click(screen.getByRole("button", { name: /Add exam/ }));
     expect(await screen.findByText("9 days")).toBeTruthy();
 
+    openTab("Weekly report");
     const report = screen.getByRole("region", { name: "Weekly report" });
     expect(await within(report).findByText("Biology")).toBeTruthy();
     expect(within(report).getByText("Total")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete Biology" }));
+    openTab("Courses");
+    fireEvent.click(await screen.findByRole("button", { name: "Course Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete course" }));
     expect(screen.getByRole("alertdialog")).toBeTruthy();
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Delete Biology" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("heading", { name: /Biology/ })).toBeNull());
+  });
+
+  it("says Friends are planned for later", async () => {
+    prefs({ "ui.role": "student" });
+    render(wrap(<StudyPage />));
+    openTab("Friends");
+    expect(screen.getByText(/Planned for later/)).toBeTruthy();
   });
 });

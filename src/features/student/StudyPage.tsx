@@ -11,6 +11,8 @@ import { notify } from "@/lib/notify";
 import { daysBetween, parseYmd, ymd } from "@/lib/dates";
 import { hoursLabel } from "@/lib/focus";
 import { countdownLabel } from "./ExamCountdown";
+import { cn } from "@/lib/utils";
+import { CoursesTab } from "./course/CoursesTab";
 import { useCourses, useExams } from "./useStudent";
 
 /** The seven days ending on the given day, as the first day. */
@@ -21,39 +23,6 @@ export const shiftWeek = (from: string, weeks: number): string => { const d = pa
 export function reportText(r: WeeklyReport): string {
   const rows = r.courses.map((c) => `- ${c.course?.name ?? "No course"}: ${hoursLabel(c.focus_ms)} focus, ${c.tasks_done} ${c.tasks_done === 1 ? "task" : "tasks"} done`);
   return [`Week ${r.from} to ${r.to}`, ...rows, `Total: ${hoursLabel(r.total_focus_ms)} focus, ${r.total_tasks_done} done`].join("\n");
-}
-
-function Courses() {
-  const c = useCourses();
-  const [name, setName] = useState("");
-  const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
-  const fail = (e: unknown) => notify.error((e as { message?: string })?.message ?? "That did not work.");
-  return (
-    <section aria-label="Courses" className="rounded-xl border bg-card p-5">
-      <h2 className="mb-3 text-sm font-semibold">Courses</h2>
-      <form className="flex max-w-md gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) c.create.mutate(name, { onSuccess: () => setName(""), onError: fail }); }}>
-        <Input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="Add a course, e.g. Physics" aria-label="New course" />
-        <Button type="submit" variant="secondary" size="icon" aria-label="Add course" disabled={!name.trim()}><Plus /></Button>
-      </form>
-      <ul className="mt-3 divide-y">
-        {c.courses.map((x) => (
-          <li key={x.id} className="flex h-10 items-center gap-2">
-            {editing?.id === x.id ? (
-              <form className="flex flex-1 gap-2" onSubmit={(e) => { e.preventDefault(); c.rename.mutate({ id: x.id, name: editing.name }, { onSuccess: () => setEditing(null), onError: fail }); }}>
-                <Input autoFocus value={editing.name} maxLength={60} aria-label={`Rename ${x.name}`} className="h-8" onChange={(e) => setEditing({ id: x.id, name: e.target.value })} onKeyDown={(e) => e.key === "Escape" && setEditing(null)} />
-              </form>
-            ) : (
-              <button type="button" className="flex-1 rounded text-left text-[13px] outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setEditing({ id: x.id, name: x.name })} title="Rename">{x.name}</button>
-            )}
-            <ConfirmAction message={`Delete ${x.name}? Its exams go too; tasks and notes stay.`} onConfirm={() => c.remove.mutate(x.id, { onError: fail })}>
-              <Button variant="ghost" size="icon" aria-label={`Delete ${x.name}`}><Trash2 /></Button>
-            </ConfirmAction>
-          </li>
-        ))}
-        {c.courses.length === 0 && <li className="py-3 text-[13px] text-muted-foreground">No courses yet. Add one, then pick it on a task or a note.</li>}
-      </ul>
-    </section>
-  );
 }
 
 function Exams() {
@@ -129,13 +98,39 @@ function Report() {
   );
 }
 
+type Tab = "courses" | "exams" | "report" | "friends";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "courses", label: "Courses" },
+  { id: "exams", label: "Exams" },
+  { id: "report", label: "Weekly report" },
+  { id: "friends", label: "Friends" },
+];
+
+/** Friends need accounts and a server, so they wait (owner 2026-11-18: on hold, just say so). */
+function Friends() {
+  return (
+    <section aria-label="Friends" className="rounded-xl border bg-card p-8 text-center">
+      <h2 className="text-sm font-semibold">Friends</h2>
+      <p className="mx-auto mt-2 max-w-md text-[13px] text-muted-foreground">Planned for later. Study groups need an online service, and Pluto keeps everything on your computer for now.</p>
+    </section>
+  );
+}
+
 /** Study: courses, exams and the weekly report (the student pack). */
 export function StudyPage() {
+  const [tab, setTab] = useState<Tab>("courses");
   return (
     <div className="space-y-4">
       <PageHeader title="Study" description="Courses, exams and your week." />
-      <div className="grid gap-4 lg:grid-cols-2"><Courses /><Exams /></div>
-      <Report />
+      <div role="tablist" aria-label="Study sections" className="flex gap-1 border-b">
+        {TABS.map((t) => (
+          <button key={t.id} role="tab" type="button" aria-selected={tab === t.id} onClick={() => setTab(t.id)} className={cn("-mb-px border-b-2 px-3 py-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring", tab === t.id ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>{t.label}</button>
+        ))}
+      </div>
+      {tab === "courses" && <CoursesTab />}
+      {tab === "exams" && <Exams />}
+      {tab === "report" && <Report />}
+      {tab === "friends" && <Friends />}
     </div>
   );
 }

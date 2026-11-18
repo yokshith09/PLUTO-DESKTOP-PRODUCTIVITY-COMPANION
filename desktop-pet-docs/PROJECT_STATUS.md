@@ -352,3 +352,4 @@ Never: rewrite working code without a reason, add dependencies silently, mix a f
 - 2026-11-09: Handover round K prepared (handover/K-1..K-4.md; design reference design/study-v3-preview.html). Nothing built yet for K.
 - 2026-11-09: Built (Unverified): A-8 sounds, routine tracker Letters look. Previews awaiting the owner: FS-1 full screen and TT-1 Tab Tantrum. Windsurf: needs a 10-minute check on the owner's PC (install Windsurf, look for a hooks setting or file, send me its text). Friends and the release stay on hold.
 - 2026-11-09: Tab Tantrum built (rule tested, shell and pet movement Unverified on a real PC). Full screen: hide is the existing default. FS-1 three-way dropped.
+- 2026-11-18: Course page built to the owner's design (Unverified in the real app). Tests: core `syllabus` 10, UI `courseLogic` 8 and `CoursesTab` 8, Study page 2. Next: K-1 timetable.

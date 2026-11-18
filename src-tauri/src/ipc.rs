@@ -20,6 +20,7 @@ use pluto_core::reminders::{self, Reminder, ReminderInput, ReminderPatch};
 use pluto_core::retention::{self, RetentionCounts, RetentionRules};
 use pluto_core::settings::SettingsKey;
 use pluto_core::settings_service::SettingsService;
+use pluto_core::syllabus::{self, CourseCard, CourseDetail, Edit as SyllabusEdit};
 use pluto_core::task_plans::{self, LinkInput, RepeatDay, TaskPlan};
 use pluto_core::tasks::{
     self, Task, TaskEdit, TaskEvent, TaskFilters, TaskRow, TaskStatus, TaskView, WorkUpdate,
@@ -414,6 +415,25 @@ pub async fn course_links(core: State<'_, Core>) -> Result<CourseLinks> {
 #[tauri::command]
 pub async fn weekly_report(from: String, core: State<'_, Core>) -> Result<WeeklyReport> {
     courses::weekly_report(&core.db, &*core.clock, &from).await
+}
+
+#[tauri::command]
+pub async fn course_cards(core: State<'_, Core>) -> Result<Vec<CourseCard>> {
+    syllabus::cards(&core.db).await
+}
+
+#[tauri::command]
+pub async fn course_detail(
+    id: String,
+    today: String,
+    core: State<'_, Core>,
+) -> Result<CourseDetail> {
+    syllabus::detail(&core.db, &id, &today).await
+}
+
+#[tauri::command]
+pub async fn course_edit(edit: SyllabusEdit, core: State<'_, Core>) -> Result<()> {
+    syllabus::apply(&core.db, &*core.clock, edit).await
 }
 
 // ---- labels ---------------------------------------------------------------------------------

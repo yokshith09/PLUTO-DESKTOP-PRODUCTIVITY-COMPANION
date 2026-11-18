@@ -92,6 +92,12 @@ pub static MIGRATIONS: &[Migration] = &[
             "../../../../desktop-pet-docs/docs/05-backend/migrations/012_reminder_meeting_bin.sql"
         ),
     },
+    Migration {
+        version: 13,
+        sql: include_str!(
+            "../../../../desktop-pet-docs/docs/05-backend/migrations/013_course_page.sql"
+        ),
+    },
 ];
 
 /// How many pre-migration backups to keep (newest by version).
