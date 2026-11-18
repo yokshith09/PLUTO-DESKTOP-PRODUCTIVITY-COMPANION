@@ -1053,7 +1053,8 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     const user = userEvent.setup();
     render(<App />);
     const grip = await screen.findByRole("button", { name: /^Resize Focus: 4 of 12 columns/ });
-    grip.focus();
+    // Wait until the grip really has focus: on a busy machine the page can still re-render and move it.
+    await waitFor(() => { grip.focus(); expect(document.activeElement).toBe(grip); });
     await user.keyboard("{ArrowRight}{ArrowRight}{ArrowDown}");
     expect(await screen.findByRole("button", { name: /^Resize Focus: 6 of 12 columns, 3 rows/ })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Reset layout" }));
