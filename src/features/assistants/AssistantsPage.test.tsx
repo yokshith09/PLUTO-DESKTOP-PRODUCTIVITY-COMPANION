@@ -119,8 +119,18 @@ describe("Assistants page", () => {
     fireEvent.click(within(await screen.findByRole("listitem", { name: "Windsurf" })).getByRole("button", { name: "Set up by hand" }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("tab", { name: "Pet reactions" }));
-    expect(within(dialog).getByText(/has no hook Pluto can use yet/)).toBeTruthy();
+    expect(within(dialog).getByText(/has no hook Pluto sets up yet/)).toBeTruthy();
     expect(within(dialog).getAllByRole("switch").every((x) => (x as HTMLButtonElement).disabled)).toBe(true);
+  });
+
+  it("an assistant without a hook still gets the commands any app can run, named after it (owner 2026-11-18: reactions common to all)", async () => {
+    renderPage();
+    fireEvent.click(within(await screen.findByRole("listitem", { name: "Windsurf" })).getByRole("button", { name: "Set up by hand" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("tab", { name: "Pet reactions" }));
+    const section = await within(dialog).findByRole("region", { name: "Pet reactions from any app" });
+    expect(within(section).getByLabelText("It is done command").textContent).toContain("--react agent_done --assistant windsurf");
+    expect(within(section).getAllByRole("button", { name: "Copy" })).toHaveLength(3);
   });
 
   it("Codex's settings open with its TOML setup and name the program from it", async () => {

@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BellOff, BookOpen, Check, CircleSlash, Code2, Copy, Eye, ListChecks, Lock, MessageCircle, PartyPopper, PenLine, Plus, Settings2, ShieldCheck, Undo2 } from "lucide-react";
-import { errorMessage, ipc, type AssistantCall, type AssistantInfo, type GitWatchInfo } from "@/ipc";
+import { errorMessage, ipc, type AssistantCall, type AssistantInfo, type DeveloperLines, type GitWatchInfo } from "@/ipc";
 import { useSetting } from "@/hooks/useTheme";
 import { notify } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
@@ -400,7 +400,7 @@ function AssistantEditor({ id, a, perms, onPerms, onClose }: { id: string | null
   const shown = a ? tab : "connection";
   const name = a?.name ?? "Another assistant";
   const command = a?.places[0] ? programOf(a.places[0].manual) : "pluto";
-  const { data: lines } = useQuery({ queryKey: ["mcp", "developer"], queryFn: ipc.mcpDeveloper, enabled: id !== null && !a });
+  const { data: lines } = useQuery({ queryKey: ["mcp", "developer"], queryFn: ipc.mcpDeveloper, enabled: id !== null && (!a || (REACT_KEYS[a.id]?.length ?? 0) === 0) });
   const copy = async (text: string) => {
     try { await navigator.clipboard.writeText(text); notify.success("Setup copied"); } catch { notify.error("Could not copy"); }
   };
@@ -426,7 +426,7 @@ function AssistantEditor({ id, a, perms, onPerms, onClose }: { id: string | null
         )}
         <div className="max-h-[65vh] space-y-5 overflow-y-auto p-5 text-[13px]">
           {a && tab === "tools" && <ToolsTab a={a} perms={perms} onPerms={onPerms} />}
-          {a && tab === "reactions" && <ReactionsTab a={a} perms={perms} onPerms={onPerms} />}
+          {a && tab === "reactions" && <ReactionsTab a={a} perms={perms} onPerms={onPerms} lines={lines} copy={copy} />}
           {a && shown === "connection" && (
             <section aria-label="Connection">
               <ul className="divide-y rounded-lg border">
@@ -468,19 +468,7 @@ function AssistantEditor({ id, a, perms, onPerms, onClose }: { id: string | null
               )}
           </section>}
 
-          {!a && lines && (
-            <section aria-label="Pet reactions from any app">
-              <h3 className="text-xs font-medium text-muted-foreground">Pet reactions from any app</h3>
-              <p className="mt-1 text-[12px] text-muted-foreground">If the app can run a command when it finishes or waits for you (a hook, a notify setting, a script), give it one of these. Change “my-app” to its name; Pluto shows it on the pet.</p>
-              {([["It is done", lines.agentDone], ["It needs you", lines.agentNeedsYou], ["It wants your permission", lines.agentPermission]] as const).map(([what, text]) => (
-                <div key={what} className="mt-3">
-                  <p className="mb-1 text-[12px] font-medium">{what}</p>
-                  <pre aria-label={`${what} command`} className="overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed">{text}</pre>
-                  <Button size="sm" variant="outline" className="mt-2" onClick={() => void copy(text)}><Copy className="size-3.5" />Copy</Button>
-                </div>
-              ))}
-            </section>
-          )}
+          {!a && lines && <AnyAppReactions lines={lines} who="my-app" copy={copy} />}
 
           {a && shown === "connection" && (
             <section aria-label="Recent requests">
@@ -533,12 +521,33 @@ function ToolsTab({ a, perms, onPerms }: { a: AssistantInfo; perms: Perms; onPer
   );
 }
 
-function ReactionsTab({ a, perms, onPerms }: { a: AssistantInfo; perms: Perms; onPerms: (p: Perms) => void }) {
+/** The commands any app can run to make the pet react (owner 2026-11-18: reactions should be common to all assistants). */
+function AnyAppReactions({ lines, who, copy }: { lines: DeveloperLines; who: string; copy: (text: string) => Promise<void> }) {
+  const swap = (t: string) => t.replaceAll("my-app", who);
+  return (
+    <section aria-label="Pet reactions from any app">
+      <h3 className="text-xs font-medium text-muted-foreground">Pet reactions from any app</h3>
+      <p className="mt-1 text-[12px] text-muted-foreground">If the app can run a command when it finishes or waits for you (a hook, a notify setting, a script), give it one of these. {who === "my-app" ? "Change “my-app” to its name; Pluto shows it on the pet." : "Pluto shows it on the pet under this name."}</p>
+      {([["It is done", lines.agentDone], ["It needs you", lines.agentNeedsYou], ["It wants your permission", lines.agentPermission]] as const).map(([what, raw]) => {
+        const text = swap(raw);
+        return (
+          <div key={what} className="mt-3">
+            <p className="mb-1 text-[12px] font-medium">{what}</p>
+            <pre aria-label={`${what} command`} className="overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed">{text}</pre>
+            <Button size="sm" variant="outline" className="mt-2" onClick={() => void copy(text)}><Copy className="size-3.5" />Copy</Button>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+function ReactionsTab({ a, perms, onPerms, lines, copy }: { a: AssistantInfo; perms: Perms; onPerms: (p: Perms) => void; lines?: DeveloperLines | undefined; copy: (text: string) => Promise<void> }) {
   const can = REACT_KEYS[a.id] ?? [];
   return (
     <div className="space-y-3">
       <p className="text-[12px] text-muted-foreground">
-        {can.length > 0 ? `What your pet does for ${a.name} on its own.` : `${a.name} has no hook Pluto can use yet, so the pet only reacts when it asks (the Tools tab). Nothing to switch here.`}
+        {can.length > 0 ? `What your pet does for ${a.name} on its own.` : `${a.name} has no hook Pluto sets up yet, so nothing to switch here. Any app that can run a command can still make the pet react: use the commands below.`}
       </p>
       <ul className="divide-y rounded-lg border">
         {REACTIONS.map((r) => {
@@ -554,6 +563,7 @@ function ReactionsTab({ a, perms, onPerms }: { a: AssistantInfo; perms: Perms; o
           );
         })}
       </ul>
+      {can.length === 0 && lines && <AnyAppReactions lines={lines} who={a.id} copy={copy} />}
     </div>
   );
 }
