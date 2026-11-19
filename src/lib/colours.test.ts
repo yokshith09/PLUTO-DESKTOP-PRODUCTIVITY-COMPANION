@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { COLOURS, DEFAULT_COLOUR, PALETTES, applyColour, colourCss, isColour, palette, type Colour } from "./colours";
 
 /** OKLCH "l c h" or "oklch(l c h)" to linear sRGB and relative luminance (WCAG). */
@@ -58,5 +58,25 @@ describe("colours (U-10)", () => {
     expect(document.getElementById("pluto-colour")?.textContent).toContain(PALETTES.ultraviolet.light);
     applyColour("copper");
     expect(document.getElementById("pluto-colour")?.textContent).toBe("");
+  });
+
+  it("uses a constructed style sheet where it can, which the built app's security policy allows (owner 2026-11-19)", () => {
+    const replaced: string[] = [];
+    class FakeSheet { replaceSync(css: string) { replaced.push(css); } }
+    const realSheet = globalThis.CSSStyleSheet;
+    const had = "adoptedStyleSheets" in document;
+    vi.stubGlobal("CSSStyleSheet", FakeSheet);
+    Object.defineProperty(document, "adoptedStyleSheets", { value: [], writable: true, configurable: true });
+    try {
+      applyColour("amethyst");
+      applyColour("indigo");
+      expect(replaced.at(-1)).toContain(PALETTES.indigo.light);
+      expect((document as unknown as { adoptedStyleSheets: unknown[] }).adoptedStyleSheets).toHaveLength(1);
+      expect(document.getElementById("pluto-colour")).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+      if (!had) delete (document as unknown as Record<string, unknown>).adoptedStyleSheets;
+      globalThis.CSSStyleSheet = realSheet;
+    }
   });
 });

@@ -63,18 +63,44 @@ export function colourCss(c: Colour): string {
 
 const STYLE_ID = "pluto-colour";
 
-/** Puts a colour on the page (every window calls this with the saved choice). */
+let sheet: CSSStyleSheet | null = null;
+
+/** Can this page take a constructed style sheet (every WebView2 and WebKit Pluto runs on can)? */
+function canConstruct(): boolean {
+  try {
+    return typeof CSSStyleSheet !== "undefined" && "replaceSync" in CSSStyleSheet.prototype && "adoptedStyleSheets" in document;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Puts a colour on the page (every window calls this with the saved choice).
+ * Owner 2026-11-19: "I changed the colour and it stayed the same". The built app's content security
+ * policy (`default-src 'self'`, no inline styles) blocks a `<style>` tag added at run time; the dev
+ * build and the browser preview allow it, so it only failed in the installed app. A constructed
+ * style sheet is not inline markup and is allowed, so that is used where the page supports it.
+ */
 export function applyColour(c: Colour): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   root.dataset.colour = c;
+  const css = colourCss(c);
+  if (canConstruct()) {
+    if (!sheet) {
+      sheet = new CSSStyleSheet();
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    }
+    sheet.replaceSync(css);
+    return;
+  }
   let el = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
   if (!el) {
     el = document.createElement("style");
     el.id = STYLE_ID;
     document.head.appendChild(el);
   }
-  el.textContent = colourCss(c);
+  el.textContent = css;
 }
 
 export const isColour = (v: unknown): v is Colour => typeof v === "string" && (COLOURS as readonly string[]).includes(v);

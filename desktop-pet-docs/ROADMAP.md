@@ -477,3 +477,4 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-19: Progress card (PROJECT_STATUS section 00) rewritten: phases, P4 milestones, features, on-hold list, release steps. v0.6.0 can go out as a draft for owner testing once macOS CI is green; version bump and "Run workflow" wait for the owner.
 - 2026-11-19: v0.6.0 version bump committed; release is the owner's "Run workflow" (draft).
 - 2026-11-19: Owner test round fixes (Today tiles restored, Tasks Missed and month Upcoming, project dropdowns, Course page duplicates, Time top app and site, routine rename and move). Routine tracker redesign waits for a reference image.
+- 2026-11-19: Colour choice fixed for the installed app (CSP); Weekly report tab removed. New characters (Spider-Man, the girl) wait for an owner decision; P3 stays on hold until then.

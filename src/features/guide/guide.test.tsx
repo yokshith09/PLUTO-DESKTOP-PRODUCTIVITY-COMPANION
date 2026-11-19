@@ -200,6 +200,6 @@ describe("Settings → Guide", () => {
     vi.spyOn(ipc, "prefsGet").mockImplementation(async (k: string) => (k === "ui.role" ? "student" : null) as never);
     render(wrap(<GuideSection />));
     expect(await screen.findByText("Courses and exams")).toBeTruthy();
-    expect(screen.getByText("Weekly report")).toBeTruthy();
+    expect(screen.queryByText("Weekly report")).toBeNull();
   });
 });

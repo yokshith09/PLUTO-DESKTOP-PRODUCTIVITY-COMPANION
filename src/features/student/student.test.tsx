@@ -6,7 +6,7 @@ import { ymd } from "@/lib/dates";
 import { CoursePicker, CourseTag } from "./CoursePicker";
 import { ExamCountdown, countdownLabel } from "./ExamCountdown";
 import { hoursLabel } from "@/lib/focus";
-import { StudyPage, reportText, shiftWeek, weekStart } from "./StudyPage";
+import { StudyPage } from "./StudyPage";
 
 beforeAll(() => {
   window.matchMedia ??= ((q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {} })) as never;
@@ -34,18 +34,6 @@ describe("student pack helpers", () => {
     expect(hoursLabel(0)).toBe("0 min");
     expect(hoursLabel(50 * 60_000)).toBe("50 min");
     expect(hoursLabel(125 * 60_000)).toBe("2 h 05 min");
-  });
-  it("a week is the seven days ending today, and weeks step by seven days", () => {
-    expect(weekStart(new Date(2026, 9, 28))).toBe("2026-10-22");
-    expect(shiftWeek("2026-10-22", -1)).toBe("2026-10-15");
-    expect(shiftWeek("2026-10-29", 1)).toBe("2026-11-05");
-  });
-  it("the report copies as plain text", () => {
-    const text = reportText({
-      from: "2026-10-22", to: "2026-10-28", total_focus_ms: 3_600_000, total_tasks_done: 1,
-      courses: [{ course: { id: "c", name: "Physics" }, focus_ms: 3_000_000, tasks_done: 1 }, { course: null, focus_ms: 600_000, tasks_done: 0 }],
-    });
-    expect(text).toBe("Week 2026-10-22 to 2026-10-28\n- Physics: 50 min focus, 1 task done\n- No course: 10 min focus, 0 tasks done\nTotal: 1 h 00 min focus, 1 done");
   });
 });
 
@@ -114,7 +102,7 @@ describe("the exam countdown", () => {
 describe("the Study page", () => {
   const openTab = (name: string) => fireEvent.click(screen.getByRole("tab", { name }));
 
-  it("adds a course, adds an exam, shows the weekly report and deletes the course after asking", async () => {
+  it("adds a course, adds an exam, has no Weekly report tab and deletes the course after asking", async () => {
     prefs({ "ui.role": "student" });
     render(wrap(<StudyPage />));
     fireEvent.click(await screen.findByRole("button", { name: "Add Course" }));
@@ -129,10 +117,7 @@ describe("the Study page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByText("9 days")).toBeTruthy();
 
-    openTab("Weekly report");
-    const report = screen.getByRole("region", { name: "Weekly report" });
-    expect(await within(report).findByText("Biology")).toBeTruthy();
-    expect(within(report).getByText("Total")).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "Weekly report" })).toBeNull();
 
     openTab("Courses");
     fireEvent.click(await screen.findByRole("button", { name: "Course Settings" }));
