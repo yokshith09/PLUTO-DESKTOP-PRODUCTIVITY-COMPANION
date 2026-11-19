@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, BarChart3, ChevronDown, ChevronRight, MoreHorizontal, Pencil, Plus, Search, Settings2, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, BarChart3, CalendarDays, ListChecks, StickyNote, ChevronDown, ChevronRight, MoreHorizontal, Pencil, Plus, Search, Settings2, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ConfirmAction } from "@/components/ConfirmAction";
@@ -10,7 +10,7 @@ import type { CourseCard, CourseDetail, SyllabusEdit } from "@/ipc/types";
 import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import { useCourses } from "../useStudent";
-import { COURSE_COLORS, courseColor, daysUntil, focusLabel, initials, inDaysLabel, nextExam, readiness, whenLabel } from "./courseLogic";
+import { COURSE_COLORS, STATUSES, courseColor, daysUntil, focusLabel, initials, inDaysLabel, nextExam, readiness, whenLabel } from "./courseLogic";
 import { DatesPanel, ExamsPanel } from "./ExamsPanel";
 import { TopicList } from "./TopicList";
 import { useCourseCards, useCoursePage } from "./useCoursePage";
@@ -131,30 +131,83 @@ function Header({ detail, settingsOpen, toggleSettings, setArchived }: { detail:
   );
 }
 
+const BAR = ["bg-sky-500", "bg-amber-500", "bg-cyan-500", "bg-emerald-500"] as const;
+
+/** Exam readiness as a ring: how many topics the student marked exam-ready. */
+function ReadyRing({ ready, total }: { ready: number; total: number }) {
+  const r = 30;
+  const c = 2 * Math.PI * r;
+  const part = total ? ready / total : 0;
+  return (
+    <div className="relative size-20 shrink-0" role="img" aria-label={`${ready} of ${total} topics exam-ready`}>
+      <svg viewBox="0 0 72 72" className="size-full -rotate-90">
+        <circle cx="36" cy="36" r={r} fill="none" stroke="var(--muted)" strokeWidth="7" />
+        <circle cx="36" cy="36" r={r} fill="none" stroke="var(--primary)" strokeWidth="7" strokeLinecap="round" strokeDasharray={`${c * part} ${c}`} />
+      </svg>
+      <span className="absolute inset-0 grid place-content-center text-center text-[15px] font-semibold tabular-nums">{total ? `${Math.round(part * 100)}%` : "–"}</span>
+    </div>
+  );
+}
+
+/**
+ * The course overview (owner 2026-11-19: "draw a new layout"): three cards instead of a row of
+ * four boxes. Readiness (a ring and the topics by status), what is next (the exam countdown and
+ * the next date), and the week in numbers. They sit side by side when there is room and wrap
+ * when the window is small.
+ */
 function Summary({ detail, today }: { detail: CourseDetail; today: string }) {
   const next = nextExam(detail.exams, today);
   const r = readiness(detail.topics);
-  const Stat = ({ label, value, sub }: { label: string; value: string; sub: string }) => (
-    <div className="min-w-0 px-4 py-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-0.5 truncate text-base font-semibold tabular-nums">{value}</p>
-      <p className="truncate text-xs text-muted-foreground">{sub}</p>
+  const nextDate = detail.dates.filter((d) => d.on_date >= today).sort((a, b) => a.on_date.localeCompare(b.on_date))[0];
+  const days = next ? daysUntil(today, next.on_date) : null;
+  const Row = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
+    <div className="flex items-center gap-3 py-2">
+      <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground [&_svg]:size-4">{icon}</span>
+      <span className="min-w-0 flex-1 truncate text-[12.5px] text-muted-foreground">{label}</span>
+      <span className="text-[14px] font-semibold tabular-nums">{value}</span>
     </div>
   );
   return (
-    <section aria-label="Course summary" className="rounded-xl border bg-card">
-      <div className="grid grid-cols-2 divide-x divide-border/60 sm:grid-cols-4 [&>*:nth-child(n+3)]:border-t sm:[&>*:nth-child(n+3)]:border-t-0">
-        <Stat label="Next Exam" value={next ? inDaysLabel(daysUntil(today, next.on_date)).replace("in ", "") : "No exam yet"} sub={next ? `${next.title} • ${whenLabel(next)}` : "Add one in Exams"} />
-        <div className="min-w-0 px-4 py-3">
-          <p className="text-xs text-muted-foreground">Focus Time This Week</p>
-          <p className="mt-0.5 flex items-center gap-1.5 text-base font-semibold tabular-nums"><BarChart3 className="size-4 text-muted-foreground" aria-hidden />{focusLabel(detail.summary.focus_ms_week)}</p>
-          <p className="truncate text-xs text-muted-foreground">on this course's tasks</p>
-        </div>
-        <Stat label="Tasks" value={`${detail.summary.open_tasks} open`} sub="linked to this course" />
-        <Stat label="Notes" value={`${detail.summary.notes} ${detail.summary.notes === 1 ? "note" : "notes"}`} sub="linked to this course" />
+    <div className="@container" aria-label="Course summary" role="region">
+      <div className="grid gap-3 @xl:grid-cols-2 @4xl:grid-cols-[1.25fr_1fr_0.95fr]">
+        <section aria-label="Exam readiness" className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+          <h3 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Exam readiness</h3>
+          <div className="flex items-center gap-4">
+            <ReadyRing ready={r.ready} total={r.total} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-semibold tabular-nums">{r.ready} of {r.total} topics exam-ready</p>
+              <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-muted" aria-hidden>
+                {r.total > 0 && r.byStatus.map((n, i) => n > 0 && <i key={i} className={cn("block h-full", BAR[i])} style={{ width: `${(n / r.total) * 100}%` }} />)}
+              </div>
+              <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-muted-foreground">
+                {STATUSES.map((st, i) => <li key={st.label} className="flex items-center gap-1.5"><i aria-hidden className={cn("size-2 rounded-full", BAR[i])} />{st.label} {r.byStatus[i] ?? 0}</li>)}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section aria-label="What is next" className="flex flex-col gap-2 rounded-xl border bg-card p-4">
+          <h3 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Next exam</h3>
+          {next && days !== null ? (
+            <div className="flex items-end gap-3">
+              <p className="shrink-0 text-[26px] font-semibold leading-none tabular-nums">{days > 1 ? `${days} days` : inDaysLabel(days)}</p>
+              <p className="min-w-0 flex-1 truncate pb-0.5 text-[12.5px] text-muted-foreground" title={next.title}>{next.title} · {whenLabel(next)}</p>
+            </div>
+          ) : <p className="text-[14px] font-semibold">No exam yet <span className="block text-[12px] font-normal text-muted-foreground">Add one under Exams.</span></p>}
+          <div className="mt-auto border-t pt-2 text-[12.5px]">
+            {nextDate
+              ? <p className="truncate"><CalendarDays aria-hidden className="mr-1.5 inline size-3.5 align-[-2px] text-muted-foreground" />{nextDate.title} <span className="text-muted-foreground">· {inDaysLabel(daysUntil(today, nextDate.on_date))}</span></p>
+              : <p className="text-muted-foreground">No upcoming dates.</p>}
+          </div>
+        </section>
+
+        <section aria-label="This week" className="grid rounded-xl border bg-card px-4 py-1 @xl:col-span-2 @xl:grid-cols-3 @xl:gap-x-6 @4xl:col-span-1 @4xl:grid-cols-1">
+          <Row icon={<BarChart3 />} label="Focus this week" value={focusLabel(detail.summary.focus_ms_week)} />
+          <Row icon={<ListChecks />} label="Open tasks" value={String(detail.summary.open_tasks)} />
+          <Row icon={<StickyNote />} label="Notes" value={String(detail.summary.notes)} />
+        </section>
       </div>
-      <p className="border-t px-4 py-2 text-xs text-muted-foreground tabular-nums">{r.ready} of {r.total} topics exam-ready{r.total > 0 && ` • ${r.byStatus[0]} to learn, ${r.byStatus[1]} learning, ${r.byStatus[2]} revise`}</p>
-    </section>
+    </div>
   );
 }
 

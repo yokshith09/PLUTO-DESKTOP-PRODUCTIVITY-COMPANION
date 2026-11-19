@@ -166,3 +166,36 @@ export function lettersLine(s: RoutineState, days: string[], today: string): str
   const head = current ? `Last 7 days: ${done} of ${planned} done.` : `Those 7 days: ${done} of ${planned} done.`;
   return best && best.done > 0 ? `${head} ${best.title} was your steadiest.` : head;
 }
+
+// ---------------------------------------------------------------- Habit tracker (owner reference 2026-11-19)
+
+/** The Monday of the week holding `day`, and the seven days Monday to Sunday. */
+export function weekDays(day: string): string[] {
+  const d = new Date(`${day}T12:00:00`);
+  const back = (d.getDay() + 6) % 7;
+  return Array.from({ length: 7 }, (_, i) => addDays(day, i - back));
+}
+
+/** One habit over some days: done, and how many of those days are over or done (days to come do not count against you). */
+export function habitDays(s: RoutineState, id: string, days: string[], today: string): { done: number; counted: number } {
+  let done = 0;
+  let counted = 0;
+  for (const d of days) {
+    const st = dayStat(s, d, today);
+    const ok = st.done.includes(id);
+    if (ok) done++;
+    if (ok || (d < today && st.planned?.includes(id))) counted++;
+  }
+  return { done, counted };
+}
+
+/** Habits done on each day (for the week chart); days to come are null so the line stops at today. */
+export function doneByDay(s: RoutineState, days: string[], today: string): (number | null)[] {
+  return days.map((d) => (d > today ? null : dayStat(s, d, today).done.filter((id) => s.items.some((i) => i.id === id) || s.names[id]).length));
+}
+
+/** Days in the week with at least one habit done, out of the days so far. */
+export function activeDays(s: RoutineState, days: string[], today: string): { active: number; sofar: number } {
+  const past = days.filter((d) => d <= today);
+  return { active: past.filter((d) => dayStat(s, d, today).done.length > 0).length, sofar: past.length };
+}

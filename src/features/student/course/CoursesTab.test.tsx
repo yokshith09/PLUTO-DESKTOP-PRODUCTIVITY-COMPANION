@@ -41,7 +41,9 @@ describe("the Course page", () => {
     expect(screen.getByText("AAA")).toBeTruthy();
     const sum = screen.getByRole("region", { name: "Course summary" });
     expect(within(sum).getByText("No exam yet")).toBeTruthy();
-    expect(within(sum).getByText("0 open")).toBeTruthy();
+    const week = within(sum).getByRole("region", { name: "This week" });
+    expect(within(week).getByText("Open tasks")).toBeTruthy();
+    expect(within(sum).getByRole("img", { name: "0 of 0 topics exam-ready" })).toBeTruthy();
     expect(screen.getByText(/No topics yet/)).toBeTruthy();
   });
 

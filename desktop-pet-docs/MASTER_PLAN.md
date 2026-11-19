@@ -221,7 +221,11 @@ Built 2026-11-03 (H-1 Codex, H-2 Cursor hooks, H-3 OpenCode, H-4 Windsurf tools 
 
 The owner is away for a while. Rules, split and per-task briefs are in [`handover/`](handover/README.md); root `AGENTS.md` / `GEMINI.md` point there. **Codex:** A-3 then A-7. **Antigravity:** A-2 then A-5 (A-5 needs A-2). Each works on its own branch, opens a draft PR, never merges, never releases, writes a report in `handover/reports/` instead of editing the five docs; Claude Code reviews, merges and copies the report lines into the docs and the Assistants page. **Not handed over:** FS-1 and TT-1 (preview first), A-8 (design choice), Study (on hold), Windsurf reactions (needs the owner's PC), the release.
 
-## Where we are (2026-11-19)
+## Where we are (2026-11-19, evening)
+
+Owner test round fixed in code (Today tiles restored, Tasks Missed and month Upcoming, project dropdowns, colour in the installed app, Course overview redrawn, habit tracker to the owner's reference, Weekly report removed). **Next, in order:** (1) owner runs the Release workflow and tests 0.6.0 on Windows and Mac with the PC checklist; (2) Tab Tantrum: the owner says what goes wrong, then fix; (3) fix whatever the PC test finds; (4) then the next phase the owner picks. Characters (P3) stay on hold.
+
+## Where we were (2026-11-19, morning)
 
 All of v0.6.0's planned scope is built (see PROJECT_STATUS section 00 for the phase table, milestones and the on-hold list). Remaining before the release: green CI on the head (macOS included), the version bump (owner's word), and the owner's PC test. Next phases after the release: P5 small features, then P7 Reach; P3, P6, P8, P9 stay paused or on hold. Study pack: complete; ChatGPT-to-notes, write-out mode and the notebook sheet are optional and on hold.
 

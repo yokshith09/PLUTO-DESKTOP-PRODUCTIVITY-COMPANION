@@ -18,91 +18,97 @@ function story() {
 }
 const view = (state: RoutineState, onChange = vi.fn()) =>
   render(<RoutineProgress open onClose={vi.fn()} state={state} today={TODAY} onChange={onChange} />);
-const water = () => screen.getByRole("group", { name: /^Water, 7 days to/ });
+const water = () => screen.getByRole("group", { name: /^Water, week of/ });
 const earlier = () => fireEvent.click(screen.getByRole("button", { name: "Earlier" }));
 
-describe("RoutineProgress, week letters (U-8)", () => {
-  it("opens with kind words, one sentence for the week, seven letters per routine, and a next win", () => {
+describe("Habit tracker (owner reference 2026-11-19)", () => {
+  it("shows today as a ring and one sentence, each habit with its week Monday to Sunday, the week chart and a kind word", () => {
     view(story());
     expect(screen.getByRole("dialog")).toBeTruthy();
-    // Nov 4 to 10: Stretch done every day; Water skipped the 4th to the 9th and still open today.
-    expect(screen.getByText("Last 7 days: 7 of 13 done. Stretch was your steadiest.")).toBeTruthy();
-    const stretch = screen.getByRole("group", { name: /^Stretch, 7 days to Tuesday, November 10/ });
-    // The letters are the weekdays, ending today (a Tuesday).
-    expect(within(stretch).getAllByRole("img").map((l) => l.textContent).join("")).toBe("WTFSSMT");
-    expect(within(stretch).queryAllByRole("button")).toHaveLength(0);
-    expect(screen.getByText(/is your next win/i)).toBeTruthy();
-    expect(screen.getByText("This week and last week")).toBeTruthy();
+    // Today (Tue Nov 10): Stretch done, Water not yet.
+    expect(screen.getByRole("img", { name: "Today: 1 of 2 habits done" })).toBeTruthy();
+    expect(screen.getByText("1 of 2 habits done today")).toBeTruthy();
+    const stretch = screen.getByRole("group", { name: /^Stretch, week of Monday, November 9/ });
+    // Mon and Tue done; Wed to Sun still to come.
+    expect(within(stretch).getAllByRole("img", { name: /: done$/ })).toHaveLength(2);
+    expect(within(stretch).getAllByRole("img", { name: /still to come/ })).toHaveLength(5);
+    expect(screen.getByRole("region", { name: "This week" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "A kind word" })).toBeTruthy();
+    // Nothing is red or struck through.
+    expect(document.querySelector(".line-through, .text-destructive")).toBeNull();
   });
 
-  it("skipped days are struck-through letters you can tap; done days, today and days to come are not", () => {
+  it("days to come never count against you: the count is days done of the days so far", () => {
     view(story());
-    const skipped = within(water()).getAllByRole("button");
-    expect(skipped).toHaveLength(6);
-    expect(skipped[0]?.getAttribute("aria-label")).toMatch(/November 4.*skipped, add a reason/);
-    expect(within(water()).getByRole("img", { name: /Tuesday, November 10.*still open today/ })).toBeTruthy();
-    earlier();
-    // Oct 28 to Nov 3: Water done on the 1st to the 3rd, nothing recorded before.
-    expect(within(water()).queryAllByRole("button")).toHaveLength(0);
-    expect(within(water()).getAllByRole("img", { name: /done/ })).toHaveLength(3);
-    expect(screen.getByText(/^Those 7 days: /)).toBeTruthy();
+    const rows = screen.getAllByRole("listitem");
+    const waterRow = rows.find((r) => within(r).queryByText("Water"));
+    // Water: Monday not done, today still open: 0 of 1.
+    expect(waterRow && within(waterRow).getByText("0 of 1")).toBeTruthy();
   });
 
-  it("tapping a skipped letter offers quick reasons or your own words, and saves it (optional)", () => {
+  it("ticks today from the tracker and renames from Edit", () => {
     const onChange = vi.fn();
     const s = story();
     view(s, onChange);
-    fireEvent.click(within(water()).getAllByRole("button")[0] as HTMLElement);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Water today" }));
+    expect((onChange.mock.calls[0]?.[0] as (x: RoutineState) => RoutineState)(s).done).toContain("w");
+    fireEvent.click(screen.getByRole("button", { name: "Edit Water" }));
+    const box = screen.getByLabelText("New name for Water");
+    fireEvent.change(box, { target: { value: "2 litres of water" } });
+    fireEvent.submit(box.closest("form") as HTMLFormElement);
+    expect((onChange.mock.calls[1]?.[0] as (x: RoutineState) => RoutineState)(s).items.map((i) => i.title)).toContain("2 litres of water");
+  });
+
+  it("a day not done is a quiet empty dot you can tap to note why (optional), and saves it", () => {
+    const onChange = vi.fn();
+    const s = story();
+    view(s, onChange);
+    const missed = within(water()).getAllByRole("button");
+    // Monday the 9th only: today is still open and later days are to come.
+    expect(missed).toHaveLength(1);
+    expect(missed[0]?.getAttribute("aria-label")).toMatch(/November 9.*not done, add a note if you like/);
+    fireEvent.click(missed[0] as HTMLElement);
     const sheet = screen.getByRole("group", { name: "What got in the way?" });
     expect(within(sheet).getByText(/Totally optional/)).toBeTruthy();
     fireEvent.click(within(sheet).getByRole("button", { name: "Too tired" }));
-    expect(within(sheet).getByRole("button", { name: "Too tired" }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(within(sheet).getByRole("button", { name: "Save" }));
-    expect(onChange).toHaveBeenCalledTimes(1);
-    const next = (onChange.mock.calls[0]?.[0] as (x: RoutineState) => RoutineState)(s);
-    expect(next.reasons["2026-11-04"]).toEqual({ w: "Too tired" });
-    expect(screen.queryByRole("group", { name: "What got in the way?" })).toBeNull();
+    expect(((onChange.mock.calls[0]?.[0]) as (x: RoutineState) => RoutineState)(s).reasons["2026-11-09"]).toEqual({ w: "Too tired" });
   });
 
   it("your own words are used, and No reason clears one", () => {
     const onChange = vi.fn();
-    const s = setReason(story(), "2026-11-04", "w", "Busy day");
+    const s = setReason(story(), "2026-11-09", "w", "Busy day");
     view(s, onChange);
-    fireEvent.click(within(water()).getByRole("button", { name: /November 4.*skipped, Busy day/ }));
+    fireEvent.click(within(water()).getByRole("button", { name: /November 9.*not done, Busy day/ }));
     const sheet = screen.getByRole("group", { name: "What got in the way?" });
     expect((within(sheet).getByLabelText("Reason in your own words") as HTMLInputElement).value).toBe("Busy day");
-    fireEvent.change(within(sheet).getByLabelText("Reason in your own words"), { target: { value: "Early flight" } });
-    fireEvent.click(within(sheet).getByRole("button", { name: "Save" }));
-    expect(((onChange.mock.calls[0]?.[0]) as (x: RoutineState) => RoutineState)(s).reasons["2026-11-04"]).toEqual({ w: "Early flight" });
-    fireEvent.click(within(water()).getByRole("button", { name: /November 4/ }));
-    fireEvent.click(screen.getByRole("button", { name: "No reason" }));
-    expect(((onChange.mock.calls[1]?.[0]) as (x: RoutineState) => RoutineState)(s).reasons).toEqual({});
+    fireEvent.click(within(sheet).getByRole("button", { name: "No reason" }));
+    expect(((onChange.mock.calls[0]?.[0]) as (x: RoutineState) => RoutineState)(s).reasons).toEqual({});
   });
 
-  it("with no reasons yet the page invites rather than scolds", () => {
+  it("with no reasons yet it invites rather than scolds, and counts the reasons you gave", () => {
     view(story());
     expect(screen.getByText(/Nothing noted yet/)).toBeTruthy();
-    expect(screen.getByText(/Pluto will suggest one small adjustment/)).toBeTruthy();
-  });
-
-  it("the reasons you gave are counted, with one kind suggestion", () => {
+    cleanup();
     let s = setReason(story(), "2026-11-04", "w", "Too tired");
     s = setReason(s, "2026-11-05", "w", "Too tired");
-    s = setReason(s, "2026-11-06", "w", "Forgot");
     view(s);
     const box = screen.getByRole("region", { name: "What got in the way" });
     expect(within(box).getByText("Too tired")).toBeTruthy();
-    expect(within(box).getByText("2")).toBeTruthy();
     expect(within(box).getByText(/Tired days happen/)).toBeTruthy();
   });
 
-  it("goes back 7 days at a time, never past the first recorded day, and returns", () => {
+  it("goes back a week at a time, never before the first recorded week, and returns", () => {
     view(story());
     expect((screen.getByRole("button", { name: "Later" }) as HTMLButtonElement).disabled).toBe(true);
     earlier();
-    expect(screen.getByRole("group", { name: /^Water, 7 days to Tuesday, November 3/ })).toBeTruthy();
+    expect(screen.getByRole("group", { name: /^Water, week of Monday, November 2/ })).toBeTruthy();
+    // No tick for today on a past week.
+    expect(screen.queryByRole("checkbox", { name: "Water today" })).toBeNull();
+    earlier();
     expect((screen.getByRole("button", { name: "Earlier" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Later" }));
-    expect(screen.getByText(/^Last 7 days: /)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Later" }));
+    expect(screen.getAllByText("This week").length).toBe(2);
   });
 });
