@@ -103,6 +103,16 @@ export const renameItem = (s: RoutineState, id: string, title: string): RoutineS
   const t = title.trim().slice(0, TITLE_MAX);
   return t ? { ...s, items: s.items.map((i) => (i.id === id ? { ...i, title: t } : i)), names: { ...s.names, [id]: t } } : s;
 };
+/** Moves a routine one place up (-1) or down (1); the first and last stay put. */
+export function moveItem(s: RoutineState, id: string, by: -1 | 1): RoutineState {
+  const i = s.items.findIndex((x) => x.id === id);
+  const j = i + by;
+  if (i < 0 || j < 0 || j >= s.items.length) return s;
+  const items = [...s.items];
+  const [it] = items.splice(i, 1);
+  if (it) items.splice(j, 0, it);
+  return { ...s, items };
+}
 export const removeItem = (s: RoutineState, id: string): RoutineState =>
   ({ ...s, items: s.items.filter((i) => i.id !== id), done: s.done.filter((d) => d !== id) });
 export const toggle = (s: RoutineState, id: string): RoutineState =>

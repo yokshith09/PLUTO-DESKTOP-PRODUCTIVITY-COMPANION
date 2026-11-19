@@ -107,4 +107,17 @@ describe("routine reminder (FR-85)", () => {
     said.stop();
     expect(said.list).toEqual([]);
   });
+
+  it("renames and reorders a habit from visible buttons, no double-click needed (owner 2026-11-19)", async () => {
+    const s = store({ items: [{ id: "a", title: "Water" }, { id: "b", title: "Walk" }], day: ymd(new Date()), done: [], history: {}, planned: {}, names: {}, reasons: {}, remind: { on: true, at: "18:00" }, remindedOn: null });
+    const user = userEvent.setup();
+    wrap(<RoutineCard />);
+    await user.click(await screen.findByRole("button", { name: "Rename Walk" }));
+    const box = await screen.findByLabelText("Rename routine item");
+    await user.clear(box);
+    await user.type(box, "Evening walk{Enter}");
+    await waitFor(() => expect(s.get().items.map((i) => i.title)).toEqual(["Water", "Evening walk"]));
+    await user.click(await screen.findByRole("button", { name: "Move Evening walk up" }));
+    await waitFor(() => expect(s.get().items.map((i) => i.title)).toEqual(["Evening walk", "Water"]));
+  });
 });

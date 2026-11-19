@@ -53,13 +53,16 @@ export function WeekCalendar({ className, large = false, onOpenTask }: { classNa
         </ul>
       }
     >
-      <div className={cn("grid h-full grid-cols-7 divide-x", large && "min-w-[56rem]")} role="list" aria-label="Next 7 days">
+      {/* The seven days sit in a row when the tile is wide, and wrap to four and three when the window is small (owner 2026-11-19: it was cut off and scrolled sideways). */}
+      <div className="@container h-full">
+      <div className="grid h-full grid-cols-2 gap-px bg-border @lg:grid-cols-4 @4xl:grid-cols-7" role="list" aria-label="Next 7 days">
         {days.map((d) => {
           const key = ymd(d);
           const items = byDay.get(key) ?? [];
           const isToday = key === todayKey;
           return (
-            <div key={key} role="listitem" aria-label={d.toDateString()} className={cn("relative flex min-w-0 flex-col p-2", large && "min-h-80 p-3", isToday && "bg-primary/[0.06]")}>
+            <div key={key} role="listitem" aria-label={d.toDateString()} className={cn("relative flex min-w-0 flex-col bg-card p-2", large && "min-h-48 p-3 @4xl:min-h-80")}>
+              {isToday && <span aria-hidden className="pointer-events-none absolute inset-0 bg-primary/[0.06]" />}
               {isToday && <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-primary" />}
               <div className="mb-2 flex items-baseline justify-between px-0.5">
                 <span className={cn(large ? "text-xs" : "text-[11px]", isToday ? "font-semibold text-primary" : "text-muted-foreground")}>{isToday && large ? "Today" : d.toLocaleDateString([], { weekday: "short" })}</span>
@@ -93,6 +96,7 @@ export function WeekCalendar({ className, large = false, onOpenTask }: { classNa
             </div>
           );
         })}
+      </div>
       </div>
     </Tile>
   );

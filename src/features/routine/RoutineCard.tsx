@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { ConfirmAction } from "@/components/ConfirmAction";
-import { BarChart3, Bell, BellOff, Check, Plus, Repeat, X } from "lucide-react";
+import { ArrowDown, ArrowUp, BarChart3, Bell, BellOff, Check, Pencil, Plus, Repeat, X } from "lucide-react";
 import { Tile } from "@/features/shell/PageHeader";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { addItem, pending, removeItem, renameItem, toggle, weekCount, MAX_ITEMS, TITLE_MAX } from "./routine";
+import { addItem, moveItem, pending, removeItem, renameItem, toggle, weekCount, MAX_ITEMS, TITLE_MAX } from "./routine";
 import { RoutineProgress } from "./RoutineProgress";
 import { useRoutine } from "./useRoutine";
 
@@ -104,7 +104,7 @@ export function RoutineCard({ className }: { className?: string }) {
                 ) : (
                   <button
                     type="button" onDoubleClick={() => { setEditing(item.id); setEditText(item.title); }}
-                    title="Double-click to rename"
+                    title="Click the pencil or double-click to rename"
                     className={cn("min-w-0 flex-1 break-words text-left text-[13px] leading-5 [overflow-wrap:anywhere]", done && "text-muted-foreground line-through")}
                   >
                     {item.title}
@@ -113,6 +113,14 @@ export function RoutineCard({ className }: { className?: string }) {
                 {/* FR-90: "5/7" this week, never a streak that resets (no-guilt rule). */}
                 <span className="shrink-0 text-[11px] leading-5 tabular-nums text-muted-foreground" title={`Done on ${days} of the last 7 days`}>
                   {days > 0 ? `${days}/7` : "—"}
+                </span>
+                <span className="flex shrink-0 items-center">
+                  <button type="button" aria-label={`Rename ${item.title}`} title="Rename" onClick={() => { setEditing(item.id); setEditText(item.title); }}
+                    className="grid size-6 place-items-center rounded text-muted-foreground/70 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"><Pencil className="size-3.5" /></button>
+                  <button type="button" aria-label={`Move ${item.title} up`} title="Move up" disabled={state.items[0]?.id === item.id} onClick={() => void apply((s) => moveItem(s, item.id, -1))}
+                    className="grid size-6 place-items-center rounded text-muted-foreground/70 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30"><ArrowUp className="size-3.5" /></button>
+                  <button type="button" aria-label={`Move ${item.title} down`} title="Move down" disabled={state.items[state.items.length - 1]?.id === item.id} onClick={() => void apply((s) => moveItem(s, item.id, 1))}
+                    className="grid size-6 place-items-center rounded text-muted-foreground/70 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30"><ArrowDown className="size-3.5" /></button>
                 </span>
                 <ConfirmAction message={`Remove “${item.title}” from the routine?`} verb="Remove" onConfirm={() => void apply((s) => removeItem(s, item.id))}>
                 <button

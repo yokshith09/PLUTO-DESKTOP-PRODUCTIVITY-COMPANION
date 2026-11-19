@@ -1,3 +1,4 @@
+import { useProjectNames } from "@/features/projects/useProjectNames";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ConfirmAction } from "@/components/ConfirmAction";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,7 +14,7 @@ import { mod } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { timeAgo } from "@/lib/time";
 import { ipc, NOTE_COLORS, type Note, type NoteColor } from "@/ipc";
-import { keys, useAllTasks, useLabels, useNoteActions, useNotes, useTasksQuery } from "@/hooks/usePluto";
+import { keys, useLabels, useNoteActions, useTasksQuery } from "@/hooks/usePluto";
 import { TaskDetail } from "@/features/tasks/TaskDetail";
 import { STATUS_LABEL } from "@/lib/taskStatus";
 import { COLOR_NAMES } from "./colors";
@@ -28,13 +29,6 @@ function useNoteFont() {
   const { data } = useQuery({ queryKey: FONT_KEY, queryFn: async () => (await ipc.prefsGet<NoteFont>("ui.note_font")) ?? "sans" });
   const set = async (f: NoteFont) => { qc.setQueryData(FONT_KEY, f); await ipc.prefsSet("ui.note_font", f); };
   return { font: data ?? "sans", set };
-}
-
-/** Every project name in use, from tasks and notes. */
-export function useProjectNames(): string[] {
-  const { data: tasks = [] } = useAllTasks();
-  const { data: notes = [] } = useNotes(false, null, "last_edited");
-  return [...new Set([...tasks.map((r) => r.task.project), ...notes.map((n) => n.project)].filter((p): p is string => !!p))].sort((a, b) => a.localeCompare(b));
 }
 
 const TITLE_MAX = 200;

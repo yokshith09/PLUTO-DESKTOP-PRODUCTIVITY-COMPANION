@@ -8,7 +8,7 @@ import { dayLabel, parseYmd, ymd } from "@/lib/dates";
 import { formatDuration } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { categoryStyle } from "./categories";
-import { dayCategories, monthStats, timeLevel, type TimeLevel } from "./monthTime";
+import { dayCategories, dayTop, monthStats, timeLevel, type TimeLevel } from "./monthTime";
 
 const FILL: Record<TimeLevel, string> = {
   0: "border-dashed border-border/70 text-muted-foreground",
@@ -103,6 +103,7 @@ export function TimeMonth({ tracking }: { tracking: boolean }) {
               const level = timeLevel(total, stats.busiest);
               const future = day > today;
               const cats = dayCategories(summary);
+              const top = dayTop(summary);
               const col = i % 7;
               return (
                 <div key={day} className="group relative">
@@ -112,7 +113,7 @@ export function TimeMonth({ tracking }: { tracking: boolean }) {
                     {total > 0 && <span className="mt-auto pt-1 text-[11px] tabular-nums text-foreground/80">{formatDuration(total)}</span>}
                   </button>
                   {!future && (
-                    <div role="tooltip" className={cn("pointer-events-none absolute top-full z-20 mt-1.5 hidden w-52 rounded-xl border bg-popover p-3 text-popover-foreground shadow-xl group-hover:block group-focus-within:block", col >= 5 ? "right-0" : col <= 1 ? "left-0" : "left-1/2 -translate-x-1/2")}>
+                    <div role="tooltip" className={cn("pointer-events-none absolute top-full z-20 mt-1.5 hidden w-64 rounded-xl border bg-popover p-3 text-popover-foreground shadow-xl group-hover:block group-focus-within:block", col >= 5 ? "right-0" : col <= 1 ? "left-0" : "left-1/2 -translate-x-1/2")}>
                       <p className="text-[12px] font-semibold">{dayLabel(parseYmd(day))}</p>
                       {total === 0 ? <p className="mt-1 text-[12px] text-muted-foreground">Nothing tracked.</p> : (
                         <>
@@ -126,6 +127,12 @@ export function TimeMonth({ tracking }: { tracking: boolean }) {
                               </li>
                             ))}
                           </ul>
+                          {(top.app || top.site) && (
+                            <dl className="mt-2 space-y-1 border-t pt-2 text-[12px]">
+                              {top.app && <div className="flex items-baseline gap-2"><dt className="shrink-0 text-muted-foreground">Top app</dt><dd className="min-w-0 flex-1 truncate text-right font-medium" title={top.app.name}>{top.app.name} <span className="font-normal tabular-nums text-muted-foreground">{formatDuration(top.app.seconds)}</span></dd></div>}
+                              {top.site && <div className="flex items-baseline gap-2"><dt className="shrink-0 text-muted-foreground">Top site</dt><dd className="min-w-0 flex-1 truncate text-right font-medium" title={top.site.name}>{top.site.name} <span className="font-normal tabular-nums text-muted-foreground">{formatDuration(top.site.seconds)}</span></dd></div>}
+                            </dl>
+                          )}
                         </>
                       )}
                     </div>

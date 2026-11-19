@@ -24,9 +24,11 @@ describe("Time by day (U-6)", () => {
     expect(tile.textContent).toContain("3h 30m");
     const card = tile.parentElement?.querySelector("[role=tooltip]") as HTMLElement;
     expect(within(card).getByText("Coding")).toBeTruthy();
-    expect(within(card).getByText("3h")).toBeTruthy();
+    expect(within(card).getAllByText("3h").length).toBeGreaterThan(0);
     expect(within(card).getByText("Research")).toBeTruthy();
-    expect(within(card).getByText("30m")).toBeTruthy();
+    expect(within(card).getAllByText("30m").length).toBeGreaterThan(0);
+    // The day's most used app is named too (owner 2026-11-19).
+    expect(within(card).getByText("Top app")).toBeTruthy();
     expect(screen.getByText(/in 1 day/)).toBeTruthy();
   });
 

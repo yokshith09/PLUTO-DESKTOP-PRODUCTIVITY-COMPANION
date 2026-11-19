@@ -1,3 +1,4 @@
+import { useProjectNames } from "@/features/projects/useProjectNames";
 import { useEffect, useState } from "react";
 import { ArrowRight, Bell, CalendarDays, ExternalLink, FilePlus2, FileText, Flag, FolderKanban, History, Lightbulb, Link2, MoreHorizontal, Pencil, Play, Plus, StickyNote, Timer, X } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ConfirmAction } from "@/components/ConfirmAction";
-import { useAllTasks, useNotes, useTask, useTaskActions, useTaskHistory, useWorkUpdates } from "@/hooks/usePluto";
+import { useNotes, useTask, useTaskActions, useTaskHistory, useWorkUpdates } from "@/hooks/usePluto";
 import { overdueLabel, ymd } from "@/lib/dates";
 import { STATUS_LABEL, isFinished, transitionsFrom } from "@/lib/taskStatus";
 import { cn } from "@/lib/utils";
@@ -102,7 +103,6 @@ function Body({ task, onClose }: { task: Task; onClose: () => void }) {
   const focus = useFocus();
   const { data: focusedMs = 0 } = useQuery({ queryKey: ["focus-total", task.id, focus.session?.id ?? null], queryFn: () => ipc.focusTaskTotal(task.id) });
   const { minutes, set: setMinutes } = useFocusLength();
-  const { data: allTasks = [] } = useAllTasks();
   const { data: notes = [] } = useNotes(false, null, "last_edited");
   const { data: history = [] } = useTaskHistory(task.id);
   const { data: updates = [] } = useWorkUpdates(task.id);
@@ -174,7 +174,7 @@ function Body({ task, onClose }: { task: Task; onClose: () => void }) {
     setPlanned(todayStr);
   };
   const overdueText = due && due < todayStr && !finished ? overdueLabel(due, todayStr) : null;
-  const projects = [...new Set(allTasks.map((r) => r.task.project).filter((p): p is string => !!p))].sort();
+  const projects = useProjectNames();
 
   const others = transitionsFrom(task.status).filter((t) => t.to !== primaryTo);
   const primary = transitionsFrom(task.status).find((t) => t.to === primaryTo);

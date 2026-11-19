@@ -1,3 +1,4 @@
+import { useProjectNames } from "@/features/projects/useProjectNames";
 import { useMemo, useState } from "react";
 import { CalendarClock, ChevronDown, ListChecks, Plus, Search, X } from "lucide-react";
 import { completed, notify } from "@/lib/notify";
@@ -17,7 +18,9 @@ import type { Priority, TaskFilters, TaskRow, TaskStatus, TaskView } from "@/ipc
 import type { TaskFocus } from "@/features/overview/YesterdayLine";
 import { DeleteTaskButton } from "./DeleteTaskButton";
 import { LinkChips, PlanBadge, StarButton } from "./TaskBits";
-import { ymd } from "@/lib/dates";
+import { parseYmd, ymd } from "@/lib/dates";
+import { MonthCalendar } from "./MonthCalendar";
+import { isMissed, missedRows, monthEnd, narrow, plusDays, rowsInRange } from "./taskRanges";
 import { taskOccurs } from "@/lib/repeat";
 import { TaskDetail } from "./TaskDetail";
 import { CourseTag } from "@/features/student/CoursePicker";
@@ -25,9 +28,13 @@ import { useCourses, useStudentPack } from "@/features/student/useStudent";
 import { WeekCalendar } from "@/features/calendar/WeekCalendar";
 import { ShowMore, useProgressive } from "@/lib/progressive";
 
-const VIEWS: { key: TaskView; label: string; empty: string }[] = [
+/** "missed" is built here: open tasks whose days (planned and deadline) are all behind us. */
+type ViewKey = TaskView | "missed";
+type Span = "week" | "month" | "day";
+const VIEWS: { key: ViewKey; label: string; empty: string }[] = [
   { key: "today", label: "Today", empty: "Nothing planned for today." },
-  { key: "upcoming", label: "Upcoming", empty: "Nothing planned for the next 7 days." },
+  { key: "missed", label: "Missed", empty: "Nothing missed. Anything planned for an earlier day that is still open shows here." },
+  { key: "upcoming", label: "Upcoming", empty: "Nothing planned in this range." },
   { key: "pending", label: "Pending", empty: "Nothing is paused. Pause a task when you are waiting on something." },
   { key: "all", label: "All", empty: "No tasks match." },
   { key: "completed", label: "Completed", empty: "Nothing completed in this range yet." },
@@ -39,6 +46,7 @@ const when = (ms: number) => new Date(ms).toLocaleDateString([], { month: "short
 /** One task in a list. `n` numbers it (Projects); `inProject` hides the project it is already under. */
 export function Row({ row, onOpen, n, inProject = false }: { row: TaskRow; onOpen: (id: string) => void; n?: number; inProject?: boolean }) {
   const { task, overdue } = row;
+  const missed = !overdue && isMissed(task, ymd(new Date()));
   const actions = useTaskActions();
   // A repeating task's box is today's tick (FR-109); finishing the whole task is in its detail.
   const done = task.repeat ? row.done_today : task.status === "COMPLETED";
@@ -73,6 +81,7 @@ export function Row({ row, onOpen, n, inProject = false }: { row: TaskRow; onOpe
       {task.project && !inProject && <Badge>{task.project}</Badge>}
       {task.status !== "PLANNED" && task.status !== "COMPLETED" && <Badge variant={task.status === "IN_PROGRESS" ? "primary" : "default"}>{STATUS_LABEL[task.status]}</Badge>}
       {overdue && <Badge variant="destructive">Overdue</Badge>}
+      {missed && <Badge variant="destructive" title="Planned for an earlier day and still open">Missed</Badge>}
       {task.due_date && !overdue && (
         <span className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground" title="Deadline"><CalendarClock className="size-3" />{shortDate(task.due_date)}</span>
       )}
@@ -109,7 +118,9 @@ function Pick({ label, value, onChange, options }: { label: string; value: strin
 
 /** Tasks: the five views, filters, search and quick add (R1-27). Click a task for its detail. */
 export function TasksPage({ focus = null, onClearFocus = () => {} }: { focus?: TaskFocus | null; onClearFocus?: () => void }) {
-  const [view, setView] = useState<TaskView>("today");
+  const [view, setView] = useState<ViewKey>("today");
+  const [span, setSpan] = useState<Span>("week");
+  const [pickedDay, setPickedDay] = useState(() => ymd(new Date()));
   const [priority, setPriority] = useState("");
   const [status, setStatus] = useState("");
   const [project, setProject] = useState("");
@@ -131,20 +142,32 @@ export function TasksPage({ focus = null, onClearFocus = () => {} }: { focus?: T
     ...(to && (view === "all" || view === "completed") ? { to } : {}),
   }), [priority, project, status, from, to, view]);
 
-  const { data: rows = [], isLoading } = useTasksQuery(view, filters);
+  const { data: rows = [], isLoading } = useTasksQuery(view === "missed" ? "today" : view, filters);
   const { data: everything = [] } = useAllTasks();
-  const projects = useMemo(() => [...new Set(everything.map((r) => r.task.project).filter((p): p is string => !!p))].sort(), [everything]);
+  const projects = useProjectNames();
 
   const q = query.trim().toLowerCase();
   // A focus (e.g. "Unfinished from yesterday") replaces the view: those tasks, while still open.
+  const today = ymd(new Date());
+  const missedAll = useMemo(() => missedRows(everything, today), [everything, today]);
+  // Upcoming reaches to the end of the month, or one picked day; the default is the next 7 days (the core's list).
+  const rangeRows = useMemo(() => {
+    const f = { priority: priority as Priority | "", project };
+    if (span === "month") return narrow(rowsInRange(everything, plusDays(today, 1), monthEnd(today)), f);
+    if (span === "day") return narrow(rowsInRange(everything, pickedDay, pickedDay), f);
+    return rows;
+  }, [everything, span, pickedDay, today, priority, project, rows]);
   const base = focus
     ? everything.filter(({ task }) => focus.ids.includes(task.id) && task.status !== "COMPLETED" && task.status !== "CANCELLED")
+    : view === "missed" ? narrow(missedAll, { priority: priority as Priority | "", project })
+    : view === "upcoming" ? rangeRows
     : rows;
   const inCourse = course ? base.filter(({ task }) => courseInfo.taskCourse(task.id)?.id === course) : base;
   const shown = q ? inCourse.filter(({ task }) => `${task.title} ${task.description} ${task.project ?? ""}`.toLowerCase().includes(q)) : base;
   const page = useProgressive(shown);
   const filtered = !!(priority || project || course || status || from || to);
   const meta = VIEWS.find((v) => v.key === view);
+  const emptyText = view === "upcoming" && span === "day" ? "Nothing planned on that day." : view === "upcoming" && span === "month" ? "Nothing planned for the rest of this month." : view === "upcoming" ? "Nothing planned for the next 7 days." : (meta?.empty ?? "No tasks");
 
   const add = async () => {
     const title = draft.trim();
@@ -172,8 +195,8 @@ export function TasksPage({ focus = null, onClearFocus = () => {} }: { focus?: T
       )}
 
       <div className={cn("flex flex-wrap items-center gap-2", focus && "hidden")} role="group" aria-label="Filters">
-        <ToggleGroup type="single" value={view} onValueChange={(v) => v && setView(v as TaskView)} aria-label="View">
-          {VIEWS.map((v) => <ToggleGroupItem key={v.key} value={v.key}>{v.label}</ToggleGroupItem>)}
+        <ToggleGroup type="single" value={view} onValueChange={(v) => v && setView(v as ViewKey)} aria-label="View">
+          {VIEWS.map((v) => <ToggleGroupItem key={v.key} value={v.key}>{v.label}{v.key === "missed" && missedAll.length > 0 && <span className="ml-1.5 rounded-full bg-destructive/15 px-1.5 text-[11px] font-semibold tabular-nums text-destructive">{missedAll.length}</span>}</ToggleGroupItem>)}
         </ToggleGroup>
         <Pick label="Priority" value={priority} onChange={setPriority} options={(["HIGH", "MEDIUM", "LOW"] as Priority[]).map((p) => ({ value: p, label: PRIORITY[p].label }))} />
         {studentPack && courseInfo.courses.length > 0 && <Pick label="Course" value={course} onChange={setCourse} options={courseInfo.courses.map((c) => ({ value: c.id, label: c.name }))} />}
@@ -197,11 +220,32 @@ export function TasksPage({ focus = null, onClearFocus = () => {} }: { focus?: T
         </label>
       </div>
 
+      {!focus && view === "upcoming" && (
+        <div className="flex flex-wrap items-start gap-3">
+          <ToggleGroup type="single" value={span} onValueChange={(v) => v && setSpan(v as Span)} aria-label="Range">
+            <ToggleGroupItem value="week">Next 7 days</ToggleGroupItem>
+            <ToggleGroupItem value="month">Rest of {parseYmd(today).toLocaleDateString([], { month: "long" })}</ToggleGroupItem>
+            <ToggleGroupItem value="day">Pick a day</ToggleGroupItem>
+          </ToggleGroup>
+          {span === "day" && (
+            <div className="w-64 rounded-xl border bg-card p-3">
+              <MonthCalendar label="Pick a day" marked={[pickedDay]} deadline={null} onPick={setPickedDay} />
+            </div>
+          )}
+        </div>
+      )}
+      {!focus && view !== "missed" && view !== "completed" && missedAll.length > 0 && (
+        <button type="button" onClick={() => setView("missed")} className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-left text-[13px] outline-none hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-ring">
+          <span className="font-medium text-destructive">{missedAll.length} missed {missedAll.length === 1 ? "task" : "tasks"}</span>
+          <span className="text-muted-foreground">planned for an earlier day and still open. Show them.</span>
+        </button>
+      )}
+
       <section aria-label="Task list" className="rounded-xl border bg-card p-2">
         {isLoading ? (
           <div className="space-y-2 p-2" aria-hidden>{[0, 1, 2].map((i) => <div key={i} className="h-9 animate-pulse rounded-md bg-muted" />)}</div>
         ) : shown.length === 0 ? (
-          <div className="p-4"><Empty icon={<ListChecks />} title={q || filtered ? "No tasks match" : (meta?.empty ?? "No tasks")} hint={q || filtered ? "Try a different word or reset the filters." : "Add one above to get started."} /></div>
+          <div className="p-4"><Empty icon={<ListChecks />} title={q || filtered ? "No tasks match" : emptyText} hint={q || filtered ? "Try a different word or reset the filters." : "Add one above to get started."} /></div>
         ) : (
           <>
             <ul>{page.visible.map((r) => <Row key={r.task.id} row={r} onOpen={setOpen} />)}</ul>
@@ -212,7 +256,7 @@ export function TasksPage({ focus = null, onClearFocus = () => {} }: { focus?: T
       <p className="px-1 text-xs text-muted-foreground">{shown.length} {shown.length === 1 ? "task" : "tasks"}</p>
 
       {/* Owner 2026-10-25: the week, large, on its own tile under the list. */}
-      <div className="overflow-x-auto rounded-xl"><WeekCalendar large onOpenTask={setOpen} className="min-w-[56rem]" /></div>
+      <WeekCalendar large onOpenTask={setOpen} />
 
       <TaskDetail taskId={open} onClose={() => setOpen(null)} />
     </div>

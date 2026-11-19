@@ -48,7 +48,7 @@ function CourseList({ cards, selected, onSelect, setArchived }: { cards: CourseC
     </li>
   );
   return (
-    <nav aria-label="Courses" className="flex w-full flex-col gap-3 lg:w-64 lg:shrink-0">
+    <nav aria-label="Courses" className="flex w-full flex-col gap-3 lg:w-56 lg:shrink-0">
       <div className="flex items-center gap-2">
         <h2 className="text-sm font-semibold">Courses</h2>
         <Button variant="outline" size="sm" className="ml-auto" onClick={() => setAdding(true)}><Plus />Add Course</Button>
@@ -135,7 +135,7 @@ function Summary({ detail, today }: { detail: CourseDetail; today: string }) {
   const next = nextExam(detail.exams, today);
   const r = readiness(detail.topics);
   const Stat = ({ label, value, sub }: { label: string; value: string; sub: string }) => (
-    <div className="min-w-0 flex-1 basis-40 px-4 py-3">
+    <div className="min-w-0 px-4 py-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-0.5 truncate text-base font-semibold tabular-nums">{value}</p>
       <p className="truncate text-xs text-muted-foreground">{sub}</p>
@@ -143,9 +143,9 @@ function Summary({ detail, today }: { detail: CourseDetail; today: string }) {
   );
   return (
     <section aria-label="Course summary" className="rounded-xl border bg-card">
-      <div className="flex flex-wrap divide-x divide-border/60">
+      <div className="grid grid-cols-2 divide-x divide-border/60 sm:grid-cols-4 [&>*:nth-child(n+3)]:border-t sm:[&>*:nth-child(n+3)]:border-t-0">
         <Stat label="Next Exam" value={next ? inDaysLabel(daysUntil(today, next.on_date)).replace("in ", "") : "No exam yet"} sub={next ? `${next.title} • ${whenLabel(next)}` : "Add one in Exams"} />
-        <div className="min-w-0 flex-1 basis-40 px-4 py-3">
+        <div className="min-w-0 px-4 py-3">
           <p className="text-xs text-muted-foreground">Focus Time This Week</p>
           <p className="mt-0.5 flex items-center gap-1.5 text-base font-semibold tabular-nums"><BarChart3 className="size-4 text-muted-foreground" aria-hidden />{focusLabel(detail.summary.focus_ms_week)}</p>
           <p className="truncate text-xs text-muted-foreground">on this course's tasks</p>
@@ -175,23 +175,22 @@ function CourseView({ id, onDeleted, setArchived }: { id: string; onDeleted: () 
         <div className="min-w-0 flex-1 space-y-3">
           <div role="tablist" aria-label="Course sections" className="flex gap-1 border-b">
             {TABS.map((t) => (
-              <button key={t.id} role="tab" type="button" aria-selected={tab === t.id} id={`course-tab-${t.id}`} aria-controls={`course-panel-${t.id}`} onClick={() => setTab(t.id)} className={cn("-mb-px border-b-2 px-3 py-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring", tab === t.id ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
+              <button key={t.id} role="tab" type="button" aria-selected={tab === t.id} id={`course-tab-${t.id}`} aria-controls={`course-panel-${t.id}`} onClick={() => setTab(t.id)} className={cn("-mb-px border-b-2 px-3 py-2 text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-ring", t.id !== "topics" && "xl:hidden", tab === t.id ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
                 {t.label}{t.id === "exams" && ` ${detail.exams.length}`}{t.id === "dates" && ` ${detail.dates.length}`}
               </button>
             ))}
           </div>
           <div role="tabpanel" id={`course-panel-${tab}`} aria-labelledby={`course-tab-${tab}`}>
-            {tab === "topics" && <TopicList detail={detail} edit={edit} />}
-            {tab === "exams" && <ExamsPanel detail={detail} today={today} edit={edit} />}
-            {tab === "dates" && <DatesPanel detail={detail} today={today} edit={edit} />}
+            {/* From xl up Exams and Dates sit in the side column, so Topics always shows there. */}
+            <div className={cn(tab !== "topics" && "hidden xl:block")}><TopicList detail={detail} edit={edit} /></div>
+            {tab === "exams" && <div className="xl:hidden"><ExamsPanel detail={detail} today={today} edit={edit} /></div>}
+            {tab === "dates" && <div className="xl:hidden"><DatesPanel detail={detail} today={today} edit={edit} /></div>}
           </div>
         </div>
-        {tab === "topics" && (
-          <aside aria-label="Exams and dates" className="w-full space-y-4 xl:w-80 xl:shrink-0">
-            <ExamsPanel detail={detail} today={today} edit={edit} />
-            <DatesPanel detail={detail} today={today} edit={edit} />
-          </aside>
-        )}
+        <aside aria-label="Exams and dates" className="hidden w-full space-y-4 xl:block xl:w-80 xl:shrink-0">
+          <ExamsPanel detail={detail} today={today} edit={edit} />
+          <DatesPanel detail={detail} today={today} edit={edit} />
+        </aside>
       </div>
     </div>
   );

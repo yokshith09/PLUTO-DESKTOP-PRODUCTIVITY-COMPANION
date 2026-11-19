@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayCategories, monthStats, timeLevel } from "./monthTime";
+import { dayCategories, dayTop, monthStats, timeLevel } from "./monthTime";
 
 describe("time month helpers (U-6)", () => {
   it("draws nothing for an empty day and four steps up to the busiest day", () => {
@@ -22,5 +22,14 @@ describe("time month helpers (U-6)", () => {
   it("totals a month and averages over the days that have time", () => {
     expect(monthStats([0, 3600, 0, 7200])).toEqual({ total: 10_800, tracked: 2, busiest: 7200, average: 5400 });
     expect(monthStats([0, 0])).toEqual({ total: 0, tracked: 0, busiest: 0, average: 0 });
+  });
+});
+
+describe("a day's most used app and site", () => {
+  it("picks the longest of each, and is empty when nothing was used", () => {
+    const apps = [{ app: "Code", category: "Coding", is_browser: false, total_seconds: 60, sessions: 1 }, { app: "Figma", category: "Design", is_browser: false, total_seconds: 300, sessions: 2 }];
+    const domains = [{ domain: "a.com", browser: "Edge", category: "Research", total_seconds: 10, sessions: 1, is_tracker: false }, { domain: "b.com", browser: "Edge", category: "Research", total_seconds: 90, sessions: 1, is_tracker: false }];
+    expect(dayTop({ apps, domains })).toEqual({ app: { name: "Figma", seconds: 300 }, site: { name: "b.com", seconds: 90 } });
+    expect(dayTop(undefined)).toEqual({ app: null, site: null });
   });
 });

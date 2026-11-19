@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  MAX_ITEMS, addItem, emptyRoutine, msUntil, parseRoutine, pending, pendingMessage, removeItem, renameItem, rollOver, shouldRemind, toggle, weekCount,
+  MAX_ITEMS, addItem, emptyRoutine, moveItem, msUntil, parseRoutine, pending, pendingMessage, removeItem, renameItem, rollOver, shouldRemind, toggle, weekCount,
 } from "./routine";
 
 const DAY = "2026-10-23";
@@ -78,5 +78,17 @@ describe("daily routine model (FR-85)", () => {
     expect(s.done).toEqual([]);
     expect(s.history["2026-10-22"]).toEqual(["a"]);
     expect(s.remind).toEqual({ on: true, at: "18:00" });
+  });
+});
+
+describe("moving a routine", () => {
+  it("moves one place up or down and stops at the ends", () => {
+    let s = emptyRoutine("2026-11-19");
+    for (const id of ["a", "b", "c"]) s = addItem(s, id, id);
+    expect(moveItem(s, "b", -1).items.map((i) => i.id)).toEqual(["b", "a", "c"]);
+    expect(moveItem(s, "b", 1).items.map((i) => i.id)).toEqual(["a", "c", "b"]);
+    expect(moveItem(s, "a", -1)).toBe(s);
+    expect(moveItem(s, "c", 1)).toBe(s);
+    expect(moveItem(s, "zzz", 1)).toBe(s);
   });
 });
