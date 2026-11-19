@@ -29,7 +29,7 @@ This is the one page that says **what we build, in what order, and when each thi
 | **P2 Student release** | A student can plan, study and track a semester | FM-ST, FM-GUIDE, M8 | Student pack + guide + focus shipped as v0.3.0 |
 | **P3 Characters** | Pets look alive, customisable, compatible with OpenPets packs | FM-CS, M6, M13 | Studio + packs + accessories + emotes shipped as v0.4.0 |
 | **P4 Developer & MCP** (NEXT) | Pluto works with a developer's tools | MCP server (FM-INT) first, then FR-76, M12, FM-PS | MCP page live, pet reacts to a real coding assistant; v0.6.0 |
-| **P5 Small features pack** | Quick wins in one phase | M4, FR-72, FR-73, M11, FR-74 (.ics) | Five features shipped; v0.7.0 |
+| **P5 Small features pack** | Quick wins in one phase | M4, FR-72, FR-73, M11, FR-74 (calendar integration) | Five features shipped; v0.7.0 |
 | **P6 Voice** (second developer) | Speak a task or note | M9 | Held-key dictation works on-device; v0.8.0 |
 | **P7 Reach** | Linux, languages, LAN | FM-LIN, FR-81, FR-79, FR-78 | Linux build and Hindi + Telugu; v0.9.0 |
 | **P8 AI** (on hold) | Writing help, summaries, quiz, talk to the pet | M5, M7, FR-75, FR-80 | Owner picks an AI provider |
@@ -141,7 +141,7 @@ Tour of each tab on first run, skippable at any step; Guide page in Settings; cr
 ```
 NOW        P4 Developer & MCP  ─ MCP server ▶ coding-agent link ▶ developer reactions ▶ Project Spaces
 IN PARALLEL P6 Voice (second developer; only touches the voice module and the existing commands)
-AFTER P4   P5 Small features   ─ Quick Actions · Launch Buddy · System resources · Privacy report · Calendar import
+AFTER P4   P5 Small features   ─ Quick Actions · Launch Buddy · System resources · Privacy report · Calendar integration
 THEN       P7 Reach            ─ Linux + Wayland · Languages (Hindi, Telugu first) · LAN mode
 LATER      P3 Characters (rest) · P8 AI (on hold) · P9 Online (on hold)
 ```
@@ -273,7 +273,7 @@ Other pages are fine for now (owner); they get fixed later, as they come up.
 | **Launch Buddy (FR-72)** | A saved set of apps, links and files opens in one click, from the pet or Quick Actions. | A missing file is reported, never silently skipped. |
 | **System resources (FR-73)** | A small CPU, RAM, disk and battery badge, off by default. | No visible slowdown; reads the OS only while shown. |
 | **Privacy radar report (M11)** | A per-site evidence page behind the radar flag, exportable. | Builds on the radar already shipped. |
-| **Calendar Airmail, first half (FR-74)** | Import an .ics file and get reminders for the events. Google and Outlook connectors are not in this phase (they are not local-first). | An imported event rings like a reminder. |
+| **Calendar integration (FR-74)** | Your calendar events show in Pluto and ring like reminders, with a Join button for meeting links a few minutes before. Owner 2026-11-19: integration, not a one-off file import. | An event from your calendar rings like a reminder. The connection method is an open decision (DECISIONS), because Google and Outlook need a login and the network. |
 
 ---
 
@@ -346,7 +346,7 @@ Closed 2026-10-22: open source (MIT) · plugins = art packs only · MCP shape ap
 | Virtual Pet, Fortune Cookie, Magic 8-Ball | FR-71 | P3 |
 | Launch Buddy | FR-72 | P5 |
 | System Resources | FR-73 | P5 |
-| Calendar Airmail | FR-74 | P5 (.ics; connectors later) |
+| Calendar integration | FR-74 | P5 (owner 2026-11-19: integration, not file import; connection method open, see DECISIONS) |
 | Talk to the pet (AI chat/voice) | FR-75 | P8 (on hold; voice input from P6) |
 | Coding-agent MCP + hooks | FR-76 | P4 (after the MCP server) |
 | Plugin SDK | FR-77 | Dropped (plugins are art packs only) |

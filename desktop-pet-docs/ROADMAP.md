@@ -75,7 +75,7 @@ M-ids are unchanged; this is the order we build in. Specs for the new rows are i
 | 6 | M8 Focus and wellbeing | Timers, summaries, goals | Builds on the student pack |
 | 7 | **FM-INT** Local MCP server (**NEXT, owner 2026-10-29**) | FR-54 | Local only; shape approved 2026-10-22 (stdio + named pipe + token; status / react / say) |
 | 8 | FR-76 coding-agent link, M12 developer reactions, **FM-PS** Project Spaces | FR-76, M12, FR-53 | P4 Developer & MCP, in this order |
-| 8b | **Small features pack** (P5): M4 Quick Actions, FR-72 Launch Buddy, FR-73 System resources, M11 Privacy report, FR-74 .ics import | — | One phase of quick wins |
+| 8b | **Small features pack** (P5): M4 Quick Actions, FR-72 Launch Buddy, FR-73 System resources, M11 Privacy report, FR-74 Calendar integration (owner 2026-11-19; was .ics import) | — | One phase of quick wins |
 | 8c | **Voice M9** (P6, second developer, in parallel) | — | On-device speech; contract in `MASTER_PLAN.md` |
 | 10 | **FM-LIN** Linux build, Wayland, Languages, LAN mode (P7) | FR-57, FR-81, FR-79, FR-78 | Unverified until run on Linux |
 | 11 | **FM-BE** Backend and gallery (P9); plugins are art packs only, no SDK | FR-56, FR-55 | Needs the privacy statement; code signing on HOLD |

@@ -84,3 +84,36 @@ Written 2026-11-18 from public pages only (README, ROADMAP, ARCHITECTURE of Arro
 - NotchPixel's claims (reviews, comparison prices, award nomination) are marketing copy and were not verified. The price table is theirs.
 - Neither app's quality was tested. This is a product and direction comparison, not a quality ranking.
 - Arrowslit's pace (44 releases in about three weeks) shows what a single focused scope can ship; Pluto's wider scope is slower by nature.
+
+## 7. What Pluto should take, and how to change it (2026-11-19)
+
+Built from sections 2 to 6 and from what Pluto already has (pet with reactions, tasks, notes, meetings, reminders, focus timer, time tracking, MCP server with 20 tools, assistant hooks, switches per tool and per reaction, sounds, click-to-window, Study pack, system radar). Nothing here is decided; each item needs the owner's go-ahead and a preview (CLAUDE.md).
+
+**Take, adapted (best fit first)**
+
+| # | Idea | From | How Pluto does it differently | Fits the plan |
+|---|---|---|---|---|
+| 1 | **Calendar integration with a Join button** a few minutes before a meeting | both | The pet says "Standup in 5 min" with a Join link (Meet, Zoom, Teams). Start with a calendar's secret iCal link (read-only, no login); add the calendars already on the PC later; full sign-in only if the owner wants two-way. | P5 (owner: integration, not import) |
+| 2 | **Quick Actions bar** (global shortcut) | Arrowslit roadmap | One shortcut opens a command bar: add a task or note, search, open a project, start focus, launch a saved set. Pluto's edge: it searches your own tasks, notes and courses. | P5 |
+| 3 | **Approve an assistant's command from the screen** | Arrowslit | Pluto already asks on the pet for MCP settings. Extend to "Allow / Deny / Ask in the terminal" on the pet for tool permission requests, failing open to the assistant's own prompt. Needs its own security design first (local socket, user-only permissions, peer check). | New; after P5 |
+| 4 | **Assistant spend** (tokens, dollars per day) | Arrowslit | A small Assistants tile: today's and this week's spend per assistant, read from the tools' own local logs, no network. Pluto's angle: tie it to the project, not just the tool. | New; small |
+| 5 | **Launch Buddy** (open a saved set in one click) | both (launcher) | Already in P5. Add "Study set" and "Work set" templates, and start the focus timer with it. | P5 |
+| 6 | **Clipboard history, short and private** | both | 20 items, memory only, skips password managers, pin an item into a note or task. Keep it off by default. | New; after P5 |
+| 7 | **Call and meeting mode** | both | When a call starts, the pet goes quiet (no sounds, no bubbles) and a small timer shows. Pluto already knows quiet hours and focus; this adds the call signal. | New; small |
+| 8 | **System resources badge** | both | Already in P5. Keep off by default and only sample while shown (Arrowslit's rule). | P5 |
+| 9 | **Keep-awake toggle** | Arrowslit | One switch on the pet card, with a timer and an automatic off. Useful during long builds and downloads. | New; small |
+| 10 | **Signed in-place updates** | Arrowslit | Check a signed manifest and offer "Update ready". Removes the manual download for every release. Needs a signing key the owner holds. | Release work; before wide release |
+| 11 | **Microsoft Store listing** | NotchPixel | Trust, updates and refunds for Windows users. Cost it before deciding. | Release work |
+| 12 | **A 60-second demo film and a plain feature page** | both | Both competitors lead with video; Pluto has none. Needs the owner's screen recording; no code. | Marketing |
+
+**Adapt, do not copy**
+
+- **Now playing, lyrics, phone as a trackpad, taskbar replacement, game FPS strip, stream chat:** all are breadth features that do not serve a student or developer. Pluto's own version of "now playing" would be a focus music tile at most, and only if users ask.
+- **A notch or island at the screen edge:** Pluto's identity is the character, not a strip. If wanted, make the pet card dock to the top edge as an option; do not build a second surface.
+- **Many monitors:** both competitors are heading there. First step is a check that the pet and the card behave on a second display; build the full feature only if the check fails.
+- **A module or widget API:** Arrowslit plans one. Pluto's MCP server already lets other tools act on Pluto; keep that as the extension point.
+
+**Where Pluto should not compete.** Breadth of utilities. Arrowslit's own docs warn against "an infinite widget grid", and NotchPixel's price story is its bundle. Pluto wins on depth for students and developers: the Study pack, projects, assistant control and a character people like.
+
+**Suggested order after the 0.6.0 PC test.** (1) Calendar integration with Join, because both competitors lead with it and Pluto already has meetings. (2) Quick Actions plus Launch Buddy. (3) Assistant spend and the on-screen approval design. (4) Call mode, keep-awake and the resources badge. (5) Signed updates, then the demo film, before any wider release.
+

@@ -21,7 +21,7 @@ Every claim is tagged with how it was checked. **Fact** = seen in code, tests, G
 | P3 Characters | Packs, wardrobe, gallery | v0.4.0 | **Paused** (owner). Folder import and scan built |
 | **P4 Developer & MCP** | Pluto works with developer tools | **v0.6.0** | **Local part done**: MCP server, assistant hooks, git watcher, Project Spaces |
 | P4.5 Full screen + Tab Tantrum | Pet over full-screen apps; tab complaints | with 0.6.0 | Built (full screen: hide only) |
-| P5 Small features | Quick Actions, Launch Buddy, System resources, Privacy report, Calendar import | v0.7.0 | Not started |
+| P5 Small features | Quick Actions, Launch Buddy, System resources, Privacy report, Calendar integration | v0.7.0 | Not started |
 | P6 Voice | Dictation | v0.8.0 | Waits for a second developer |
 | P7 Reach | Linux, Hindi/Telugu, LAN | v0.9.0 | Not started |
 | P8 AI, P9 Online | | later | On hold |
