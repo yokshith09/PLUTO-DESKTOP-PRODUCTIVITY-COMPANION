@@ -475,3 +475,4 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-18: Done: Exams, notes, tasks tab (K-2). Next: class reminders (K-3), K-4.
 - 2026-11-18: Done: class reminders (K-3). K-4 (flaky timing tests) not reproducible: 16 full core runs under load (8 parallel plus 6 busy loops on 4 cores) all passed, so nothing was changed. One UI test, "Today tiles resize with the arrow keys" (App.test.tsx), fails under a full parallel run and passes alone (2.5 s); not touched. Next: write-out mode, ChatGPT notes and notebook sheet for the Course page; then release v0.6.0 only on the owner's word.
 - 2026-11-19: Progress card (PROJECT_STATUS section 00) rewritten: phases, P4 milestones, features, on-hold list, release steps. v0.6.0 can go out as a draft for owner testing once macOS CI is green; version bump and "Run workflow" wait for the owner.
+- 2026-11-19: v0.6.0 version bump committed; release is the owner's "Run workflow" (draft).

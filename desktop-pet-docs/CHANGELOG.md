@@ -5,6 +5,10 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-11-19 (draft for owner testing on Windows and Mac; Unverified)
+
+Everything below was built after 0.5.9 and has not been run on a real PC. Highlights: assistants (per-tool and per-reaction switches, Antigravity, sounds, any-app reaction commands), Tab Tantrum, the Letters routine tracker, role-gated Projects, and the whole Study pack (Course page, Timetable with CSV and Excel, Exams-notes-tasks, class reminders; Friends says "Planned for later").
+
 ### Added
 - **Class reminders from the pet** (K-3). A class with a reminder (10 or 30 minutes before, set in the class editor) makes the pet say "Physics in 10 min · Lab 3" (the place only when set); the bubble opens Study. Two classes due together share one bubble. It follows odd/even weeks and one-off classes, tells you the evening before for a class just after midnight, drops an alert the computer slept through (more than 5 minutes late), and stays quiet during a focus session or while the pet is hidden. No reminder chosen means nothing is shown; no new setting. The rule is a pure function in the core (`class_alerts.rs`, 9 tests); the shell loop re-plans at once when a class is added, changed, deleted or imported. Unverified: no bubble has been seen on a real Windows or Mac PC.
 - **Exams, notes, tasks in one tab** (K-2, owner 2026-11-09: "in a single tab"). Study › **Exams, notes, tasks** replaces the old Exams tab. Chips at the top pick **All courses** or one course (remembered in `study.planFilter`) and filter all three sections. **Exams** are cards with a date block, course, and "in N days"; Add exam; past exams behind "Show past exams". **Tasks** list open tasks of the chosen course(s) with a done box (the same action as the Tasks page), course dot and due date chip; New task is added into the chosen course (or the one you pick); done tasks of the last 7 days sit behind "Show done". **Notes** list the course's notes (click opens the note in its own window) and New note joins the course. Everything asks before deleting. No new data. Unverified in the real app.
