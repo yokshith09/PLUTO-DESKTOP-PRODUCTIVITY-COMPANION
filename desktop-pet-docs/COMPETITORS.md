@@ -117,3 +117,30 @@ Built from sections 2 to 6 and from what Pluto already has (pet with reactions, 
 
 **Suggested order after the 0.6.0 PC test.** (1) Calendar integration with Join, because both competitors lead with it and Pluto already has meetings. (2) Quick Actions plus Launch Buddy. (3) Assistant spend and the on-screen approval design. (4) Call mode, keep-awake and the resources badge. (5) Signed updates, then the demo film, before any wider release.
 
+## 8. NotchPixel feature by feature (re-read from notchpixel.com on 2026-11-19; page only, the app was not run)
+
+NotchPixel is one strip at the top of a Windows screen (a floating island, or a notch that hangs from the edge). Rest the pointer on it and it opens into a card. It is sold as a bundle: it lists eight Windows apps (about $144 in the first year) and says it replaces them for $9.99 once.
+
+| Group | Feature | What it does exactly | Pluto |
+|---|---|---|---|
+| Look | Liquid glass, themes | The island blurs what is behind it live; or Black, Graphite, soft themes. 21 languages. | Pluto has five colours and light/dark; languages are P7 |
+| Media | Now playing | Shows artwork, play, skip and scrub for anything that reports to Windows (Spotify, browsers, VLC...), with lyrics. | Not planned |
+| Phone | PC Deck | Your phone's browser becomes a trackpad, music remote, app launcher and game/slide buttons. Off by default; each phone is allowed by hand; same Wi-Fi; certificate warning the first time. | Not planned |
+| Phone | Files to phone | "Send to phone" shows a code; the phone scans it and opens a page served by the PC on the same Wi-Fi, valid only while the code is on screen. | Not planned |
+| Windows | Taskbar replacement | A notch along the bottom with Start, pinned and open apps, tray icons, quick settings and the clock. Off returns Windows' taskbar. | Skip |
+| Windows | Quick controls | Volume, brightness, Wi-Fi, Bluetooth, night light, focus and power mode. | Skip |
+| Windows | Notifications | A moment in the island, then one local list. | Pluto has its own notification budget and quiet hours |
+| Desk | Clipboard history | Text, links, pictures and files in tabs; pins. Stays on the PC. | Idea 6 in section 7 |
+| Desk | File shelf | Drop files on the island, then drag them out into any app. | Maybe later |
+| Desk | Web drawer | A pinned site opens in a rounded drawer under the island, even over a game. | Skip |
+| Desk | Launcher | Opens apps and sets from the island. | Launch Buddy (in the plan) |
+| Games | Game strip | In a borderless fullscreen game the island shrinks to a strip with FPS, CPU, GPU, RAM, temperatures. Exclusive fullscreen cannot be drawn over. | Skip (Pluto only needs to stay out of the way: FS-1) |
+| Calls | One mute key | Ctrl+Alt+M mutes the microphone in every app at once, with a call timer. | Call mode (idea 7) is the quiet half only |
+| Streaming | Stream chat, OBS pill | Twitch/YouTube chat in a drawer; a REC pill with time. | Skip |
+| Time | Reminders | Quick set, snooze and Done in the island, repeats. Also a focus timer. | Pluto already has more (tasks, repeats, Bin, pet) |
+| Time | Widgets | Clock, world clock, weather, to-do, photos, batteries, timer, PC stats; any can pin to the desktop. | Skip, except PC stats (in P5) |
+| Agents | AI agents | Shows what Claude Code, Codex, Antigravity, Hermes and your own agents are doing and when each needs you. A status display; no per-tool permissions are shown. | Pluto does this with the pet and per-tool/per-reaction switches; section 7 adds on-pet approval |
+| Roadmap | Public vote list | NotchPixel for Mac (80 votes), every display (80), calendar in the island with a Join button (75). | Calendar integration is in P5 |
+
+**Reading it.** About two thirds of the list is Windows utility breadth (taskbar, quick controls, game strip, stream tools, phone link, widgets). That is where the $144 story comes from and where Pluto should not follow. The parts that fit Pluto are the ones also on its own plan: calendar with Join, a command surface, clipboard history, call awareness, and showing what assistants are doing. Their agent feature is the weakest part of their product and the one where Pluto is already ahead.
+

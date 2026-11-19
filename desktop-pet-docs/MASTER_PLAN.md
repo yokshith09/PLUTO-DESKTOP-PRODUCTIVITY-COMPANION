@@ -225,6 +225,8 @@ The owner is away for a while. Rules, split and per-task briefs are in [`handove
 
 Owner test round fixed in code (Today tiles restored, Tasks Missed and month Upcoming, project dropdowns, colour in the installed app, Course overview redrawn, habit tracker to the owner's reference, Weekly report removed). **Next, in order:** (1) owner runs the Release workflow and tests 0.6.0 on Windows and Mac with the PC checklist; (2) Tab Tantrum: the owner says what goes wrong, then fix; (3) fix whatever the PC test finds; (4) then the next phase the owner picks. Characters (P3) stay on hold.
 
+**Planned next, owner 2026-11-19:** after the PC test, P5 grows to: Calendar integration with Join, Quick Actions, Launch Buddy, assistant spend, and on-pet approval of assistant commands (security design first). System resources and the Privacy radar report stay in P5. Release work (signed updates, Store, demo film) is out for now.
+
 ## Where we were (2026-11-19, morning)
 
 All of v0.6.0's planned scope is built (see PROJECT_STATUS section 00 for the phase table, milestones and the on-hold list). Remaining before the release: green CI on the head (macOS included), the version bump (owner's word), and the owner's PC test. Next phases after the release: P5 small features, then P7 Reach; P3, P6, P8, P9 stay paused or on hold. Study pack: complete; ChatGPT-to-notes, write-out mode and the notebook sheet are optional and on hold.

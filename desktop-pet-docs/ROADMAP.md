@@ -479,3 +479,4 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-19: Owner test round fixes (Today tiles restored, Tasks Missed and month Upcoming, project dropdowns, Course page duplicates, Time top app and site, routine rename and move). Routine tracker redesign waits for a reference image.
 - 2026-11-19: Colour choice fixed for the installed app (CSP); Weekly report tab removed. New characters (Spider-Man, the girl) wait for an owner decision; P3 stays on hold until then.
 - 2026-11-19: Habit tracker (owner reference) and Course overview redrawn; character pluto.json bundled. Characters (P3) remain on hold after the owner rejected new drawings.
+- 2026-11-19: Owner picked competitor items 1 to 5 (calendar integration, Quick Actions, on-pet approval, assistant spend, Launch Buddy); release work excluded. NotchPixel feature list recorded in COMPETITORS section 8.
