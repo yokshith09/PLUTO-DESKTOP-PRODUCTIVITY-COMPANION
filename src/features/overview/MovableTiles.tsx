@@ -80,12 +80,15 @@ export function useTileSizes() {
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: SIZE_KEY, queryFn: async () => cleanSizes(await ipc.prefsGet("ui.overview_sizes")) });
   const sizes = data ?? {};
+  // A size read that is still on its way must not land after a change and undo it.
   const set = async (id: TileId, size: TileSize) => {
     const next = { ...sizes, [id]: snap(size) };
+    void qc.cancelQueries({ queryKey: SIZE_KEY });
     qc.setQueryData(SIZE_KEY, next);
     await ipc.prefsSet("ui.overview_sizes", next);
   };
   const reset = async () => {
+    void qc.cancelQueries({ queryKey: SIZE_KEY });
     qc.setQueryData(SIZE_KEY, {});
     await ipc.prefsSet("ui.overview_sizes", {});
   };

@@ -221,7 +221,11 @@ Built 2026-11-03 (H-1 Codex, H-2 Cursor hooks, H-3 OpenCode, H-4 Windsurf tools 
 
 The owner is away for a while. Rules, split and per-task briefs are in [`handover/`](handover/README.md); root `AGENTS.md` / `GEMINI.md` point there. **Codex:** A-3 then A-7. **Antigravity:** A-2 then A-5 (A-5 needs A-2). Each works on its own branch, opens a draft PR, never merges, never releases, writes a report in `handover/reports/` instead of editing the five docs; Claude Code reviews, merges and copies the report lines into the docs and the Assistants page. **Not handed over:** FS-1 and TT-1 (preview first), A-8 (design choice), Study (on hold), Windsurf reactions (needs the owner's PC), the release.
 
-## Where we are (2026-11-04)
+## Where we are (2026-11-19)
+
+All of v0.6.0's planned scope is built (see PROJECT_STATUS section 00 for the phase table, milestones and the on-hold list). Remaining before the release: green CI on the head (macOS included), the version bump (owner's word), and the owner's PC test. Next phases after the release: P5 small features, then P7 Reach; P3, P6, P8, P9 stay paused or on hold. Study pack: complete; ChatGPT-to-notes, write-out mode and the notebook sheet are optional and on hold.
+
+## Where we were (2026-11-04)
 
 **Built and pushed, all Unverified on a real PC:** A-1 waiting badge, A-4 click-to-go, A-6 tool name, U-4 Diary, U-5 free resize, U-6 Time month, U-7 templates, U-8 routine progress, U-9 Character folds, U-10 colour themes.
 
