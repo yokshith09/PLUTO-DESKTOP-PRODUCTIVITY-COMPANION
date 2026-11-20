@@ -9,7 +9,7 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-# Mira and Raja are left off the site (owner, 2026-11-20).
+# Mira and Raja were deleted (owner, 2026-11-20).
 PETS = ["bear", "mochi", "pip", "bolt", "ghosty"]
 ROWS = ["idle", "running-right", "running-left", "waving", "jumping"]
 SCALE = 0.75  # shown at 96–128 CSS px, so it stays sharp on high-DPI screens

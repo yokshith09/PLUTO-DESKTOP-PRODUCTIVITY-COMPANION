@@ -4,7 +4,7 @@ import { CHARACTERS, CHARACTER_POSES } from "./Characters";
 
 describe("characters", () => {
   it("has the approved characters", () => {
-    expect(CHARACTERS.map((c) => c.name)).toEqual(["Mochi", "Pip", "Bolt", "Ghosty", "Mira", "Raja"]);
+    expect(CHARACTERS.map((c) => c.name)).toEqual(["Mochi", "Pip", "Bolt", "Ghosty"]);
   });
 
   it.each(CHARACTERS.flatMap((c) => CHARACTER_POSES.map((p) => [c.name, p, c.Component] as const)))(

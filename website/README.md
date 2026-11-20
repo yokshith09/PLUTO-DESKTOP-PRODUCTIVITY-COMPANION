@@ -6,9 +6,10 @@ from other sites (fonts are self-hosted, so visitors aren't sent to a font CDN).
 - **Preview:** `cd website && python3 -m http.server 5190`, then open http://localhost:5190
   (opening the file directly won't load the pets, which come from `pets/pets.json`).
 - **Pets:** `python3 scripts/site-pets.py` rebuilds `pets/` from the app's `packs/`
-  (only the rows the page animates, at 3/4 size). Mira and Raja are left off (owner, 2026-11-20).
+  (only the rows the page animates, at 3/4 size). Mira and Raja were deleted (owner, 2026-11-20).
 - **Screens:** `shots/*.webp` are the app's real screens from the browser preview (`pnpm dev`,
   `main.html`), 1180×760 at 2x, saved at 1600 px wide.
+- **Motion:** `planet.js` draws Pluto in WebGL (one fragment shader; GLSL notes: `half` is a reserved word, and `pow()` of a negative number is undefined). `site.js` sets `--p` on `[data-scroll]` and reveals `[data-reveal]`. Everything that moves is under `html.motion`, which is only set when the visitor has not asked for reduced motion. Without WebGL, `.no-gl` shows a drawn planet.
 - **Coming next:** the sketches are HTML, not screenshots, because the features aren't built.
   Move a feature out of that section when it ships.
 - **Deploy:** Cloudflare Pages with `website` as the output folder and no build command.

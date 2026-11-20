@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { TURNED_POSES, type TurnedPose } from "@/features/shell/BearViews";
 import { AO, Defs, Shadow, Spec, Vol, useIds, type Url } from "./Characters";
-import { MIRA, RAJA, Solid, type PersonLook } from "./People";
 
 /**
  * Turned views for the built-in characters (FR-40 back-turn shake), as drawn views and never a
@@ -292,73 +291,10 @@ export function GhostyTurned(p: TurnedProps) {
   );
 }
 
-// ---------------------------------------------------------------- Mira and Raja
-
-function PersonTurned({ look, kind, ...p }: TurnedProps & { look: PersonLook; kind: "mira" | "raja" }) {
-  const animated = p.animated ?? false;
-  const mira = kind === "mira";
-  const back = p.pose !== "turn";
-  return (
-    <Frame {...p} name={look.name} defs={look.skin} shadowW={44}>
-      {(url) => (
-        <g>
-          {[84, 116].map((x) => <ellipse key={x} cx={x} cy="183" rx="13" ry="6" fill={look.shoe} />)}
-          <Hips on={p.pose === "back_look"} animated={animated}>
-            <Solid url={url} color={look.outfit} shape={(f) => <path d={mira ? "M66 130 Q62 178 78 180 L122 180 Q138 178 134 130 Z" : "M62 128 Q56 180 70 182 L130 182 Q144 180 138 128 Z"} fill={f} />} />
-            <Solid url={url} color={look.outfit} shape={(f) => <ellipse cx="100" cy="142" rx={back ? (mira ? 34 : 38) : 28} ry="34" fill={f} />} />
-            {back && !mira && <path d="M100 112 L100 180" stroke="#0F1013" strokeWidth="2" opacity=".6" />}
-            {back && mira && <path d="M70 124 Q100 146 130 122" stroke="#F2B632" strokeWidth="8" fill="none" strokeLinecap="round" />}
-          </Hips>
-          {[{ x: back ? 58 : 76, r: 8 }, { x: back ? 142 : 124, r: -8 }].map((a) => (
-            <g key={a.x} transform={`rotate(${a.r} ${a.x} 118)`}>
-              <Solid url={url} color={look.outfit} shape={(f) => <ellipse cx={a.x} cy="140" rx="10" ry="25" fill={f} />} />
-              <Vol url={url} shape={(f) => <ellipse cx={a.x} cy="163" rx="8" ry="7.5" fill={f} />} />
-            </g>
-          ))}
-          <AO url={url} x={100} y={114} rx={34} ry={8} />
-          <Vol url={url} shape={(f) => <ellipse cx="100" cy="112" rx="14" ry="10" fill={f} />} />
-          {back ? (
-            <g>
-              {mira && [0, 1, 2, 3, 4].map((i) => <Solid key={i} url={url} color={look.hair} shape={(f) => <ellipse cx={100 + (i % 2 ? 3 : -3)} cy={100 + i * 14} rx={9 - i * 0.7} ry="8" fill={f} />} />)}
-              <Solid url={url} color={look.hair} shape={(f) => <ellipse cx="100" cy="74" rx="47" ry="43" fill={f} />} />
-              {!mira && <path d="M70 52 Q100 34 132 54" stroke={look.hairLight} strokeWidth="3.4" fill="none" strokeLinecap="round" opacity=".7" />}
-              <Spec url={url} x={78} y={50} rx={16} ry={8} />
-              {p.pose === "back" ? <g data-part="back-of-head" /> : (
-                <g data-part="face" transform="translate(30 6)">
-                  <ellipse cx="86" cy="80" rx="20" ry="22" fill={look.skin.b} />
-                  <ellipse cx="94" cy="80" rx="5" ry="6.5" fill={look.eye} />
-                  <circle cx="92.5" cy="77.5" r="1.8" fill="#fff" />
-                  <path d="M86 98 q5 4 10 0" stroke="#9A3A3A" strokeWidth="2.2" fill="none" strokeLinecap="round" />
-                </g>
-              )}
-            </g>
-          ) : (
-            <g>
-              <Vol url={url} shape={(f) => <ellipse cx="104" cy="76" rx="42" ry="42" fill={f} />} />
-              <Solid url={url} color={look.hair} shape={(f) => <path d={mira ? "M58 76 Q52 32 104 30 Q146 34 142 70 Q132 52 112 52 Q88 60 70 54 Q60 62 58 76 Z" : "M58 74 Q52 26 106 22 Q148 26 144 72 Q142 52 126 42 Q104 28 82 40 Q62 48 58 74 Z"} fill={f} />} />
-              <Spec url={url} x={82} y={52} rx={16} ry={8} />
-              <g data-part="face">
-                <SideEyes url={url} far={100} near={126} y={78} size={mira ? 7.5 : 6.5} />
-                {!mira && <rect x="116" y="68" width="24" height="18" rx="7" fill="#0F1013" />}
-                <path d="M116 100 q8 6 16 0" stroke="#9A3A3A" strokeWidth="2.4" fill="none" strokeLinecap="round" />
-                <NearCheek url={url} x={136} y={92} w={7} />
-              </g>
-              {mira && <path d="M58 76 Q50 96 56 118" stroke={look.hair} strokeWidth="9" fill="none" strokeLinecap="round" />}
-            </g>
-          )}
-        </g>
-      )}
-    </Frame>
-  );
-}
-export const MiraTurned = (p: TurnedProps) => <PersonTurned {...p} look={MIRA} kind="mira" />;
-export const RajaTurned = (p: TurnedProps) => <PersonTurned {...p} look={RAJA} kind="raja" />;
 
 export const TURNED_VIEWS = {
   mochi: MochiTurned,
   pip: PipTurned,
   bolt: BoltTurned,
   ghosty: GhostyTurned,
-  mira: MiraTurned,
-  raja: RajaTurned,
 } as const;

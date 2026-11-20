@@ -22,6 +22,32 @@
     try { localStorage.setItem(KEY, e.target.value); } catch { /* not remembered, still applied */ }
   });
 
+  /* ---------- Scroll motion (off when the visitor asks for less motion) ---------- */
+  // [data-scroll] gets --p from 0 (just entering) to 1 (well in view); [data-reveal] eases in once.
+  if (!still.matches) document.documentElement.classList.add("motion");
+  const scrolled = [...document.querySelectorAll("[data-scroll]")];
+  let ticking = false;
+  function onScroll() {
+    ticking = false;
+    const vh = innerHeight;
+    for (const el of scrolled) {
+      const r = el.getBoundingClientRect();
+      if (r.bottom < -200 || r.top > vh + 200) continue;
+      const p = still.matches ? 1 : Math.min(1, Math.max(0, (vh - r.top) / (vh * 0.65)));
+      el.style.setProperty("--p", p.toFixed(3));
+    }
+  }
+  addEventListener("scroll", () => { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+  addEventListener("resize", onScroll, { passive: true });
+  onScroll();
+  const reveals = [...document.querySelectorAll("[data-reveal]")];
+  if ("IntersectionObserver" in window && !still.matches) {
+    const ro = new IntersectionObserver((es) => {
+      for (const e of es) if (e.isIntersecting) { e.target.classList.add("in"); ro.unobserve(e.target); }
+    }, { rootMargin: "0px 0px -12% 0px" });
+    reveals.forEach((el, i) => { el.style.setProperty("--i", String(i % 3)); ro.observe(el); });
+  } else reveals.forEach((el) => el.classList.add("in"));
+
   /* ---------- Download buttons: the visitor's own system first ---------- */
   if (/Mac/i.test(navigator.platform || navigator.userAgent)) {
     const win = document.querySelector('[data-os="windows"]');
@@ -202,21 +228,27 @@
     soon.className = "soon";
     soon.innerHTML = '<div><span class="sprite" aria-hidden="true"></span><b>More soon</b><small>new friends are on the way</small></div>';
     shelf.append(soon);
-    const show = () => DATA.pets.forEach((p, i) => paint(shelf.children[i].querySelector(".sprite"), p, ROW.idle, 0, 96, 104));
+    const show = () => DATA.pets.forEach((p, i) => {
+      const el = shelf.children[i].querySelector(".sprite");
+      paint(el, p, ROW.idle, 0, 96, 104);
+      // Each pet hops onto the shelf in turn (Jamm-style: the characters are the motion).
+      if (!still.matches) setTimeout(() => { el.classList.add("hop"); play(el, p, ROW.jump, 1); }, 150 + i * 140);
+    });
     if ("IntersectionObserver" in window) {
       const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { show(); io.disconnect(); } }, { rootMargin: "400px" });
       io.observe(shelf);
     } else show();
   }
-  function wave(el, pet) {
+  function play(el, pet, row, times) {
     if (still.matches) return;
     let f = 0;
-    const n = pet.frames[ROW.wave] * 2;
+    const n = pet.frames[row] * times;
     const t = setInterval(() => {
-      paint(el, pet, f + 1 >= n ? ROW.idle : ROW.wave, f + 1 >= n ? 0 : f % pet.frames[ROW.wave], 96, 104);
+      paint(el, pet, f + 1 >= n ? ROW.idle : row, f + 1 >= n ? 0 : f % pet.frames[row], 96, 104);
       if (++f >= n) clearInterval(t);
     }, 100);
   }
+  const wave = (el, pet) => play(el, pet, ROW.wave, 2);
 
   fetch("pets/pets.json")
     .then((r) => r.json())
@@ -227,6 +259,8 @@
       planWalk(performance.now());
       requestAnimationFrame(tick);
       buildShelf();
+      const moon = document.querySelector(".moon-sprite");
+      if (moon) paint(moon, d.pets[0], ROW.wave, 1, 72, 78);
       const mini = document.querySelector(".mini-pet");
       if (mini) paint(mini, d.pets[0], ROW.wave, 1, 72, 78);
     })

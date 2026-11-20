@@ -106,8 +106,6 @@ export const PACK_EXTRAS: Record<string, Pick<PlutoPackInfo, "reactions" | "spec
   mochi: { reactions: { "task-done": "jump", "task-deleted": "toss" }, special: { name: "Zoomies", pose: "jump", line: "Zoomies!", trigger: "click", every: 5 } },
   pip: { reactions: { "task-added": "wave", "all-done": "party" }, special: { name: "Belly slide", pose: "toss", line: "Three done. Belly slide!", trigger: "tasks", every: 3 } },
   bolt: { reactions: { "task-started": "type", reminder: "ring" }, special: { name: "Systems online", pose: "type", line: "Systems online. Ready when you are.", trigger: "daily", every: 2 } },
-  mira: { reactions: { "task-done": "cheer", "all-done": "party" }, special: { name: "Petal spin", pose: "cheer", line: "Five done! Petal spin!", trigger: "tasks", every: 5 } },
-  raja: { reactions: { "task-done": "cheer", "task-started": "type" }, special: { name: "Shades on", pose: "cheer", line: "Two done. Shades on.", trigger: "tasks", every: 2 } },
   ghosty: { reactions: { "task-deleted": "worried", "focus-done": "cheer" }, special: { name: "Boo", pose: "worried", line: "Boo! …did I scare you?", trigger: "click", every: 7 } },
 };
 

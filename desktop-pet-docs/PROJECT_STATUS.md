@@ -9,6 +9,7 @@ Every claim is tagged with how it was checked. **Fact** = seen in code, tests, G
 
 ## 00. Checkpoint 2026-11-19 (progress card: phases, milestones, features, release)
 
+> **Updated 2026-11-21:** Website motion built (3D Pluto in WebGL, pinned orbit scene, scroll tilt and reveals, characters hop in; still when reduced motion is on). Mira and Raja deleted from the app. Name check for "Orbit" done (see DECISIONS); no rename made.
 > **Updated 2026-11-20 (evening):** Website built in `website/` (not deployed; live pet demo, real screens, Coming next sketches without AI, five characters, the app's five colours). Counter not started.
 > **Updated 2026-11-20 (later):** Tab Tantrum and Open tabs fixed in code (Unverified); PW website and counter planned; P5b gains clipboard history, game mode, keep-awake and call mode.
 >

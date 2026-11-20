@@ -6,7 +6,7 @@ const ids = Object.keys(TURNED_VIEWS) as (keyof typeof TURNED_VIEWS)[];
 
 describe("built-in characters: turned views", () => {
   it("covers every built-in character", () => {
-    expect(ids.sort()).toEqual(["bolt", "ghosty", "mira", "mochi", "pip", "raja"]);
+    expect(ids.sort()).toEqual(["bolt", "ghosty", "mochi", "pip"]);
   });
 
   for (const id of ids) {

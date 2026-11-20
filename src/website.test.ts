@@ -13,6 +13,7 @@ const site = (p: string) => resolve(root, "website", p);
 const html = readFileSync(site("index.html"), "utf8");
 const js = readFileSync(site("site.js"), "utf8");
 const css = readFileSync(site("styles.css"), "utf8");
+const planet = readFileSync(site("planet.js"), "utf8");
 const data = JSON.parse(readFileSync(site("pets/pets.json"), "utf8")) as {
   rows: string[];
   cell: { width: number; height: number };
@@ -79,6 +80,25 @@ describe("website", () => {
       // The site's accent is the app's light-mode accent for that colour.
       if (c !== "copper") expect(css).toContain(`--accent: oklch(${PALETTES[c].light})`);
     }
+  });
+
+  it("respects reduced motion: nothing moves unless the visitor allows it", () => {
+    // site.js adds .motion only when reduced motion is off; planet.js holds a still frame.
+    expect(js).toContain('if (!still.matches) document.documentElement.classList.add("motion")');
+    expect(planet).toContain("prefers-reduced-motion: reduce");
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
+    // Every scroll-driven transform and the pinned scene sit behind .motion.
+    for (const rule of [".motion .shot", ".motion [data-reveal]", ".motion .orbit {", ".motion .orbit-stage"]) expect(css).toContain(rule);
+  });
+
+  it("draws Pluto with its own small shader, loaded from this site, with a still fallback", () => {
+    expect(html).toContain('<script src="planet.js" type="module"></script>');
+    expect(planet).not.toMatch(/\bimport\b|https?:/);
+    // GLSL pitfalls found while building it: 'half' is reserved, pow() of a negative base is undefined.
+    expect(planet).not.toMatch(/\bfloat half\b/);
+    expect(planet).not.toMatch(/pow\(x \* x \+ y \* y - 1/);
+    expect(planet).toContain('section.classList.add("no-gl")');
+    expect(css).toContain(".no-gl .orbit-scene::before");
   });
 
   it("every feature tab has a panel entry", () => {

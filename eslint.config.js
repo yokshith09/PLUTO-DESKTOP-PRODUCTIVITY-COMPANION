@@ -19,6 +19,7 @@ export default tseslint.config(
         document: "readonly", window: "readonly", navigator: "readonly", localStorage: "readonly", matchMedia: "readonly",
         requestAnimationFrame: "readonly", performance: "readonly", setTimeout: "readonly", clearTimeout: "readonly",
         setInterval: "readonly", clearInterval: "readonly", fetch: "readonly", Image: "readonly", IntersectionObserver: "readonly",
+        console: "readonly", addEventListener: "readonly", innerHeight: "readonly", innerWidth: "readonly", scrollY: "readonly",
       },
     },
   },

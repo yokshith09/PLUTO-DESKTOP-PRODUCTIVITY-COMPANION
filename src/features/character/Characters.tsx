@@ -1,7 +1,6 @@
 import { useId, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { BackLaptop, Pocket, isTypingPose } from "./Laptop";
-import { Mira, Raja } from "./People";
 import { Clipboard, SadBrows, Tear } from "./SpriteProps";
 
 /**
@@ -381,15 +380,9 @@ export function Ghosty({ pose = "idle", animated = false, className }: Character
   );
 }
 
-// People.tsx imports this file, so these wrappers keep the cycle harmless (nothing runs at load).
-function MiraFront(p: CharacterProps) { return <Mira {...p} />; }
-function RajaFront(p: CharacterProps) { return <Raja {...p} />; }
-
 export const CHARACTERS = [
   { key: "mochi", name: "Mochi", what: "the cat", Component: Mochi },
   { key: "pip", name: "Pip", what: "the penguin", Component: Pip },
   { key: "bolt", name: "Bolt", what: "the robot", Component: Bolt },
   { key: "ghosty", name: "Ghosty", what: "the ghost", Component: Ghosty },
-  { key: "mira", name: "Mira", what: "the cheerful heroine", Component: MiraFront },
-  { key: "raja", name: "Raja", what: "the cool hero", Component: RajaFront },
 ] as const;

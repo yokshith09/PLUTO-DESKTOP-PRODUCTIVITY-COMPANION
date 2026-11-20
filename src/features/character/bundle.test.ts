@@ -9,7 +9,7 @@ const shipped = Object.keys(conf.bundle.resources);
 /**
  * 2026-11-19: the installer shipped the four built-in characters without their `pluto.json`, so no
  * character's own reactions or special worked in the installed app. Each shipped pack now ships whole.
- * (Mira and Raja stay out of the installer; characters are on hold, owner 2026-11-19.)
+ * (Mira and Raja were deleted from the app, owner 2026-11-20.)
  */
 const SHIPPED = ["bolt", "ghosty", "mochi", "pip"];
 describe("built-in characters in the installer", () => {

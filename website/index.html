@@ -14,6 +14,7 @@
   <link rel="preload" href="fonts/unbounded-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
   <script src="site.js" defer></script>
+  <script src="planet.js" type="module"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -72,10 +73,30 @@
       </div>
     </section>
 
+    <section class="orbit" id="orbit" aria-labelledby="orbit-h">
+      <div class="orbit-stage">
+        <div class="stars" aria-hidden="true"></div>
+        <div class="orbit-intro">
+          <h2 id="orbit-h">A small world with everything in orbit</h2>
+          <p>Keep scrolling. Five parts of your day circle one small planet.</p>
+        </div>
+        <div class="orbit-scene">
+          <canvas aria-hidden="true"></canvas>
+          <ul class="moons" aria-label="The five parts of Pluto">
+            <li class="moon"><b>Focus</b><span>The task you're on, and a timer beside the pet</span></li>
+            <li class="moon"><b>Track</b><span>Where the day went, by app and website</span></li>
+            <li class="moon"><b>Notes</b><span>Quick notes, pins and labels</span></li>
+            <li class="moon"><b>Projects</b><span>Tasks, due dates and reminders, grouped</span></li>
+            <li class="moon moon-pet"><i class="moon-sprite" aria-hidden="true"></i><b>Companion</b><span>A friend at the edge of your screen</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
     <section class="world" id="world" aria-labelledby="world-h">
       <div class="world-head">
-        <h2 id="world-h">One small world for your whole day</h2>
-        <p>Five parts that work together, so the pet always knows what you're up to.</p>
+        <h2 id="world-h">Each part, up close</h2>
+        <p>They work together, so the pet always knows what you're up to.</p>
       </div>
       <div class="tabs" role="tablist" aria-label="Parts of Pluto">
         <button role="tab" id="t-focus" aria-controls="p-world" aria-selected="true" data-tab="focus">Focus</button>
@@ -89,7 +110,7 @@
           <h3 id="panel-h">Today, in one view</h3>
           <p id="panel-p">The task you're on, what comes next, and a focus timer that the pet keeps beside you. Missed things wait for you here instead of disappearing.</p>
         </div>
-        <figure class="shot">
+        <figure class="shot" data-scroll>
           <img id="panel-img" src="shots/today.webp" width="1600" height="1030" alt="Pluto's Today overview: the current task, today's tasks and reminders, and total time by app and website.">
         </figure>
       </div>
@@ -102,7 +123,7 @@
         <p>Planned for the next versions and not in 0.6.0 yet. These are early sketches, so details may change.</p>
       </div>
       <ul class="plans">
-        <li class="plan plan-wide">
+        <li class="plan plan-wide" data-reveal>
           <div class="sketch cal" aria-hidden="true">
             <div class="cal-list">
               <p><time>09:30</time><span>Standup</span><i>Meet</i></p>
@@ -117,7 +138,7 @@
           <h3>Calendar integration</h3>
           <p>Link your Google, Outlook or Apple calendar. Events ring like reminders, and the pet tells you when a meeting is about to start, with a Join button for Meet, Zoom or Teams.</p>
         </li>
-        <li class="plan">
+        <li class="plan" data-reveal>
           <div class="sketch bar" aria-hidden="true">
             <p class="bar-in">new task: buy notebooks<kbd>Enter</kbd></p>
             <p class="bar-row">Start a 25 minute focus</p>
@@ -126,7 +147,7 @@
           <h3>Quick Actions</h3>
           <p>One shortcut from any app: add a task or note, search everything, start a focus session.</p>
         </li>
-        <li class="plan">
+        <li class="plan" data-reveal>
           <div class="sketch set" aria-hidden="true">
             <p class="set-name">Study set</p>
             <p class="chips"><span>Notes</span><span>Lecture PDF</span><span>Course site</span><span>Focus 50 min</span></p>
@@ -134,7 +155,7 @@
           <h3>Launch Buddy</h3>
           <p>Save the apps, files and links you use together, and open them all with one click.</p>
         </li>
-        <li class="plan">
+        <li class="plan" data-reveal>
           <div class="sketch controls" aria-hidden="true">
             <p><span>Wi-Fi</span><b class="sw on"></b></p>
             <p><span>Bluetooth</span><b class="sw"></b></p>
@@ -144,7 +165,7 @@
           <h3>Quick controls</h3>
           <p>Volume, microphone, Wi-Fi, Bluetooth and brightness from the pet's card, without opening Settings.</p>
         </li>
-        <li class="plan">
+        <li class="plan" data-reveal>
           <div class="sketch mute" aria-hidden="true">
             <p><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>M</kbd></p>
             <p class="pill">Mic muted</p>
@@ -152,7 +173,7 @@
           <h3>Mute key</h3>
           <p>One key mutes your microphone in every app at once. Another puts Pluto itself on quiet.</p>
         </li>
-        <li class="plan">
+        <li class="plan" data-reveal>
           <div class="sketch clips" aria-hidden="true">
             <p>Chapter 4 summary, page 112</p>
             <p>https://example.edu/syllabus</p>
@@ -161,7 +182,7 @@
           <h3>Clipboard history</h3>
           <p>Your last 20 copies, kept in memory only and never saved. Pin one to turn it into a task or note.</p>
         </li>
-        <li class="plan">
+        <li class="plan" data-reveal>
           <div class="sketch awake" aria-hidden="true">
             <p><span>Keep awake</span><b class="sw on"></b></p>
             <p class="awake-time">for 1 hour</p>
@@ -179,7 +200,8 @@
       <ul class="shelf" id="shelf"></ul>
     </section>
 
-    <section class="private" id="private" aria-labelledby="private-h">
+    <section class="private" id="private" aria-labelledby="private-h" data-scroll>
+      <div class="stars" aria-hidden="true"></div>
       <div class="private-in">
         <div>
           <h2 id="private-h">Your day stays on your computer</h2>
