@@ -31,9 +31,10 @@ This is the one page that says **what we build, in what order, and when each thi
 | **P2 Student** | Course page (topics, short notes, exams, dates), Timetable with CSV and Excel import, Exams-notes-tasks, class reminders from the pet, exam countdown, Guide and roles, Diary, quiet modes, focus and wellbeing, habit tracker (owner's reference) | Owner's test of the Study pack | Weekly report removed (owner 2026-11-19); quiz from notes (needs an AI provider); Course extras (ChatGPT-to-notes, write-out mode, notebook sheet: optional); Friends (online, "planned for later") |
 | **P3 Characters** | Seven sprite packs, wardrobe, per-character reactions and specials, folder import and scan, Character page | None now | **Paused by the owner**: new characters (original spider hero and the girl character's reactions were drawn, rejected as ugly, removed), pack gallery, cursor gaze, wardrobe schedules, export pack, personal photo characters. Spider-Man itself is never shipped (trademark) |
 | **P4 Developer and MCP** | MCP server (20 tools), hooks for Claude Code, Codex, Cursor, OpenCode, Antigravity, copy-paste commands for Windsurf, VS Code and any app, git watcher, developer reactions, Project Spaces, Projects page by role, assistant waiting badge, click-to-window, sounds, per-tool and per-reaction switches | Owner's test with real assistants | U-6 commit dots, U-7 project Exams/Questions/Hours tabs, Windsurf's own hook format: not built |
-| **P4.5 Full screen and Tab Tantrum** | Pet hides over full-screen apps; Tab Tantrum built | Fix Tab Tantrum once the owner says what goes wrong; FS-1 three-way full-screen choice | Pet visible over full screen (needs the owner's choice) |
+| **P4.5 Full screen and Tab Tantrum** | Pet hides over full-screen apps; Tab Tantrum built and **fixed 2026-11-20** (tab count no longer doubled, works while another window is in front, Open tabs panel lists and closes tabs from Pluto, "Copy tab report" for a bug report); all Unverified | **FS-1 three-way full-screen setting (Hide, Small in a corner, Stay)**, in the current version; owner re-tests Tab Tantrum on Windows | Nothing skipped. (Earlier "held" was wrong: FS-1 only waited for a reply to its preview and a PC test; exclusive full-screen games can never be drawn over, and the setting will say so) |
+| **PW Website and anonymous user count (owner 2026-11-20, next after the current-version fixes)** | Nothing yet | Public website; a tiny backend that only counts active installs (no account, no IP stored, no content); opt-in in the app; privacy page first. Full plan in "PW" below | Collecting any user information: never. Showing public numbers: owner decides |
 | **P5 Small features (v0.7.0)** | Nothing yet | **1** Quick Actions bar. **2** Launch Buddy (a saved set opens in one click, can start focus). **3** Calendar integration through a calendar's secret iCal link (Google works; Join button). **4** System resources badge. **5** Privacy radar report | Google sign-in for the calendar (skipped by the owner 2026-11-20); file shelf (optional) |
-| **P5b System and assistant desk (v0.7.x, proposed 2026-11-20)** | Nothing yet | **6** Quick controls for the whole system plus Pluto. **7** Mute key for Pluto and the system microphone. **8** Assistant spend tile. **9** Approve an assistant's command from the pet (security design first) | Clipboard history, game strip, call mode, keep-awake: not scheduled |
+| **P5b System and assistant desk (v0.7.x, proposed 2026-11-20)** | Nothing yet | **6** Quick controls for the whole system plus Pluto. **7** Mute key for Pluto and the system microphone. **8** Assistant spend tile. **9** Approve an assistant's command from the pet (security design first). **10** Clipboard history. **11** Game mode. **12** Keep-awake. **13** Call mode | Nothing skipped (clipboard history, game mode, keep-awake and call mode are now planned: owner 2026-11-20) |
 | **P6 Voice (v0.8.0)** | Nothing | Dictation, on-device, held key | Waits for a second developer |
 | **P7 Reach (v0.9.0)** | Nothing | Linux and Wayland, Hindi and Telugu, LAN mode (files to and from the phone would join here, with a privacy review) | Phone remote (trackpad, launcher): not decided |
 | **P8 AI** | Nothing | Talk to the pet, writing help, summaries, quiz | On hold: the owner picks a provider |
@@ -42,7 +43,7 @@ This is the one page that says **what we build, in what order, and when each thi
 
 **Never doing (owner and Claude):** NotchPixel's taskbar replacement, game FPS strip, stream tools, widgets and music (breadth, not for students and developers); Spider-Man or any other company's character; the Plugin SDK.
 
-**Next, in order:** (1) the owner runs the 0.6.0 draft on Windows and Mac; (2) Tab Tantrum symptoms; (3) fixes from that test; (4) P5 in the order above; (5) P5b.
+**Next, in order (owner 2026-11-20):** (1) **all fixes into the current version (0.6.x)**: Tab Tantrum and Open tabs fixed in code; FS-1 full-screen setting next; fixes from the owner's PC test; (2) the owner runs the 0.6.x draft on Windows and Mac; (3) **PW: website and anonymous user count**; (4) P5; (5) P5b.
 
 ## Phase overview
 
@@ -245,7 +246,11 @@ Built 2026-11-03 (H-1 Codex, H-2 Cursor hooks, H-3 OpenCode, H-4 Windsurf tools 
 
 The owner is away for a while. Rules, split and per-task briefs are in [`handover/`](handover/README.md); root `AGENTS.md` / `GEMINI.md` point there. **Codex:** A-3 then A-7. **Antigravity:** A-2 then A-5 (A-5 needs A-2). Each works on its own branch, opens a draft PR, never merges, never releases, writes a report in `handover/reports/` instead of editing the five docs; Claude Code reviews, merges and copies the report lines into the docs and the Assistants page. **Not handed over:** FS-1 and TT-1 (preview first), A-8 (design choice), Study (on hold), Windsurf reactions (needs the owner's PC), the release.
 
-## Where we are (2026-11-19, evening)
+## Where we are (2026-11-20)
+
+All fixes go into the current version. Done in code today: Tab Tantrum no longer doubles the tab count, reads a browser that is not in front, the Open tabs panel lists the tabs while Pluto is in front and closes them with a visible button, and a "Copy tab report" button shows what Pluto sees if the count is still wrong. Next in the current version: FS-1 (Hide, Small in a corner, Stay). Then the owner's PC test, then PW (website and anonymous user count), then P5 and P5b.
+
+## Where we were (2026-11-19, evening)
 
 Owner test round fixed in code (Today tiles restored, Tasks Missed and month Upcoming, project dropdowns, colour in the installed app, Course overview redrawn, habit tracker to the owner's reference, Weekly report removed). **Next, in order:** (1) owner runs the Release workflow and tests 0.6.0 on Windows and Mac with the PC checklist; (2) Tab Tantrum: the owner says what goes wrong, then fix; (3) fix whatever the PC test finds; (4) then the next phase the owner picks. Characters (P3) stay on hold.
 
@@ -289,6 +294,35 @@ Other pages are fine for now (owner); they get fixed later, as they come up.
 
 ---
 
+## PW — Website and anonymous user count (owner 2026-11-20: "next we will build a dedicated website for Pluto, host it on the internet, and a backend that notes how many users are actively using it; we will not take users' info")
+
+**The promise, in one line:** Pluto counts how many installs were opened recently. It never learns who they are, where they are, or what they do.
+
+**What gets built**
+
+| Part | What it is |
+|---|---|
+| **W1 Website** (static, in `website/`) | Home (what Pluto is, screenshots), Features, Download (links to the latest GitHub release, picks Windows or Mac), Privacy (exactly what is counted and what is not), Changelog, Guide, a feedback link, and an optional "N people used Pluto this week" line. Hosted on Cloudflare Pages (free); a custom domain the owner buys (about $10 to $15 a year). A GitHub Action deploys it on every push to `website/`. |
+| **W2 Counter backend** | One Cloudflare Worker with a small D1 database (SQLite). Two routes only: `POST /v1/ping` and `GET /v1/stats`. Free tier is about 100,000 requests a day, far more than needed. (Alternative: a Supabase function, which P9 already chose; it would put the counter and the later gallery in one place, at the cost of a heavier setup now.) |
+| **W3 In the app** | The shell sends one small HTTPS request a day, at most, and only if the person said yes. The rule "should I ping today?" is pure and lives in `pluto-core` (core stays network-free); the request lives in the Tauri shell. A failure is silent and retried at the next launch. |
+| **W4 Settings and first run** | Settings > Privacy gets a switch "Count me (anonymous)" and a button "Show exactly what is sent". A one-time card with two equal buttons, Yes and No, asks at first run, and once after updating for people who already have Pluto. Until someone answers, nothing is sent. The footer line "Everything stays on this computer" is reworded to say what is true. |
+
+**What one ping contains (and nothing else):** `app` (the version, such as 0.6.1), `os` (windows, macos or linux), and three yes/no flags the app works out from its own local memory: `new` (first ping this install has ever sent), `week` (first ping this ISO week), `month` (first ping this month). **No install ID, no account, no timestamp from the app (the server dates it), no IP address stored, no user agent, no cookies, no task or note content, no list of features used.**
+
+**How the counts come out without any ID:** the server adds up counters per day, per OS and per version. Daily active = pings that day. Weekly active = the `week` flags in that week. Monthly active = the `month` flags in that month. New installs = the `new` flags. Exact enough, and nothing can be traced back to a person.
+
+**Privacy rules for the server:** the Worker does not read or log the caller's IP address; Cloudflare's request logging and analytics are off for it; it rejects anything that is not exactly the three fields above; abuse is limited by Cloudflare's own rate rule at the edge (not stored in our data); the public stats route returns totals only.
+
+**Honest limits.** (1) It is a floor, not a total: people who say No are invisible. (2) A reinstall or cleared data counts as a new install; one person on two PCs counts twice. (3) Anyone can send fake pings with a command line, so treat the numbers as a vanity metric, never as billing or proof. (4) I am not a lawyer: a daily ping with no stored IP is designed to be minimal, but if Pluto is promoted in the EU, get the Privacy page and the opt-in wording checked.
+
+**Order of work.** W0 owner decisions → W1 the Privacy page text (it must exist before any ping ships) → W2 Worker and database with tests (validation, counting, rate limit) → W3 app ping with tests (pure rule in core; shell request) → W4 Settings switch, first-run card and "show what is sent" → W5 website pages and the optional stats line → W6 deploy, check the numbers with a test install, then release. About 5 to 8 working days in all (site 2 to 3, backend 1, app 2, privacy text and checks 1).
+
+**Owner decisions needed before W2:** (a) the domain name and buying it; (b) a Cloudflare account (free) or a Supabase one; (c) ask-at-first-run (recommended) versus on by default; (d) show public numbers on the website, yes or no; (e) the exact one-line promise for the Privacy page.
+
+**Done when:** a test install with the switch on adds exactly one to today's count and one to this week's and this month's; with the switch off, the network log shows no request; the Privacy page matches the code line by line; the website loads from the domain and the Download button reaches the latest release.
+
+---
+
 ## P5 — Small features pack (release v0.7.0)
 
 **In plain words:** five self-contained quick wins. Each is one to four days, none depends on another, and each can ship on its own as a point release. Order: 1, 2, 3, 4, 5.
@@ -312,7 +346,12 @@ Grouped because items 6 and 7 are operating-system code that only the owner can 
 | 8 | **Assistant spend** | A tile on Assistants: today's and this week's tokens and cost per assistant and per project, read from the tools' own local logs, no network. | Log formats change between versions; shows "unknown" rather than guessing. |
 | 9 | **Approve an assistant's command from the pet** | Allow, Deny or Ask in the terminal, on the pet, for tool permission requests. Fails open to the assistant's own prompt. | A real security boundary: **a written security design (local socket, user-only permissions, peer check, timeout) is approved by the owner before any code.** |
 
-**Not scheduled:** clipboard history, game strip (Pluto's version would be "game mode": the pet hides and stays silent while a game is fullscreen), call mode, keep-awake, file shelf (optional), phone remote, files to and from the phone (needs a LAN server; belongs with P7 LAN).
+| 10 | **Clipboard history** (owner 2026-11-20) | The last 20 copies (text, links; pictures later), kept in memory only, never written to disk. A pin turns one into a task or note. Search. Off by default. | Skips what password managers mark as secret; cannot read another user's clipboard; Windows and macOS clipboard code differ. |
+| 11 | **Game mode** (owner 2026-11-20; Pluto's version of NotchPixel's game strip) | While a borderless full-screen game is in front, the pet hides or goes small and silent, reminders wait until you leave, and everything returns afterwards. No FPS overlay. | Exclusive full-screen games cannot be drawn over by any app; game detection is a best guess (full-screen app that is not a browser, video or editor), so it is a switch with an app list. |
+| 12 | **Keep-awake** | One switch on the pet card, with a timer ("1 hour") and an automatic off. Stops the screen and PC sleeping during builds and downloads. | Windows and macOS each have a documented call; the switch always shows the real state. |
+| 13 | **Call mode** | When a call app is using the microphone, the pet goes quiet and a small call timer shows. | Detecting "in a call" from microphone use is a guess on Windows and macOS; shown as "Looks like a call" with an off switch. |
+
+**Not scheduled:** file shelf (optional), phone remote, files to and from the phone (needs a LAN server; belongs with P7 LAN).
 
 ---
 

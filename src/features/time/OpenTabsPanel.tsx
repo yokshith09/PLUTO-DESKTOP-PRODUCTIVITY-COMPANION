@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { ConfirmAction } from "@/components/ConfirmAction";
-import { Globe, X } from "lucide-react";
+import { ClipboardCopy, Globe, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tile } from "@/features/shell/PageHeader";
 import { useOpenTabs } from "@/hooks/usePluto";
 import { ipc } from "@/ipc";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { notify } from "@/lib/notify";
 
 /**
  * Every tab currently open, read live — no browser extension (owner decision 2026-10-13).
@@ -26,6 +27,16 @@ export function OpenTabsPanel({ enabled, className }: { enabled: boolean; classN
     } finally {
       setClosing(null);
       void qc.invalidateQueries({ queryKey: ["tabs", "open"] });
+    }
+  };
+
+  /** The raw account of what Pluto sees, to paste into a bug report (owner 2026-11-20: counts looked doubled). */
+  const copyReport = async () => {
+    try {
+      await navigator.clipboard.writeText(await ipc.petTabsReport());
+      notify.success("Tab report copied");
+    } catch {
+      notify.error("Could not copy the report");
     }
   };
 
@@ -53,13 +64,18 @@ export function OpenTabsPanel({ enabled, className }: { enabled: boolean; classN
     <Tile
       className={className}
       title="Open tabs"
-      action={<span className="text-[11px] text-muted-foreground">{tabs.length > 0 ? `${tabs.length} open · live` : undefined}</span>}
+      action={(
+        <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          {tabs.length > 0 ? `${tabs.length} open · live` : undefined}
+          <Button type="button" variant="ghost" size="icon" className="size-6" aria-label="Copy tab report" title="Copy what Pluto sees, for a bug report" onClick={() => void copyReport()}><ClipboardCopy className="size-3.5" /></Button>
+        </span>
+      )}
       bodyClassName="p-2"
     >
       {isLoading ? (
         <p className="py-10 text-center text-[13px] text-muted-foreground">Reading your browser…</p>
       ) : tabs.length === 0 ? (
-        <p className="py-10 text-center text-[13px] text-muted-foreground">No browser tabs found right now. Only the browser window in front can be read.</p>
+        <p className="py-10 text-center text-[13px] text-muted-foreground">No browser tabs found right now. Open a browser window (not minimised) and it appears here; Pluto reads the one in front, or the top-most one when you are looking at Pluto.</p>
       ) : (
         <ul className="space-y-0.5">
           {tabs.map((t) => {
@@ -75,7 +91,7 @@ export function OpenTabsPanel({ enabled, className }: { enabled: boolean; classN
                 {t.browser !== "Firefox" && (
                   <ConfirmAction message="Close this tab in your browser?" verb="Close" onConfirm={() => void close(t.browser, t.window_index, t.tab_index)}>
                     <Button
-                      type="button" variant="ghost" size="icon" className="size-6 shrink-0 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                      type="button" variant="ghost" size="icon" className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
                       aria-label={`Close ${t.title ?? t.domain ?? "tab"}`}
                       disabled={closing === key}
                     >

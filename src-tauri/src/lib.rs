@@ -296,6 +296,7 @@ pub fn run() {
             pets::pets_remove,
             pets::pets_sheet,
             tabs::pet_close_tab,
+            tabs::pet_tabs_report,
             ipc::data_export,
             ipc::data_import,
             ipc::data_delete_all,

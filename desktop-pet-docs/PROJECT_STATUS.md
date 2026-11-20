@@ -9,6 +9,8 @@ Every claim is tagged with how it was checked. **Fact** = seen in code, tests, G
 
 ## 00. Checkpoint 2026-11-19 (progress card: phases, milestones, features, release)
 
+> **Updated 2026-11-20 (later):** Tab Tantrum and Open tabs fixed in code (Unverified); PW website and counter planned; P5b gains clipboard history, game mode, keep-awake and call mode.
+>
 > **Updated 2026-11-20:** the full per-phase view (done, planned, skipped) is in `MASTER_PLAN.md`, "Plan at a glance".
 
 **In one line.** Everything planned for v0.6.0 is built and tested in code. What is missing is verification on a real PC, not features. Source version is still 0.5.9.
@@ -22,7 +24,8 @@ Every claim is tagged with how it was checked. **Fact** = seen in code, tests, G
 | P2 Student release | Plan, study, track a semester | v0.3.0 | Built. Study pack complete 2026-11-18 (Course page, Timetable, Exams-notes-tasks, class reminders, weekly report, exam countdown). Quiz from notes on hold (AI provider) |
 | P3 Characters | Packs, wardrobe, gallery | v0.4.0 | **Paused** (owner). Folder import and scan built |
 | **P4 Developer & MCP** | Pluto works with developer tools | **v0.6.0** | **Local part done**: MCP server, assistant hooks, git watcher, Project Spaces |
-| P4.5 Full screen + Tab Tantrum | Pet over full-screen apps; tab complaints | with 0.6.0 | Built (full screen: hide only) |
+| P4.5 Full screen + Tab Tantrum | Pet over full-screen apps; tab complaints | with 0.6.x | Tab Tantrum fixed 2026-11-20 (Unverified); FS-1 three-way setting next |
+| PW Website and anonymous user count | Public website; counter backend (no user info); opt-in ping | next after the current-version fixes | Planned 2026-11-20 (see MASTER_PLAN "PW") |
 | P5 Small features | Quick Actions, Launch Buddy, Calendar integration (iCal link; Google sign-in skipped), System resources, Privacy report | v0.7.0 | Not started |
 | P5b System and assistant desk | Quick controls (system plus Pluto), Mute key (system mic plus Pluto), Assistant spend, On-pet approval (security design first) | v0.7.x | Proposed 2026-11-20, not started |
 | P6 Voice | Dictation | v0.8.0 | Waits for a second developer |

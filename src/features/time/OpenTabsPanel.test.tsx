@@ -1,10 +1,10 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ipc } from "@/ipc";
 import { OpenTabsPanel } from "./OpenTabsPanel";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const renderPanel = (enabled: boolean) =>
   render(
@@ -50,5 +50,22 @@ describe("OpenTabsPanel", () => {
     vi.spyOn(ipc, "petOpenTabs").mockResolvedValue([]);
     renderPanel(true);
     expect(await screen.findByText(/No browser tabs found/)).toBeTruthy();
+  });
+
+  it("copies a report of what Pluto sees, for a bug report", async () => {
+    vi.spyOn(ipc, "petOpenTabs").mockResolvedValue([{ browser: "Edge", window_index: 0, tab_index: 0, title: "A", domain: null, active: true }]);
+    vi.spyOn(ipc, "petTabsReport").mockResolvedValue("Edge (in front): 8 tab-like controls, 4 counted");
+    const write = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: write }, configurable: true });
+    renderPanel(true);
+    await act(async () => { (await screen.findByRole("button", { name: "Copy tab report" })).click(); });
+    await waitFor(() => expect(write).toHaveBeenCalledWith("Edge (in front): 8 tab-like controls, 4 counted"));
+  });
+
+  it("each tab has a visible Close button, not one that only shows on hover", async () => {
+    vi.spyOn(ipc, "petOpenTabs").mockResolvedValue([{ browser: "Edge", window_index: 0, tab_index: 0, title: "A", domain: null, active: false }]);
+    renderPanel(true);
+    const close = await screen.findByRole("button", { name: /Close A/ });
+    expect(close.className).not.toContain("opacity-0");
   });
 });

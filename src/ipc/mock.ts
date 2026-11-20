@@ -434,6 +434,7 @@ export function createMock() {
     pets_remove: () => null,
     pets_sheet: () => fail("NOT_FOUND", "No pets in the browser preview."),
     pet_open_tabs: () => (settings["tracking.apps"] === true && settings["tracking.sites"] === true ? openTabs : []),
+    pet_tabs_report: () => `Chrome (in front): ${openTabs.length} tab-like controls, ${openTabs.length} counted`,
     pet_close_tab: (a) => {
       const before = openTabs.length;
       openTabs = openTabs.filter((t) => !(t.browser === a.browser && t.window_index === a.windowIndex && t.tab_index === a.tabIndex));

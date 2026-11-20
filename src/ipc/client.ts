@@ -140,6 +140,8 @@ export const ipc = {
   petsSheet: (id: string) => call<string>("pets_sheet", { id }),
   petCloseTab: (browser: string, windowIndex: number, tabIndex: number) =>
     call<boolean>("pet_close_tab", { browser, windowIndex, tabIndex }),
+  /** What Pluto sees in the browser, as text for a bug report (no addresses). */
+  petTabsReport: () => call<string>("pet_tabs_report"),
   usageDelete: (from: number | null, to: number | null) => call<unknown>("usage_delete", { from, to }),
   openUrl: (url: string) => call<unknown>("open_url", { url }),
   taskUpdate: (id: string, edit: TaskEdit) => call<Task>("task_update", { id, edit }),
