@@ -5,6 +5,8 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+- Planning only (2026-11-20): plan at a glance in MASTER_PLAN; P5 and new P5b scoped (calendar integration by iCal link, Quick Actions, Launch Buddy, system Quick controls, Mute key, assistant spend, on-pet approval). No code changed.
+
 ## [0.6.0] — 2026-11-19 (draft for owner testing on Windows and Mac; Unverified)
 
 Everything below was built after 0.5.9 and has not been run on a real PC. Highlights: assistants (per-tool and per-reaction switches, Antigravity, sounds, any-app reaction commands), Tab Tantrum, the Letters routine tracker, role-gated Projects, and the whole Study pack (Course page, Timetable with CSV and Excel, Exams-notes-tasks, class reminders; Friends says "Planned for later").

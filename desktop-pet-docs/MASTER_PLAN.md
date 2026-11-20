@@ -20,6 +20,30 @@ This is the one page that says **what we build, in what order, and when each thi
 
 ---
 
+## Plan at a glance (2026-11-20: what is done, planned and skipped, phase by phase)
+
+"Done" means built and tested in code; **nothing is Complete until the owner runs it on a real PC** (every item below marked done is Unverified unless it says otherwise).
+
+| Phase | Done | Planned | Skipped, on hold or paused |
+|---|---|---|---|
+| **P0 Foundation** | Notes, tasks, search, labels, meetings, pet window, shortcuts, settings, first run, app and website time, privacy panel, autostart, export/import/delete | Owner's Windows sign-off | None |
+| **P1 Fix and polish (FM-V2)** | All 16 V2 issues built; owner test rounds of 2026-11-19 fixed (Today tiles, Missed tasks, month Upcoming, project dropdowns, colour in the installed app, Course page) | Owner's Windows sign-off | None |
+| **P2 Student** | Course page (topics, short notes, exams, dates), Timetable with CSV and Excel import, Exams-notes-tasks, class reminders from the pet, exam countdown, Guide and roles, Diary, quiet modes, focus and wellbeing, habit tracker (owner's reference) | Owner's test of the Study pack | Weekly report removed (owner 2026-11-19); quiz from notes (needs an AI provider); Course extras (ChatGPT-to-notes, write-out mode, notebook sheet: optional); Friends (online, "planned for later") |
+| **P3 Characters** | Seven sprite packs, wardrobe, per-character reactions and specials, folder import and scan, Character page | None now | **Paused by the owner**: new characters (original spider hero and the girl character's reactions were drawn, rejected as ugly, removed), pack gallery, cursor gaze, wardrobe schedules, export pack, personal photo characters. Spider-Man itself is never shipped (trademark) |
+| **P4 Developer and MCP** | MCP server (20 tools), hooks for Claude Code, Codex, Cursor, OpenCode, Antigravity, copy-paste commands for Windsurf, VS Code and any app, git watcher, developer reactions, Project Spaces, Projects page by role, assistant waiting badge, click-to-window, sounds, per-tool and per-reaction switches | Owner's test with real assistants | U-6 commit dots, U-7 project Exams/Questions/Hours tabs, Windsurf's own hook format: not built |
+| **P4.5 Full screen and Tab Tantrum** | Pet hides over full-screen apps; Tab Tantrum built | Fix Tab Tantrum once the owner says what goes wrong; FS-1 three-way full-screen choice | Pet visible over full screen (needs the owner's choice) |
+| **P5 Small features (v0.7.0)** | Nothing yet | **1** Quick Actions bar. **2** Launch Buddy (a saved set opens in one click, can start focus). **3** Calendar integration through a calendar's secret iCal link (Google works; Join button). **4** System resources badge. **5** Privacy radar report | Google sign-in for the calendar (skipped by the owner 2026-11-20); file shelf (optional) |
+| **P5b System and assistant desk (v0.7.x, proposed 2026-11-20)** | Nothing yet | **6** Quick controls for the whole system plus Pluto. **7** Mute key for Pluto and the system microphone. **8** Assistant spend tile. **9** Approve an assistant's command from the pet (security design first) | Clipboard history, game strip, call mode, keep-awake: not scheduled |
+| **P6 Voice (v0.8.0)** | Nothing | Dictation, on-device, held key | Waits for a second developer |
+| **P7 Reach (v0.9.0)** | Nothing | Linux and Wayland, Hindi and Telugu, LAN mode (files to and from the phone would join here, with a privacy review) | Phone remote (trackpad, launcher): not decided |
+| **P8 AI** | Nothing | Talk to the pet, writing help, summaries, quiz | On hold: the owner picks a provider |
+| **P9 Online** | Nothing | Accounts, gallery, friends, sharing, code signing | On hold: backend, privacy statement, certificates |
+| **Release work** | Release workflow builds a draft when the version changes; 0.6.0 version bump pushed | Owner presses "Run workflow" and tests 0.6.0 | Signed in-place updates, Microsoft Store listing, demo film: excluded for now (owner 2026-11-19) |
+
+**Never doing (owner and Claude):** NotchPixel's taskbar replacement, game FPS strip, stream tools, widgets and music (breadth, not for students and developers); Spider-Man or any other company's character; the Plugin SDK.
+
+**Next, in order:** (1) the owner runs the 0.6.0 draft on Windows and Mac; (2) Tab Tantrum symptoms; (3) fixes from that test; (4) P5 in the order above; (5) P5b.
+
 ## Phase overview
 
 | Phase | Goal | Milestones | Ends when |
@@ -267,15 +291,28 @@ Other pages are fine for now (owner); they get fixed later, as they come up.
 
 ## P5 — Small features pack (release v0.7.0)
 
-**In plain words:** five self-contained quick wins taken from the old P4 and P5. Each is one to three days, none depends on another, and each can ship on its own as a point release.
+**In plain words:** five self-contained quick wins. Each is one to four days, none depends on another, and each can ship on its own as a point release. Order: 1, 2, 3, 4, 5.
 
-| Feature | What you would see | Done when |
-|---|---|---|
-| **Quick Actions (M4)** | One shortcut opens a command bar: new note or task, search everything, open a saved link. | Works from any app; every action is also reachable without it. |
-| **Launch Buddy (FR-72)** | A saved set of apps, links and files opens in one click, from the pet or Quick Actions. | A missing file is reported, never silently skipped. |
-| **System resources (FR-73)** | A small CPU, RAM, disk and battery badge, off by default. | No visible slowdown; reads the OS only while shown. |
-| **Privacy radar report (M11)** | A per-site evidence page behind the radar flag, exportable. | Builds on the radar already shipped. |
-| **Calendar integration (FR-74)** | Your calendar events show in Pluto and ring like reminders, with a Join button for meeting links a few minutes before. Owner 2026-11-19: integration, not a one-off file import. | An event from your calendar rings like a reminder. The connection method is an open decision (DECISIONS), because Google and Outlook need a login and the network. |
+| # | Feature | What you would see | Done when |
+|---|---|---|---|
+| 1 | **Quick Actions (M4)** | One global shortcut opens a command bar: new task or note, search your own tasks, notes and courses, start focus, open a project or a saved link, run a Launch Buddy set. | Works from any app; every action is also reachable without it. |
+| 2 | **Launch Buddy (FR-72)** | A saved set of apps, links and files opens in one click, from the pet, a project page or Quick Actions. A set can also start a focus session ("Study set", "Work set"). | A missing file is named, never silently skipped. |
+| 3 | **Calendar integration (FR-74)** | Paste a calendar's secret iCal link (Google, Outlook and Apple all give one). Events show in Pluto and ring like reminders; the pet says "Standup in 5 min" with a Join link (Meet, Zoom, Teams). Read-only. | An event from your calendar rings like a reminder; refresh every few minutes. **Google sign-in is skipped for now** (owner 2026-11-20); the staged plan stays in DECISIONS for later. |
+| 4 | **System resources (FR-73)** | A small CPU, RAM, disk and battery badge, off by default. | No visible slowdown; reads the OS only while shown. |
+| 5 | **Privacy radar report (M11)** | A per-site evidence page behind the radar flag, exportable. | Builds on the radar already shipped. |
+
+## P5b — System and assistant desk (release v0.7.x; proposed by Claude 2026-11-20, owner to confirm the split)
+
+Grouped because items 6 and 7 are operating-system code that only the owner can test on a real PC, and 8 and 9 both build on the Assistants page.
+
+| # | Feature | What you would see | Honest risk |
+|---|---|---|---|
+| 6 | **Quick controls, whole system plus Pluto** (owner 2026-11-20) | One panel (pet card and Quick Actions) with switches that read the real state. **System, Windows, documented and reliable:** volume and mute, microphone mute, Wi-Fi on/off, Bluetooth on/off, laptop screen brightness, power plan. **System, fragile (undocumented, may break after a Windows update):** night light, Focus assist. **Pluto:** start/stop focus, pet sleep or hide, quiet mode, sounds on/off. | macOS gets volume, microphone and Wi-Fi; the rest show disabled with the reason. External monitors need a different brightness method. First-time radio switches may ask Windows for permission. Only Windows can be tested by the owner; macOS is compiled in CI only. |
+| 7 | **Mute key, Pluto and system** (owner 2026-11-20) | One global shortcut mutes the **system microphone** in every app at once (at the device, so it works for calls anywhere) and shows "Mic muted" on the pet; a second shortcut puts **Pluto** in quiet mode (no sounds, no bubbles). | Windows uses the audio device mute; macOS sets input volume to zero and restores it. A call app's own mute button can disagree with the device state; the pet shows the device state. |
+| 8 | **Assistant spend** | A tile on Assistants: today's and this week's tokens and cost per assistant and per project, read from the tools' own local logs, no network. | Log formats change between versions; shows "unknown" rather than guessing. |
+| 9 | **Approve an assistant's command from the pet** | Allow, Deny or Ask in the terminal, on the pet, for tool permission requests. Fails open to the assistant's own prompt. | A real security boundary: **a written security design (local socket, user-only permissions, peer check, timeout) is approved by the owner before any code.** |
+
+**Not scheduled:** clipboard history, game strip (Pluto's version would be "game mode": the pet hides and stays silent while a game is fullscreen), call mode, keep-awake, file shelf (optional), phone remote, files to and from the phone (needs a LAN server; belongs with P7 LAN).
 
 ---
 

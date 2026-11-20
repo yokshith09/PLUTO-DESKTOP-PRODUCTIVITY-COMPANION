@@ -481,3 +481,4 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-19: Habit tracker (owner reference) and Course overview redrawn; character pluto.json bundled. Characters (P3) remain on hold after the owner rejected new drawings.
 - 2026-11-19: Owner picked competitor items 1 to 5 (calendar integration, Quick Actions, on-pet approval, assistant spend, Launch Buddy); release work excluded. NotchPixel feature list recorded in COMPETITORS section 8.
 - 2026-11-20: Owner wants Google account calendar sync; staged plan recorded in DECISIONS (iCal link, then Google read-only sign-in after app review, then two-way). File shelf optional.
+- 2026-11-20: Plan at a glance added to MASTER_PLAN (every phase: done, planned, skipped). P5 = Quick Actions, Launch Buddy, Calendar integration (iCal link), System resources, Privacy report. New P5b = system Quick controls, Mute key (system mic plus Pluto), Assistant spend, on-pet approval. Google sign-in skipped.
