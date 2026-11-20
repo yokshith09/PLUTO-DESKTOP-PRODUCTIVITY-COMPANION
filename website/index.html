@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pluto: a desktop pet for your tasks, focus and time</title>
+  <meta name="description" content="Pluto is a small desktop companion that keeps your tasks, focus, time and notes in one place. Free and open source for Windows and macOS. Everything stays on your computer.">
+  <meta name="theme-color" content="#EDF1F5">
+  <meta property="og:title" content="Pluto: small companion, big universe">
+  <meta property="og:description" content="A desktop pet that keeps your tasks, focus, time and notes in one place. Everything stays on your computer.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="shots/today.webp">
+  <link rel="icon" href="favicon.png">
+  <link rel="preload" href="fonts/unbounded-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <script src="site.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="top">
+    <a class="brand" href="#top" aria-label="Pluto home"><img src="icon.png" alt="" width="32" height="32"><span>Pluto</span></a>
+    <nav aria-label="Main">
+      <a href="#world">Features</a>
+      <a href="#next">Coming next</a>
+      <a href="#friends">Characters</a>
+      <a href="#private">Privacy</a>
+      <fieldset class="colours" id="colours">
+        <legend>Colour of this page (the same five colours as the app)</legend>
+        <label title="Periwinkle"><input type="radio" name="colour" value="periwinkle" aria-label="Periwinkle" checked><span style="--sw: oklch(0.52 0.19 262)"></span></label>
+        <label title="Twilight Indigo"><input type="radio" name="colour" value="indigo" aria-label="Twilight Indigo"><span style="--sw: oklch(0.5 0.2 275)"></span></label>
+        <label title="Ultraviolet"><input type="radio" name="colour" value="ultraviolet" aria-label="Ultraviolet"><span style="--sw: oklch(0.5 0.22 295)"></span></label>
+        <label title="Midnight Amethyst"><input type="radio" name="colour" value="amethyst" aria-label="Midnight Amethyst"><span style="--sw: oklch(0.52 0.21 288)"></span></label>
+        <label title="Copper"><input type="radio" name="colour" value="copper" aria-label="Copper"><span style="--sw: oklch(0.53 0.15 48)"></span></label>
+      </fieldset>
+      <a class="btn btn-small" href="#get">Download</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <div class="sky" aria-hidden="true"><div class="planet"></div></div>
+    <section class="hero" id="top">
+      <div class="hero-copy">
+        <h1><span class="small">Small companion.</span> <span class="big">Big universe.</span></h1>
+        <p class="lede">A desktop pet that keeps your tasks, focus, time and notes in one calm place. It sits at the edge of your screen and cheers when you get things done.</p>
+        <div class="ctas">
+          <a class="btn" href="https://github.com/yokshith09/DESKTOP-PET/releases/latest" data-os="windows">Download for Windows</a>
+          <a class="btn btn-quiet" href="https://github.com/yokshith09/DESKTOP-PET/releases/latest" data-os="mac">Download for macOS</a>
+        </div>
+        <p class="fine">Free and open source. Version 0.6.0. No account.</p>
+      </div>
+
+      <div class="desk" aria-label="Try it: a small version of Pluto's Today list">
+        <div class="stage" id="stage">
+          <button class="pet" id="pet" type="button" aria-label="Pluto the bear. Click to say hello."></button>
+          <p class="bubble" id="bubble" role="status" aria-live="polite"></p>
+        </div>
+        <div class="window">
+          <div class="window-bar"><span></span><span></span><span></span><b>Today</b></div>
+          <ul class="tasks" id="tasks">
+            <li><label><input type="checkbox"><span>Read chapter 4 for Monday</span></label></li>
+            <li><label><input type="checkbox"><span>Send the project update</span></label></li>
+            <li><label><input type="checkbox"><span>25 minutes on the essay</span></label></li>
+          </ul>
+          <form class="add" id="add">
+            <label class="sr" for="new-task">Add a task</label>
+            <input id="new-task" maxlength="60" placeholder="Add a task for today" autocomplete="off">
+            <button class="btn btn-small" type="submit">Add</button>
+          </form>
+        </div>
+        <p class="try">Try it: tick a task, add one, or click the pet.</p>
+      </div>
+    </section>
+
+    <section class="world" id="world" aria-labelledby="world-h">
+      <div class="world-head">
+        <h2 id="world-h">One small world for your whole day</h2>
+        <p>Five parts that work together, so the pet always knows what you're up to.</p>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Parts of Pluto">
+        <button role="tab" id="t-focus" aria-controls="p-world" aria-selected="true" data-tab="focus">Focus</button>
+        <button role="tab" id="t-track" aria-controls="p-world" aria-selected="false" tabindex="-1" data-tab="track">Track</button>
+        <button role="tab" id="t-notes" aria-controls="p-world" aria-selected="false" tabindex="-1" data-tab="notes">Notes</button>
+        <button role="tab" id="t-projects" aria-controls="p-world" aria-selected="false" tabindex="-1" data-tab="projects">Projects</button>
+        <button role="tab" id="t-companion" aria-controls="p-world" aria-selected="false" tabindex="-1" data-tab="companion">Companion</button>
+      </div>
+      <div class="panel" id="p-world" role="tabpanel" aria-labelledby="t-focus">
+        <div class="panel-text">
+          <h3 id="panel-h">Today, in one view</h3>
+          <p id="panel-p">The task you're on, what comes next, and a focus timer that the pet keeps beside you. Missed things wait for you here instead of disappearing.</p>
+        </div>
+        <figure class="shot">
+          <img id="panel-img" src="shots/today.webp" width="1600" height="1030" alt="Pluto's Today overview: the current task, today's tasks and reminders, and total time by app and website.">
+        </figure>
+      </div>
+      <p class="students">For students too: courses, a timetable, exam countdowns and class reminders.</p>
+    </section>
+
+    <section class="next" id="next" aria-labelledby="next-h">
+      <div class="world-head">
+        <h2 id="next-h">Coming next</h2>
+        <p>Planned for the next versions and not in 0.6.0 yet. These are early sketches, so details may change.</p>
+      </div>
+      <ul class="plans">
+        <li class="plan plan-wide">
+          <div class="sketch cal" aria-hidden="true">
+            <div class="cal-list">
+              <p><time>09:30</time><span>Standup</span><i>Meet</i></p>
+              <p><time>12:00</time><span>Lunch with Sam</span></p>
+              <p><time>15:00</time><span>Physics lab</span><i>Zoom</i></p>
+            </div>
+            <div class="cal-pet">
+              <p class="cal-bubble">Standup in 5 min <b>Join</b></p>
+              <span class="mini-pet"></span>
+            </div>
+          </div>
+          <h3>Calendar integration</h3>
+          <p>Link your Google, Outlook or Apple calendar. Events ring like reminders, and the pet tells you when a meeting is about to start, with a Join button for Meet, Zoom or Teams.</p>
+        </li>
+        <li class="plan">
+          <div class="sketch bar" aria-hidden="true">
+            <p class="bar-in">new task: buy notebooks<kbd>Enter</kbd></p>
+            <p class="bar-row">Start a 25 minute focus</p>
+            <p class="bar-row">Open the Study set</p>
+          </div>
+          <h3>Quick Actions</h3>
+          <p>One shortcut from any app: add a task or note, search everything, start a focus session.</p>
+        </li>
+        <li class="plan">
+          <div class="sketch set" aria-hidden="true">
+            <p class="set-name">Study set</p>
+            <p class="chips"><span>Notes</span><span>Lecture PDF</span><span>Course site</span><span>Focus 50 min</span></p>
+          </div>
+          <h3>Launch Buddy</h3>
+          <p>Save the apps, files and links you use together, and open them all with one click.</p>
+        </li>
+        <li class="plan">
+          <div class="sketch controls" aria-hidden="true">
+            <p><span>Wi-Fi</span><b class="sw on"></b></p>
+            <p><span>Bluetooth</span><b class="sw"></b></p>
+            <p><span>Volume</span><b class="slider"><i style="width:62%"></i></b></p>
+            <p><span>Brightness</span><b class="slider"><i style="width:80%"></i></b></p>
+          </div>
+          <h3>Quick controls</h3>
+          <p>Volume, microphone, Wi-Fi, Bluetooth and brightness from the pet's card, without opening Settings.</p>
+        </li>
+        <li class="plan">
+          <div class="sketch mute" aria-hidden="true">
+            <p><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>M</kbd></p>
+            <p class="pill">Mic muted</p>
+          </div>
+          <h3>Mute key</h3>
+          <p>One key mutes your microphone in every app at once. Another puts Pluto itself on quiet.</p>
+        </li>
+        <li class="plan">
+          <div class="sketch clips" aria-hidden="true">
+            <p>Chapter 4 summary, page 112</p>
+            <p>https://example.edu/syllabus</p>
+            <p>Room B204 at 3 pm</p>
+          </div>
+          <h3>Clipboard history</h3>
+          <p>Your last 20 copies, kept in memory only and never saved. Pin one to turn it into a task or note.</p>
+        </li>
+        <li class="plan">
+          <div class="sketch awake" aria-hidden="true">
+            <p><span>Keep awake</span><b class="sw on"></b></p>
+            <p class="awake-time">for 1 hour</p>
+          </div>
+          <h3>Keep-awake</h3>
+          <p>Stop your computer sleeping during a long download or build, with a timer that turns itself off.</p>
+        </li>
+      </ul>
+      <p class="also">Also planned: a game mode where the pet goes small and quiet and reminders wait, and a call mode that keeps the pet silent while you're on a call.</p>
+    </section>
+
+    <section class="friends" id="friends" aria-labelledby="friends-h">
+      <h2 id="friends-h">Pick a companion</h2>
+      <p class="sub">Each one has its own reactions and a little trick it does now and then. Choose one and it moves into the window at the top. More characters are on the way.</p>
+      <ul class="shelf" id="shelf"></ul>
+    </section>
+
+    <section class="private" id="private" aria-labelledby="private-h">
+      <div class="private-in">
+        <div>
+          <h2 id="private-h">Your day stays on your computer</h2>
+          <p>What you plan, write and track is yours, and it stays where you put it.</p>
+        </div>
+        <ul class="facts">
+          <li><b>No account.</b> Install it and start. There is nothing to sign up for.</li>
+          <li><b>One file, on your disk.</b> Tasks, notes and tracked time are saved on this computer and never uploaded.</li>
+          <li><b>Works offline.</b> Nothing about your day needs the internet. Website links open only when you click them.</li>
+          <li><b>Open code.</b> Pluto is MIT licensed. Anyone can read exactly what it does.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="get" id="get" aria-labelledby="get-h">
+      <h2 id="get-h">Get Pluto</h2>
+      <div class="get-row">
+        <a class="os" href="https://github.com/yokshith09/DESKTOP-PET/releases/latest">
+          <b>Windows</b><span>Installer (.exe or .msi)</span>
+        </a>
+        <a class="os" href="https://github.com/yokshith09/DESKTOP-PET/releases/latest">
+          <b>macOS</b><span>Apple silicon Macs (.dmg)</span>
+        </a>
+      </div>
+      <p class="note">Pluto isn't code-signed yet. The first time you open it, Windows SmartScreen or macOS will ask you to confirm. Choose <i>Run anyway</i> on Windows, or right-click the app and choose <i>Open</i> on a Mac.</p>
+
+      <div class="faq">
+        <h3>Questions</h3>
+        <details>
+          <summary>Is it really free?</summary>
+          <p>Yes. Pluto is free and open source under the MIT licence. There's no paid plan.</p>
+        </details>
+        <details>
+          <summary>What does time tracking look at?</summary>
+          <p>Which app is in front and, in your browser, which website. It doesn't record what you type or what's on your screen, and it pauses when you step away.</p>
+        </details>
+        <details>
+          <summary>Will the pet get in the way?</summary>
+          <p>It hides by itself when a game, film or presentation fills the screen. You can also change its size, make it see-through, or turn it off and keep using the app.</p>
+        </details>
+        <details>
+          <summary>Does it need the internet?</summary>
+          <p>No. Everything works offline. You only need a connection to open the website links you save.</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p><img src="icon.png" alt="" width="24" height="24"> Pluto. Small companion. Big universe.</p>
+    <p><a href="https://github.com/yokshith09/DESKTOP-PET">Source code</a> <a href="https://github.com/yokshith09/DESKTOP-PET/blob/main/LICENSE">MIT licence</a> <span>© 2026 Quorbit Technologies</span></p>
+  </footer>
+</body>
+</html>

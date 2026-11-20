@@ -9,6 +9,7 @@ Every claim is tagged with how it was checked. **Fact** = seen in code, tests, G
 
 ## 00. Checkpoint 2026-11-19 (progress card: phases, milestones, features, release)
 
+> **Updated 2026-11-20 (evening):** Website built in `website/` (not deployed; live pet demo, real screens, Coming next sketches without AI, five characters, the app's five colours). Counter not started.
 > **Updated 2026-11-20 (later):** Tab Tantrum and Open tabs fixed in code (Unverified); PW website and counter planned; P5b gains clipboard history, game mode, keep-awake and call mode.
 >
 > **Updated 2026-11-20:** the full per-phase view (done, planned, skipped) is in `MASTER_PLAN.md`, "Plan at a glance".
@@ -25,7 +26,7 @@ Every claim is tagged with how it was checked. **Fact** = seen in code, tests, G
 | P3 Characters | Packs, wardrobe, gallery | v0.4.0 | **Paused** (owner). Folder import and scan built |
 | **P4 Developer & MCP** | Pluto works with developer tools | **v0.6.0** | **Local part done**: MCP server, assistant hooks, git watcher, Project Spaces |
 | P4.5 Full screen + Tab Tantrum | Pet over full-screen apps; tab complaints | with 0.6.x | Tab Tantrum fixed 2026-11-20 (Unverified); FS-1 three-way setting next |
-| PW Website and anonymous user count | Public website; counter backend (no user info); opt-in ping | next after the current-version fixes | Planned 2026-11-20 (see MASTER_PLAN "PW") |
+| PW Website and anonymous user count | Public website; counter backend (no user info); opt-in ping | next after the current-version fixes | Website built 2026-11-20, not deployed (`website/`, tests in `src/website.test.ts`); counter not started |
 | P5 Small features | Quick Actions, Launch Buddy, Calendar integration (iCal link; Google sign-in skipped), System resources, Privacy report | v0.7.0 | Not started |
 | P5b System and assistant desk | Quick controls (system plus Pluto), Mute key (system mic plus Pluto), Assistant spend, On-pet approval (security design first) | v0.7.x | Proposed 2026-11-20, not started |
 | P6 Voice | Dictation | v0.8.0 | Waits for a second developer |

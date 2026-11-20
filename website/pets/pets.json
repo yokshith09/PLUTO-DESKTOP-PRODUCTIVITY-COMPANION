@@ -1,0 +1,80 @@
+{
+  "cell": {
+    "width": 144,
+    "height": 156
+  },
+  "rows": [
+    "idle",
+    "running-right",
+    "running-left",
+    "waving",
+    "jumping"
+  ],
+  "pets": [
+    {
+      "id": "bear",
+      "name": "Pluto",
+      "kind": "the bear",
+      "frames": [
+        6,
+        8,
+        8,
+        4,
+        5
+      ],
+      "special": "Five done. Pluto mode: on."
+    },
+    {
+      "id": "mochi",
+      "name": "Mochi",
+      "kind": "the cat",
+      "frames": [
+        6,
+        8,
+        8,
+        4,
+        5
+      ],
+      "special": "Zoomies!"
+    },
+    {
+      "id": "pip",
+      "name": "Pip",
+      "kind": "the penguin",
+      "frames": [
+        6,
+        8,
+        8,
+        4,
+        5
+      ],
+      "special": "Three done. Belly slide!"
+    },
+    {
+      "id": "bolt",
+      "name": "Bolt",
+      "kind": "the robot",
+      "frames": [
+        6,
+        8,
+        8,
+        4,
+        5
+      ],
+      "special": "Systems online. Ready when you are."
+    },
+    {
+      "id": "ghosty",
+      "name": "Ghosty",
+      "kind": "the ghost",
+      "frames": [
+        6,
+        8,
+        8,
+        4,
+        5
+      ],
+      "special": "Boo! \u2026did I scare you?"
+    }
+  ]
+}

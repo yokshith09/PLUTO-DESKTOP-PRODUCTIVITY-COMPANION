@@ -5,6 +5,8 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+- Website (2026-11-20, not deployed): `website/` is a static page for Pluto. The real pet walks on a small Today window and jumps when you tick a task, waves when you add one or click it. Tabs show the app's real screens for Focus, Track, Notes, Projects and Companion. A Coming next section sketches planned features (calendar integration, Quick Actions, Launch Buddy, quick controls, mute key, clipboard history, keep-awake), marked as not in 0.6.0. Pick from five characters; more are coming. The page takes the app's five colours (Periwinkle by default) and remembers the choice in the browser. Fonts are self-hosted and nothing loads from other sites. `scripts/site-pets.py` builds the page's sprites from the packs; `src/website.test.ts` keeps the page in step with the app.
+
 - Planning only (2026-11-20): plan at a glance in MASTER_PLAN; P5 and new P5b scoped (calendar integration by iCal link, Quick Actions, Launch Buddy, system Quick controls, Mute key, assistant spend, on-pet approval). No code changed.
 
 ## [0.6.0] — 2026-11-19 (draft for owner testing on Windows and Mac; Unverified)

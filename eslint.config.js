@@ -10,4 +10,16 @@ export default tseslint.config(
     files: ["scripts/**/*.mjs", "e2e/**/*.mjs"],
     languageOptions: { globals: { console: "readonly", process: "readonly", setTimeout: "readonly", fetch: "readonly" } },
   },
+  {
+    // The website's one script runs in the visitor's browser.
+    files: ["website/**/*.js"],
+    languageOptions: {
+      sourceType: "script",
+      globals: {
+        document: "readonly", window: "readonly", navigator: "readonly", localStorage: "readonly", matchMedia: "readonly",
+        requestAnimationFrame: "readonly", performance: "readonly", setTimeout: "readonly", clearTimeout: "readonly",
+        setInterval: "readonly", clearInterval: "readonly", fetch: "readonly", Image: "readonly", IntersectionObserver: "readonly",
+      },
+    },
+  },
 );
