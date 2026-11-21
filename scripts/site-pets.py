@@ -11,7 +11,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 # Mira and Raja were deleted (owner, 2026-11-20).
 PETS = ["bear", "mochi", "pip", "bolt", "ghosty"]
-ROWS = ["idle", "running-right", "running-left", "waving", "jumping"]
+ROWS = ["idle", "running-right", "running-left", "waving", "jumping", "running"]  # "running" is the typing pose
 SCALE = 0.75  # shown at 96–128 CSS px, so it stays sharp on high-DPI screens
 
 
@@ -39,6 +39,8 @@ def build() -> dict:
         out["pets"].append({
             "id": pid, "name": meta["displayName"], "kind": kind or name,
             "frames": frames, "special": pl.get("special", {}).get("line", ""),
+            "specialName": pl.get("special", {}).get("name", ""),
+            "reactions": pl.get("reactions", {}),
         })
     (ROOT / "website" / "pets" / "pets.json").write_text(json.dumps(out, indent=2) + "\n")
     return out

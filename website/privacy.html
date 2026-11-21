@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy: Pluto</title>
+  <meta name="description" content="Pluto keeps your day on your computer: no account, nothing uploaded, a diary locked with your password. Here is exactly what it stores and what it reads.">
+  <meta name="theme-color" content="#151c33">
+  <meta property="og:title" content="Privacy: Pluto">
+  <meta property="og:description" content="Pluto keeps your day on your computer: no account, nothing uploaded, a diary locked with your password. Here is exactly what it stores and what it reads.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="shots/today.webp">
+  <link rel="icon" href="favicon.png">
+  <link rel="preload" href="fonts/unbounded-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <script src="site.js" defer></script>
+</head>
+<body class="page">
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="top">
+    <a class="brand" href="index.html" aria-label="Pluto home"><img src="icon.png" alt="" width="32" height="32"><span>Pluto</span></a>
+    <nav aria-label="Main">
+      <a href="features.html">Features</a>
+      <a href="characters.html">Characters</a>
+      <a href="privacy.html" aria-current="page">Privacy</a>
+      <fieldset class="colours" id="colours">
+        <legend>Colour of this page (the same five colours as the app)</legend>
+        <label title="Periwinkle"><input type="radio" name="colour" value="periwinkle" aria-label="Periwinkle" checked><span style="--sw: oklch(0.52 0.19 262)"></span></label>
+        <label title="Twilight Indigo"><input type="radio" name="colour" value="indigo" aria-label="Twilight Indigo"><span style="--sw: oklch(0.5 0.2 275)"></span></label>
+        <label title="Ultraviolet"><input type="radio" name="colour" value="ultraviolet" aria-label="Ultraviolet"><span style="--sw: oklch(0.5 0.22 295)"></span></label>
+        <label title="Midnight Amethyst"><input type="radio" name="colour" value="amethyst" aria-label="Midnight Amethyst"><span style="--sw: oklch(0.52 0.21 288)"></span></label>
+        <label title="Copper"><input type="radio" name="colour" value="copper" aria-label="Copper"><span style="--sw: oklch(0.53 0.15 48)"></span></label>
+      </fieldset>
+      <a class="btn btn-small" href="download.html">Download</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="page-hero dark-hero" aria-labelledby="page-h">
+      <div class="stars" aria-hidden="true"></div>
+      <h1 id="page-h">Your day stays on your computer</h1>
+      <p class="lede">No account, nothing uploaded, no one watching. Here is exactly what Pluto keeps, what it looks at, and what it never does.</p>
+    </section>
+
+    <section class="prose" aria-label="Privacy in detail">
+      <div class="prose-block" data-reveal>
+        <h2>Where your things live</h2>
+        <p>Tasks, notes, your diary, routines, meetings and tracked time are saved in one database file, <code>pluto.db</code>, in Pluto's own folder on your computer:</p>
+        <ul>
+          <li><b>Windows:</b> <code>%APPDATA%\app.pluto.desktop</code></li>
+          <li><b>macOS:</b> <code>~/Library/Application Support/app.pluto.desktop</code></li>
+        </ul>
+        <p>It is never uploaded. There is no Pluto account and no Pluto server that holds your data.</p>
+      </div>
+
+      <div class="prose-block" data-reveal>
+        <h2>What time tracking looks at</h2>
+        <p>Time tracking is off until you switch it on. When it is on:</p>
+        <ul>
+          <li><b>Apps:</b> Pluto notes which app is in front, by its file name (for example <code>Code.exe</code>). Never the window title, never what is inside the window.</li>
+          <li><b>Websites:</b> it reads the address bar of the browser in front and keeps only the site name (<code>github.com</code>). The rest of the address is dropped straight away. Private and incognito windows are skipped, and nothing is read while you type in the address bar.</li>
+          <li><b>Away from the keyboard:</b> when you step away, tracking pauses.</li>
+        </ul>
+      </div>
+
+      <div class="prose-block" data-reveal>
+        <h2>The pet's senses</h2>
+        <ul>
+          <li><b>Types along with you</b> (off by default): Pluto counts key presses so the pet can type along. It never knows which keys, and the count is not stored or sent.</li>
+          <li><b>Steps aside in full screen:</b> Pluto asks the system whether something fills the screen. That is all it learns.</li>
+          <li><b>Tab Tantrum</b> (off by default): Pluto counts the tabs in your browser so the pet can complain when there are too many.</li>
+        </ul>
+      </div>
+
+      <div class="prose-block" data-reveal>
+        <h2>Your diary</h2>
+        <p>The diary is locked with your password. Lock it any time with one click.</p>
+      </div>
+
+      <div class="prose-block" data-reveal>
+        <h2>The internet</h2>
+        <p>Pluto works offline. Its window is only allowed to talk to Pluto itself: the app's security policy blocks it from contacting any website. Links you save open in your own browser when you click them.</p>
+        <p>This website loads nothing from other sites either: no trackers, no ads, and the fonts are served from here. A colour you pick at the top is remembered in your own browser only.</p>
+      </div>
+
+      <div class="prose-block" data-reveal>
+        <h2>Check for yourself</h2>
+        <p>Pluto is open source under the MIT licence. Every line that reads, stores or shows your data is public: <a href="https://github.com/yokshith09/DESKTOP-PET">read the code on GitHub</a>.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="foot-brand">
+      <p class="foot-name"><img src="icon.png" alt="" width="28" height="28"> Pluto</p>
+      <p>Small companion. Big universe.</p>
+    </div>
+    <nav class="foot-links" aria-label="More">
+      <a href="features.html">Features</a>
+      <a href="characters.html">Characters</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="download.html">Download</a>
+      <a href="https://github.com/yokshith09/DESKTOP-PET">Source code</a>
+      <a href="https://github.com/yokshith09/DESKTOP-PET/blob/main/LICENSE">MIT licence</a>
+    </nav>
+    <p class="foot-small">© 2026 Quorbit Technologies. Pluto is free and open source.</p>
+  </footer>
+</body>
+</html>

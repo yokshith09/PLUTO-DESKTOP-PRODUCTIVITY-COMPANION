@@ -1,18 +1,35 @@
 # Pluto website
 
-A static page: `index.html`, `styles.css`, `site.js`. No build step, no framework, nothing loaded
-from other sites (fonts are self-hosted, so visitors aren't sent to a font CDN).
+Static pages, no framework, nothing loaded from other sites (fonts are self-hosted, so visitors
+aren't sent to a font CDN).
 
+| Page | What it is |
+|---|---|
+| `index.html` | The story: sunrise over Pluto with the bear on the horizon, "your day is everywhere" (scattered things gather into one Pluto window), try it (live demo), a day with Pluto (dawn to night, the app's screens and the pet's reactions), the orbit scene, characters, privacy, coming next, finale with downloads |
+| `features.html` | Each part up close (tabs with real screens), the little things, coming next (sketches) |
+| `characters.html` | The five companions, their reactions and specials (from `pets/pets.json`) |
+| `privacy.html` | What Pluto stores, where, and what time tracking reads (each claim checked against the code by `src/website.test.ts`) |
+| `download.html` | Downloads, install steps for an unsigned app, questions |
+| `404.html` | Lost in orbit |
+
+- **Edit pages in `scripts/site-pages/<name>.html`**, then run `python3 scripts/site-pages.py`.
+  It wraps each body in the shared head, header (with the colour picker) and footer and writes
+  `website/<name>.html`. The written pages are committed, so the site itself has no build step.
 - **Preview:** `cd website && python3 -m http.server 5190`, then open http://localhost:5190
   (opening the file directly won't load the pets, which come from `pets/pets.json`).
-- **Pets:** `python3 scripts/site-pets.py` rebuilds `pets/` from the app's `packs/`
-  (only the rows the page animates, at 3/4 size). Mira and Raja were deleted (owner, 2026-11-20).
+- **Pets:** `python3 scripts/site-pets.py` rebuilds `pets/` from the app's `packs/` (rows: idle,
+  walking both ways, waving, jumping, typing; at 3/4 size) with each pack's reactions and special.
 - **Screens:** `shots/*.webp` are the app's real screens from the browser preview (`pnpm dev`,
-  `main.html`), 1180×760 at 2x, saved at 1600 px wide.
-- **Motion:** `planet.js` draws Pluto in WebGL (one fragment shader; GLSL notes: `half` is a reserved word, and `pow()` of a negative number is undefined). `site.js` sets `--p` on `[data-scroll]` and reveals `[data-reveal]`. Everything that moves is under `html.motion`, which is only set when the visitor has not asked for reduced motion. Without WebGL, `.no-gl` shows a drawn planet.
-- **Coming next:** the sketches are HTML, not screenshots, because the features aren't built.
-  Move a feature out of that section when it ships.
+  `main.html`; the diary with `?demo=diary`), 1180×760 at 2x, saved at 1600 px wide.
+- **Motion:** `planet.js` draws Pluto in WebGL (one fragment shader; GLSL notes: `half` is a
+  reserved word, and `pow()` of a negative number is undefined) for three scenes: the hero, the
+  orbit and the finale; each draws only while on screen. `site.js` runs the pinned scenes (scatter,
+  day), `--p` on `[data-scroll]`, reveals on `[data-reveal]` and every sprite. Everything that
+  moves is under `html.motion`, set only when the visitor has not asked for reduced motion; without
+  it every scene shows its finished state. Without WebGL, `.no-gl` shows a drawn planet.
+- **Coming next:** sketches in HTML, not screenshots, because the features aren't built. Move a
+  feature out of that section when it ships. No AI on the site for now (owner, 2026-11-20).
 - **Deploy:** Cloudflare Pages with `website` as the output folder and no build command.
   `_headers` sets the security headers. Not deployed yet: domain and account are the owner's call.
-- **Tests:** `src/website.test.ts` checks the page against the packs and files.
+- **Tests:** `src/website.test.ts`.
 - **Fonts:** Unbounded and Figtree, SIL Open Font License (`fonts/OFL-*.txt`).

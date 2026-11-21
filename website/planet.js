@@ -1,13 +1,14 @@
-// Pluto, drawn live in WebGL, and the orbit scene it sits in.
-// No library: one fragment shader ray-traces two spheres (Pluto and Charon) and paints them from
-// noise. The surface is a sketch of the real one (New Horizons, 2015): tan plains, the bright heart
-// (Tombaugh Regio), the dark reddish-brown belt along the equator, a blue haze ring around the limb,
-// and Charon's red north pole. As you scroll through the scene, Pluto turns, the Sun comes round
-// from behind it, and the five parts of the app orbit it as moons.
+// Pluto, drawn live in WebGL. No library: one fragment shader ray-traces two spheres (Pluto and
+// Charon) and paints them from noise. The surface is a sketch of the real one (New Horizons, 2015):
+// tan plains, the bright heart (Tombaugh Regio), the dark reddish-brown belt along the equator, a
+// blue haze ring around the limb, and Charon's red north pole.
+//
+// Three scenes use it: the hero (sunrise over Pluto's horizon, the bear standing on it), the orbit
+// scene (pinned while you scroll: Pluto turns, the Sun comes round, the five parts circle it), and
+// the finale beside the last download button. Each draws only while it is on screen; with reduced
+// motion each shows one still frame; without WebGL a drawn planet stands in (.no-gl).
 const still = matchMedia("(prefers-reduced-motion: reduce)");
 const small = matchMedia("(max-width: 720px)");
-const section = document.querySelector("#orbit");
-const canvas = section?.querySelector("canvas");
 
 const VERT = `attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }`;
 const FRAG = `
@@ -15,7 +16,10 @@ precision highp float;
 uniform vec2 uRes;
 uniform float uSpin;
 uniform vec3 uLight;
-uniform float uCharon;
+uniform vec2 uCenter;
+uniform float uR;
+uniform vec3 uCharon; // x, y, radius (0 = none)
+uniform float uCharonFront;
 
 float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
 float noise(vec3 x) {
@@ -69,30 +73,31 @@ void main() {
   float px = 1.5 / hs;
   vec3 L = normalize(uLight);
   vec3 haze = vec3(0.55, 0.70, 0.98);
-  const float R = 0.66;
+  float R = uR;
 
   vec4 col = vec4(0.0);
 
   // Charon on a tilted orbit; behind Pluto for half of it.
-  vec2 cc = vec2(cos(uCharon) * 0.92, sin(uCharon) * 0.2 + 0.05);
-  float cz = -sin(uCharon);
-  float cr = 0.105;
+  vec2 cc = uCharon.xy;
+  float cz = uCharonFront;
+  float cr = max(uCharon.z, 1e-4);
   vec2 dc = (uv - cc) / cr;
   float rc = length(dc);
   vec4 charon = vec4(0.0);
-  if (rc < 1.0 + px / cr) {
+  if (uCharon.z > 0.0 && rc < 1.0 + px / cr) {
     vec3 nc = vec3(dc, sqrt(max(0.0, 1.0 - rc * rc)));
     vec3 a = charonSurface(rotY(uSpin * 0.6) * nc);
     charon = vec4(lit(a, nc), 1.0 - smoothstep(1.0 - px / cr, 1.0, rc));
   }
 
   // Pluto
-  float r = length(uv) / R;
+  vec2 pv = uv - uCenter;
+  float r = length(pv) / R;
   vec4 pluto = vec4(0.0);
   float back = max(0.0, -L.z);
-  float side = 0.5 + 0.5 * dot(normalize(uv + 1e-5), normalize(L.xy + 1e-5));
+  float side = 0.5 + 0.5 * dot(normalize(pv + 1e-5), normalize(L.xy + 1e-5));
   if (r < 1.0 + px / R) {
-    vec3 n = vec3(uv / R, sqrt(max(0.0, 1.0 - r * r)));
+    vec3 n = vec3(pv / R, sqrt(max(0.0, 1.0 - r * r)));
     vec3 q = rotY(uSpin) * rotX(-0.3) * n;
     vec3 c = lit(plutoSurface(q), n);
     float limb = pow(1.0 - n.z, 3.0);
@@ -128,63 +133,100 @@ function setup(c) {
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) || "link");
   gl.useProgram(prog);
-  const buf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   const loc = gl.getAttribLocation(prog, "p");
   gl.enableVertexAttribArray(loc);
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
   const u = (n) => gl.getUniformLocation(prog, n);
-  return { gl, res: u("uRes"), spin: u("uSpin"), light: u("uLight"), charon: u("uCharon") };
+  const U = { res: u("uRes"), spin: u("uSpin"), light: u("uLight"), center: u("uCenter"), r: u("uR"), charon: u("uCharon"), front: u("uCharonFront") };
+  const maxDpr = Number(c.dataset.dpr || 1.75);
+  return {
+    draw(o) {
+      const dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
+      const w = Math.round(c.clientWidth * dpr), h = Math.round(c.clientHeight * dpr);
+      if (!w || !h) return;
+      if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+      gl.viewport(0, 0, w, h);
+      gl.uniform2f(U.res, w, h);
+      gl.uniform1f(U.spin, o.spin);
+      gl.uniform3f(U.light, o.light[0], o.light[1], o.light[2]);
+      gl.uniform2f(U.center, o.center[0], o.center[1]);
+      gl.uniform1f(U.r, o.r);
+      gl.uniform3f(U.charon, o.charon[0], o.charon[1], o.charon[2]);
+      gl.uniform1f(U.front, o.charonFront);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    },
+  };
 }
 
 const clamp = (v) => Math.min(1, Math.max(0, v));
 const ease = (t) => t * t * (3 - 2 * t);
+const scenes = [];
 
-if (section && canvas) {
+/** A scene: a canvas inside `root`, and what to draw for a scroll progress `p` and time `t`. */
+function scene(root, canvas, progress, frame) {
   let g = null;
-  try { g = setup(canvas); } catch (e) { console.warn("Pluto planet: falling back to a still image.", e); g = null; }
-  if (!g) section.classList.add("no-gl");
+  try { g = canvas ? setup(canvas) : null; } catch (e) { console.warn("Pluto planet: falling back to a still image.", e); }
+  if (!g) root.classList.add("no-gl");
+  const s = { root, g, progress, frame, visible: false };
+  new IntersectionObserver((es) => { s.visible = es.some((e) => e.isIntersecting); wake(); }, { rootMargin: "200px" }).observe(root);
+  scenes.push(s);
+  return s;
+}
 
-  const moons = [...section.querySelectorAll(".moon")];
-  const intro = section.querySelector(".orbit-intro");
-  let progress = still.matches ? 1 : 0;
-  let visible = false;
-  let start = performance.now();
-
-  function size() {
-    if (!g) return;
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
-    const w = Math.round(canvas.clientWidth * dpr);
-    const h = Math.round(canvas.clientHeight * dpr);
-    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-  }
-
-  function measure() {
-    if (still.matches) { progress = 1; return; }
-    const r = section.getBoundingClientRect();
-    progress = clamp(-r.top / Math.max(1, r.height - innerHeight));
-  }
-
-  function frame(now) {
-    const p = progress;
-    const t = still.matches ? 0 : (now - start) / 1000;
-    // The scene: Pluto grows and turns, the Sun swings round from behind, Charon circles.
-    const grow = ease(clamp(p / 0.6));
-    section.style.setProperty("--grow", String(0.62 + 0.38 * grow));
-    if (intro) intro.style.opacity = String(1 - clamp((p - 0.08) / 0.12));
-    if (g) {
-      size();
-      const { gl } = g;
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.uniform2f(g.res, canvas.width, canvas.height);
-      gl.uniform1f(g.spin, -2.0 + 2.1 * ease(clamp(p / 0.85)) + t * 0.03);
-      const th = Math.PI * (0.88 - 0.58 * ease(clamp(p / 0.7)));
-      gl.uniform3f(g.light, -Math.sin(th) * 0.8, 0.35, Math.cos(th));
-      gl.uniform1f(g.charon, 2.2 + p * 5.0 + t * 0.12);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+/* ---------- Hero: sunrise over Pluto's horizon, the bear standing on top ---------- */
+const hero = document.querySelector(".hero3d");
+if (hero) {
+  const canvas = hero.querySelector("canvas");
+  const bear = hero.querySelector(".on-planet");
+  const R = 2.5;
+  scene(hero, canvas, () => clamp(scrollY / Math.max(1, hero.offsetHeight)), (g, p, t) => {
+    const narrow = small.matches;
+    // The horizon's height in the canvas's units: near the bottom on a tall phone screen.
+    const hs0 = Math.min(canvas.clientWidth, canvas.clientHeight) / 2 || 1;
+    const horizon = narrow ? -(canvas.clientHeight / 2) / hs0 + 0.5 : -0.42;
+    const center = [narrow ? 0 : 0.35, -R + horizon - p * 0.5];
+    g?.draw({
+      spin: 0.25 + t * 0.012 + p * 0.9,
+      light: [0.45, 0.8, -0.18],
+      center, r: R,
+      charon: [0, 0, 0], // no Charon here: unlit against the night sky it read as a hole
+      charonFront: 1,
+    });
+    if (bear && canvas) {
+      // Stand the bear on the horizon, where the circle's top passes x.
+      const rect = canvas.getBoundingClientRect();
+      const hs = Math.min(rect.width, rect.height) / 2;
+      const x = narrow ? 0 : 0.25;
+      const y = center[1] + Math.sqrt(Math.max(0, R * R - (x - center[0]) ** 2));
+      const left = rect.width / 2 + x * hs;
+      const top = rect.height / 2 - y * hs;
+      bear.style.transform = `translate(${(left - bear.offsetWidth / 2).toFixed(1)}px, ${(top - bear.offsetHeight + 8).toFixed(1)}px)`;
     }
-    // The five parts orbit as moons and arrive one by one; behind Pluto they dim.
+  });
+}
+
+/* ---------- Orbit: pinned while you scroll through it ---------- */
+const orbit = document.querySelector("#orbit");
+if (orbit) {
+  const moons = [...orbit.querySelectorAll(".moon")];
+  const intro = orbit.querySelector(".orbit-intro");
+  scene(orbit, orbit.querySelector("canvas"), () => {
+    const r = orbit.getBoundingClientRect();
+    return clamp(-r.top / Math.max(1, r.height - innerHeight));
+  }, (g, p, t) => {
+    orbit.style.setProperty("--grow", String(0.62 + 0.38 * ease(clamp(p / 0.6))));
+    if (intro) intro.style.opacity = String(1 - clamp((p - 0.08) / 0.12));
+    const th = Math.PI * (0.88 - 0.58 * ease(clamp(p / 0.7)));
+    const ca = 2.2 + p * 5.0 + t * 0.12;
+    g?.draw({
+      spin: -2.0 + 2.1 * ease(clamp(p / 0.85)) + t * 0.03,
+      light: [-Math.sin(th) * 0.8, 0.35, Math.cos(th)],
+      center: [0, 0], r: 0.66,
+      charon: [Math.cos(ca) * 0.92, Math.sin(ca) * 0.2 + 0.05, 0.105],
+      charonFront: -Math.sin(ca),
+    });
     const narrow = small.matches;
     moons.forEach((m, i) => {
       const show = still.matches ? 1 : clamp((p - 0.18 - i * 0.09) / 0.08);
@@ -197,26 +239,44 @@ if (section && canvas) {
       m.style.opacity = String(show * (front < 0 ? 0.45 : 1));
       m.style.zIndex = front < 0 ? "1" : "3";
     });
-  }
-
-  let raf = 0;
-  function loop(now) {
-    raf = 0;
-    if (!visible || document.hidden) return;
-    measure();
-    frame(now);
-    if (!still.matches) raf = requestAnimationFrame(loop);
-  }
-  function wake() { if (!raf) raf = requestAnimationFrame(loop); }
-
-  new IntersectionObserver((es) => {
-    visible = es.some((e) => e.isIntersecting);
-    if (visible) { start = performance.now() - 2000; wake(); }
-  }, { rootMargin: "200px" }).observe(section);
-  addEventListener("resize", wake, { passive: true });
-  document.addEventListener("visibilitychange", wake);
-  still.addEventListener?.("change", () => { measure(); wake(); });
-  // A still frame straight away, so the scene is never blank.
-  measure();
-  frame(performance.now());
+  });
 }
+
+/* ---------- Finale: Pluto in full sun beside the last download button ---------- */
+const finale = document.querySelector(".finale");
+if (finale) {
+  scene(finale, finale.querySelector("canvas"), () => {
+    const r = finale.getBoundingClientRect();
+    return clamp((innerHeight - r.top) / (innerHeight + r.height));
+  }, (g, p, t) => {
+    const ca = 1.2 + t * 0.15 + p * 2;
+    g?.draw({
+      spin: 0.1 + t * 0.03 + p * 0.6,
+      light: [-0.55, 0.45, 0.7],
+      center: [0, 0], r: 0.7,
+      charon: [Math.cos(ca) * 0.9, Math.sin(ca) * 0.16, 0.1],
+      charonFront: -Math.sin(ca),
+    });
+  });
+}
+
+/* ---------- One loop for all scenes ---------- */
+let raf = 0;
+const born = performance.now() - 2000;
+function loop(now) {
+  raf = 0;
+  if (document.hidden) return;
+  let any = false;
+  for (const s of scenes) {
+    if (!s.visible) continue;
+    any = true;
+    s.frame(s.g, still.matches ? 1 : s.progress(), still.matches ? 0 : (now - born) / 1000);
+  }
+  if (any && !still.matches) raf = requestAnimationFrame(loop);
+}
+function wake() { if (!raf) raf = requestAnimationFrame(loop); }
+addEventListener("resize", wake, { passive: true });
+document.addEventListener("visibilitychange", wake);
+still.addEventListener?.("change", wake);
+// A still frame of each scene straight away, so nothing is ever blank.
+for (const s of scenes) s.frame(s.g, still.matches ? 1 : s.progress(), 0);

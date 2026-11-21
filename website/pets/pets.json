@@ -8,7 +8,8 @@
     "running-right",
     "running-left",
     "waving",
-    "jumping"
+    "jumping",
+    "running"
   ],
   "pets": [
     {
@@ -20,9 +21,14 @@
         8,
         8,
         4,
-        5
+        5,
+        6
       ],
-      "special": "Five done. Pluto mode: on."
+      "special": "Five done. Pluto mode: on.",
+      "specialName": "Pluto mode",
+      "reactions": {
+        "all-done": "party"
+      }
     },
     {
       "id": "mochi",
@@ -33,9 +39,15 @@
         8,
         8,
         4,
-        5
+        5,
+        6
       ],
-      "special": "Zoomies!"
+      "special": "Zoomies!",
+      "specialName": "Zoomies",
+      "reactions": {
+        "task-done": "jump",
+        "task-deleted": "toss"
+      }
     },
     {
       "id": "pip",
@@ -46,9 +58,15 @@
         8,
         8,
         4,
-        5
+        5,
+        6
       ],
-      "special": "Three done. Belly slide!"
+      "special": "Three done. Belly slide!",
+      "specialName": "Belly slide",
+      "reactions": {
+        "task-added": "wave",
+        "all-done": "party"
+      }
     },
     {
       "id": "bolt",
@@ -59,9 +77,15 @@
         8,
         8,
         4,
-        5
+        5,
+        6
       ],
-      "special": "Systems online. Ready when you are."
+      "special": "Systems online. Ready when you are.",
+      "specialName": "Systems online",
+      "reactions": {
+        "task-started": "type",
+        "reminder": "ring"
+      }
     },
     {
       "id": "ghosty",
@@ -72,9 +96,15 @@
         8,
         8,
         4,
-        5
+        5,
+        6
       ],
-      "special": "Boo! \u2026did I scare you?"
+      "special": "Boo! \u2026did I scare you?",
+      "specialName": "Boo",
+      "reactions": {
+        "task-deleted": "worried",
+        "focus-done": "cheer"
+      }
     }
   ]
 }

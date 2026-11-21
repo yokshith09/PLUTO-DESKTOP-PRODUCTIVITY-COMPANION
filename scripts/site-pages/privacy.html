@@ -1,0 +1,52 @@
+    <section class="page-hero dark-hero" aria-labelledby="page-h">
+      <div class="stars" aria-hidden="true"></div>
+      <h1 id="page-h">Your day stays on your computer</h1>
+      <p class="lede">No account, nothing uploaded, no one watching. Here is exactly what Pluto keeps, what it looks at, and what it never does.</p>
+    </section>
+
+    <section class="prose" aria-label="Privacy in detail">
+      <div class="prose-block" data-reveal>
+        <h2>Where your things live</h2>
+        <p>Tasks, notes, your diary, routines, meetings and tracked time are saved in one database file, <code>pluto.db</code>, in Pluto's own folder on your computer:</p>
+        <ul>
+          <li><b>Windows:</b> <code>%APPDATA%\app.pluto.desktop</code></li>
+          <li><b>macOS:</b> <code>~/Library/Application Support/app.pluto.desktop</code></li>
+        </ul>
+        <p>It is never uploaded. There is no Pluto account and no Pluto server that holds your data.</p>
+      </div>
+
+      <div class="prose-block" data-reveal>
+        <h2>What time tracking looks at</h2>
+        <p>Time tracking is off until you switch it on. When it is on:</p>
+        <ul>
+          <li><b>Apps:</b> Pluto notes which app is in front, by its file name (for example <code>Code.exe</code>). Never the window title, never what is inside the window.</li>
+          <li><b>Websites:</b> it reads the address bar of the browser in front and keeps only the site name (<code>github.com</code>). The rest of the address is dropped straight away. Private and incognito windows are skipped, and nothing is read while you type in the address bar.</li>
+          <li><b>Away from the keyboard:</b> when you step away, tracking pauses.</li>
+        </ul>
+      </div>
+
+      <div class="prose-block" data-reveal>
+        <h2>The pet's senses</h2>
+        <ul>
+          <li><b>Types along with you</b> (off by default): Pluto counts key presses so the pet can type along. It never knows which keys, and the count is not stored or sent.</li>
+          <li><b>Steps aside in full screen:</b> Pluto asks the system whether something fills the screen. That is all it learns.</li>
+          <li><b>Tab Tantrum</b> (off by default): Pluto counts the tabs in your browser so the pet can complain when there are too many.</li>
+        </ul>
+      </div>
+
+      <div class="prose-block" data-reveal>
+        <h2>Your diary</h2>
+        <p>The diary is locked with your password. Lock it any time with one click.</p>
+      </div>
+
+      <div class="prose-block" data-reveal>
+        <h2>The internet</h2>
+        <p>Pluto works offline. Its window is only allowed to talk to Pluto itself: the app's security policy blocks it from contacting any website. Links you save open in your own browser when you click them.</p>
+        <p>This website loads nothing from other sites either: no trackers, no ads, and the fonts are served from here. A colour you pick at the top is remembered in your own browser only.</p>
+      </div>
+
+      <div class="prose-block" data-reveal>
+        <h2>Check for yourself</h2>
+        <p>Pluto is open source under the MIT licence. Every line that reads, stores or shows your data is public: <a href="{{REPO}}">read the code on GitHub</a>.</p>
+      </div>
+    </section>

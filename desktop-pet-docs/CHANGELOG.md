@@ -5,6 +5,8 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+- Website v2 (2026-11-21, not deployed): six pages (home, features, characters, privacy, download, 404) built from one shared header and footer by `scripts/site-pages.py`. The home page tells a story: sunrise over a 3D Pluto with the bear standing on the horizon; "your day is everywhere", where scattered notes, tabs and reminders fly into one Pluto window as you scroll; a live demo; a day with Pluto from 08:30 to 22:00, with the sky changing from dawn to night, the app's real screens and the pet's reactions; the orbit scene; characters; privacy; and a finale with Pluto and the downloads. The privacy page names the data folder and file and says exactly what time tracking reads; its claims are checked against the code by tests. The name stays Pluto (owner).
+
 - Website motion (2026-11-21, not deployed): a live 3D Pluto drawn in WebGL (one small shader, no library): the heart, the dark belt, the blue haze ring and Charon. A pinned orbit scene follows it: as you scroll, Pluto turns, sunrise comes round from behind, and the five parts of the app circle it as moons (a list under the planet on phones). The app screen tilts up in 3D as it scrolls in, the Coming next sketches ease in, the characters hop onto the shelf, the night section's stars drift, and the headline rises on load. With reduced motion turned on, nothing moves and the page is complete. If WebGL is missing, a drawn planet stands in.
 - Removed: the Mira and Raja characters (owner, 2026-11-20): their packs, drawings, reactions and tests. They were never in the installer.
 
