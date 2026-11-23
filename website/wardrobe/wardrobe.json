@@ -1,0 +1,100 @@
+{
+  "note": "Copied from src/features/wardrobe (wardrobe.ts and Accessories.tsx) by src/website.wardrobe.test.tsx. Do not edit by hand.",
+  "items": [
+    {
+      "id": "party-hat",
+      "name": "Party hat",
+      "slot": "head"
+    },
+    {
+      "id": "crown",
+      "name": "Crown",
+      "slot": "head"
+    },
+    {
+      "id": "beanie",
+      "name": "Beanie",
+      "slot": "head"
+    },
+    {
+      "id": "cap",
+      "name": "Cap",
+      "slot": "head"
+    },
+    {
+      "id": "headphones",
+      "name": "Headphones",
+      "slot": "head"
+    },
+    {
+      "id": "glasses",
+      "name": "Round glasses",
+      "slot": "face"
+    },
+    {
+      "id": "sunglasses",
+      "name": "Sunglasses",
+      "slot": "face"
+    },
+    {
+      "id": "bow-tie",
+      "name": "Bow tie",
+      "slot": "neck"
+    },
+    {
+      "id": "scarf",
+      "name": "Scarf",
+      "slot": "neck"
+    }
+  ],
+  "outfits": [
+    {
+      "id": "cosy",
+      "name": "Cosy",
+      "items": [
+        "beanie",
+        "scarf"
+      ]
+    },
+    {
+      "id": "smart",
+      "name": "Smart",
+      "items": [
+        "glasses",
+        "bow-tie"
+      ]
+    },
+    {
+      "id": "study",
+      "name": "Study",
+      "items": [
+        "headphones",
+        "glasses"
+      ]
+    },
+    {
+      "id": "cool",
+      "name": "Cool",
+      "items": [
+        "cap",
+        "sunglasses"
+      ]
+    },
+    {
+      "id": "royal",
+      "name": "Royal",
+      "items": [
+        "crown",
+        "scarf"
+      ]
+    },
+    {
+      "id": "party",
+      "name": "Party",
+      "items": [
+        "party-hat",
+        "bow-tie"
+      ]
+    }
+  ]
+}

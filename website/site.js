@@ -1,11 +1,12 @@
-// Pluto website: colours, scroll motion, the pets (hero, demo, day story, shelf, gallery), the
-// "your day is everywhere" scene and the feature tabs. One script for every page: each part runs
+// Pluto website: colours, menu, scroll motion, the pets (hero, demo, day story, pet library,
+// dressing rooms, the pointer guide), the "your day is everywhere" scene and the feature tabs. One script for every page: each part runs
 // only if its element is on the page. Sprites come from scripts/site-pets.py
 // (rows: idle, running-right, running-left, waving, jumping, running = typing).
 (() => {
   "use strict";
 
   const ROW = { idle: 0, right: 1, left: 2, wave: 3, jump: 4, type: 5 };
+  document.documentElement.classList.add("js");
   const still = matchMedia("(prefers-reduced-motion: reduce)");
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => [...document.querySelectorAll(s)];
@@ -123,6 +124,7 @@
     el.style.backgroundImage = `url("pets/${pet.id}.webp")`;
     el.style.backgroundSize = `${w * 8}px ${h * DATA.rows.length}px`;
     el.style.backgroundPosition = `${-frame * w}px ${-row * h}px`;
+    placeGear(el, pet, row, frame, w);
   }
   // Looping sprites share one clock and only move while on screen.
   const loops = new Set();
@@ -215,15 +217,13 @@
     });
   }
 
-  /* ---------- Try it: the demo pet walks on the Today window ---------- */
+  /* ---------- Try it: the pet sits by the Today window and answers what you do ---------- */
   function demo() {
-    const stage = $("#stage");
     const petEl = $("#pet");
     const bubble = $("#bubble");
     const list = $("#tasks");
-    if (!stage || !petEl || !bubble || !list) return null;
-    const W = 120, H = 130;
-    const hero = { pet: null, x: 0, target: 0, row: ROW.idle, frame: 0, once: null, nextWalk: 0, clock: 0 };
+    if (!petEl || !bubble || !list) return null;
+    const s = sprite(petEl, DATA.pets[0], 120, 130);
     let bubbleTimer = 0;
     const say = (text) => {
       bubble.textContent = text;
@@ -231,60 +231,31 @@
       clearTimeout(bubbleTimer);
       bubbleTimer = setTimeout(() => bubble.classList.remove("on"), 2600);
     };
-    const place = () => {
-      petEl.style.transform = `translateX(${Math.round(hero.x)}px)`;
-      const max = Math.max(0, stage.clientWidth - bubble.offsetWidth);
-      bubble.style.left = `${Math.min(max, Math.max(0, hero.x - 10))}px`;
-    };
-    const frames = (row) => hero.pet.frames[row];
-    const react = (row, text, times = 2) => { hero.row = row; hero.frame = 0; hero.once = frames(row) * times; hero.target = hero.x; if (text) say(text); };
-    const width = () => Math.max(0, stage.clientWidth - W);
-    const planWalk = (now) => { hero.nextWalk = now + 2500 + Math.random() * 4500; };
-    let visible = true;
-    if ("IntersectionObserver" in window) new IntersectionObserver((es) => { visible = es.some((e) => e.isIntersecting); }).observe(stage);
-    let last = 0;
-    function tick(now) {
-      requestAnimationFrame(tick);
-      if (!hero.pet || document.hidden || !visible) { last = now; return; }
-      const dt = Math.min(100, now - (last || now));
-      last = now;
-      const moving = hero.row === ROW.right || hero.row === ROW.left;
-      hero.clock += dt;
-      if (hero.clock >= 1000 / (moving || hero.once ? 10 : 6)) {
-        hero.clock = 0;
-        if (still.matches && !moving) {
-          hero.frame = 0;
-          if (hero.once) { hero.once -= frames(hero.row); if (hero.once <= 0) { hero.once = null; hero.row = ROW.idle; } }
-        } else {
-          hero.frame = (hero.frame + 1) % frames(hero.row);
-          if (hero.once != null && --hero.once <= 0) { hero.once = null; hero.row = ROW.idle; hero.frame = 0; planWalk(now); }
-        }
-      }
-      if (moving) {
-        const dir = Math.sign(hero.target - hero.x);
-        hero.x += dir * dt * 0.075;
-        if (dir === 0 || Math.sign(hero.target - hero.x) !== dir) { hero.x = hero.target; hero.row = ROW.idle; hero.frame = 0; planWalk(now); }
-      } else if (!hero.once && !still.matches && now > hero.nextWalk && width() > 60) {
-        hero.target = Math.round(Math.random() * width());
-        if (Math.abs(hero.target - hero.x) > 40) { hero.row = hero.target > hero.x ? ROW.right : ROW.left; hero.frame = 0; } else planWalk(now);
-      }
-      hero.x = Math.min(hero.x, width());
-      paint(petEl, hero.pet, hero.row, hero.frame, W, H);
-      place();
-    }
-    const use = (pet, greet) => {
-      hero.pet = pet;
-      petEl.setAttribute("aria-label", `${pet.name} ${pet.kind}. Click to say hello.`);
-      paint(petEl, pet, ROW.idle, 0, W, H);
-      if (greet) react(ROW.wave, `Hi, I'm ${pet.name}.`);
-    };
-    petEl.addEventListener("click", () => react(ROW.wave, `Hi, I'm ${hero.pet.name}.`));
+    const boxes = () => [...list.querySelectorAll('input[type="checkbox"]')];
+    const empty = $("#empty");
+    const refresh = () => { if (empty) empty.hidden = list.children.length > 0; };
+    petEl.addEventListener("click", () => { s.play(ROW.wave); say(`Hi, I'm ${s.pet.name}.`); });
     const CHEERS = ["Nice one.", "One less thing.", "Look at you go.", "Done and done."];
     let cheer = 0;
     list.addEventListener("change", (e) => {
-      if (!e.target.matches('input[type="checkbox"]') || !e.target.checked || !hero.pet) return;
-      const all = [...list.querySelectorAll('input[type="checkbox"]')].every((c) => c.checked);
-      react(ROW.jump, all ? "All done for today!" : CHEERS[cheer++ % CHEERS.length], all ? 3 : 2);
+      const box = e.target;
+      if (!box.matches('input[type="checkbox"]')) return;
+      box.closest("li")?.classList.toggle("done", box.checked);
+      if (!box.checked) return;
+      const all = boxes().every((c) => c.checked);
+      s.play(ROW.jump, all ? 3 : 2);
+      say(all ? "All done for today!" : CHEERS[cheer++ % CHEERS.length]);
+    });
+    list.addEventListener("click", (e) => {
+      const x = e.target.closest("button.x");
+      if (!x) return;
+      const li = x.closest("li");
+      const next = li.nextElementSibling || li.previousElementSibling;
+      li.remove();
+      refresh();
+      (next?.querySelector("button.x") || $("#new-task"))?.focus();
+      s.play(ROW.wave, 1);
+      say("Gone. One thing less to think about.");
     });
     $("#add")?.addEventListener("submit", (e) => {
       e.preventDefault();
@@ -293,92 +264,384 @@
       if (!text) { input.focus(); return; }
       const li = document.createElement("li");
       li.className = "new";
-      li.innerHTML = '<label><input type="checkbox"><span></span></label>';
+      li.innerHTML = '<label><input type="checkbox"><span></span></label><button class="x" type="button" aria-label="Remove this task">×</button>';
       li.querySelector("span").textContent = text;
       list.append(li);
       if (list.children.length > 6) list.firstElementChild.remove();
       input.value = "";
-      if (hero.pet) react(ROW.wave, "Got it. Added to today.");
+      refresh();
+      s.play(ROW.wave);
+      say("Got it. Added to today.");
     });
-    use(DATA.pets[0], false);
-    hero.x = Math.round(width() * 0.62);
-    planWalk(performance.now());
-    requestAnimationFrame(tick);
-    return use;
+    return (pet) => { s.use(pet); petEl.setAttribute("aria-label", `${pet.name} the ${pet.kind}. Click to say hello.`); };
   }
 
-  /* ---------- Shelf (home) and gallery (characters page) ---------- */
-  function shelf(usePet) {
-    const el = $("#shelf");
-    if (!el) return;
-    for (const pet of DATA.pets) {
-      const li = document.createElement("li");
-      li.innerHTML = '<button type="button"><span class="sprite" aria-hidden="true"></span><b></b><small></small><q></q></button>';
-      const btn = li.querySelector("button");
-      btn.setAttribute("aria-pressed", String(pet.id === DATA.pets[0].id));
-      btn.setAttribute("aria-label", `${pet.name}, ${pet.kind}`);
-      li.querySelector("b").textContent = pet.name;
-      li.querySelector("small").textContent = pet.kind;
-      li.querySelector("q").textContent = pet.special;
-      el.append(li);
+  /* ---------- The look: which pet, wearing what. Shared by the dressing rooms and the guide ---------- */
+  // Remembered in this browser only. Accessory drawings are the app's own (website/wardrobe, kept
+  // equal to the app by src/website.wardrobe.test.tsx); where they sit follows the app's rules
+  // (anchors per frame in pets.json, placed like spriteAnchors.ts placement()).
+  let WARD = null;
+  const LOOK_KEY = "pluto-site-look";
+  const look = { pet: "bear", worn: [] };
+  try { Object.assign(look, JSON.parse(localStorage.getItem(LOOK_KEY) || "{}")); } catch { /* keep the default */ }
+  const lookers = new Set();
+  function setLook(change) {
+    Object.assign(look, change);
+    if (WARD) look.worn = normalize(look.worn);
+    try { localStorage.setItem(LOOK_KEY, JSON.stringify(look)); } catch { /* not remembered */ }
+    for (const f of lookers) f();
+  }
+  const slotOf = (id) => WARD.items.find((i) => i.id === id)?.slot;
+  function normalize(ids) {
+    const by = {};
+    for (const id of ids) { const slot = slotOf(id); if (slot) by[slot] = id; }
+    return ["head", "face", "neck"].flatMap((s) => by[s] || []);
+  }
+  const outfitOf = (worn) => WARD.outfits.find((o) => o.items.length === worn.length && o.items.every((i) => worn.includes(i)));
+
+  /* ---------- Gear on a sprite: one <img> per worn thing, moved with every frame ---------- */
+  const wearing = new WeakMap();
+  function wear(el, worn) {
+    let g = wearing.get(el);
+    if (!g) { g = { imgs: [] }; wearing.set(el, g); }
+    for (const i of g.imgs) i.remove();
+    g.imgs = worn.map((id) => {
+      const i = document.createElement("img");
+      i.className = "gear";
+      i.alt = "";
+      i.src = `wardrobe/${id}.svg`;
+      i.dataset.slot = slotOf(id) || "head";
+      el.append(i);
+      return i;
+    });
+  }
+  function placeGear(el, pet, row, frame, w) {
+    const g = wearing.get(el);
+    if (!g || !g.imgs.length || !pet.anchors) return;
+    const a = pet.anchors[row]?.[frame] || pet.anchors[0]?.[0];
+    if (!a) return;
+    const [cx, top, headW, neckY] = a;
+    const k = w / DATA.cell.width;
+    const s = headW / 120;
+    const x = (cx - 100 * s) * k;
+    for (const i of g.imgs) {
+      const y = (i.dataset.slot === "neck" ? neckY - 128 * s : top - 28 * s) * k;
+      i.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+      i.style.width = `${(200 * s * k).toFixed(1)}px`;
     }
-    const soon = document.createElement("li");
-    soon.className = "soon";
-    soon.innerHTML = '<div><span class="sprite" aria-hidden="true"></span><b>More soon</b><small>new friends are on the way</small></div>';
-    el.append(soon);
-    let ready = false;
-    const show = () => {
-      if (ready) return;
-      ready = true;
-      DATA.pets.forEach((p, i) => {
-        const li = el.children[i];
-        const s = sprite(li.querySelector(".sprite"), p, 96, 104);
-        li.querySelector("button").addEventListener("click", () => {
-          for (const b of el.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b === li.querySelector("button")));
-          usePet?.(p, true);
-          s.play(ROW.wave);
-        });
-        // Each pet hops onto the shelf in turn.
-        if (!still.matches) setTimeout(() => { li.querySelector(".sprite").classList.add("hop"); s.play(ROW.jump, 1); }, 150 + i * 140);
-      });
-    };
-    if ("IntersectionObserver" in window) {
-      const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { show(); io.disconnect(); } }, { rootMargin: "200px" });
-      io.observe(el);
-    } else show();
   }
 
+  /* ---------- Dressing room (home: pets and outfits; pet library: every accessory too) ---------- */
+  function dressingRoom(root, usePet) {
+    const full = root.hasAttribute("data-full");
+    const stagePet = root.querySelector(".dress-pet");
+    const name = root.querySelector(".dress-name");
+    const s = sprite(stagePet, byId(look.pet), 144, 156);
+    const petsBox = root.querySelector(".dress-pets");
+    const outfitsBox = root.querySelector(".dress-outfits");
+    const itemsBox = root.querySelector(".dress-items");
+    const group = `dress-${Math.random().toString(36).slice(2, 7)}`;
+    for (const pet of DATA.pets) {
+      const l = document.createElement("label");
+      l.className = "pick-pet";
+      l.innerHTML = '<input type="radio"><span class="thumb" aria-hidden="true"></span><b></b>';
+      const r = l.querySelector("input");
+      r.name = group;
+      r.value = pet.id;
+      l.querySelector("b").textContent = pet.name;
+      paint(l.querySelector(".thumb"), pet, ROW.idle, 0, 54, 58);
+      r.addEventListener("change", () => { setLook({ pet: pet.id }); s.play(ROW.wave, 1); });
+      l.dataset.guide = `Dress ${pet.name} instead`;
+      petsBox.append(l);
+    }
+    const chip = (label, ids, act) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.innerHTML = '<span class="icons" aria-hidden="true"></span><b></b>';
+      b.querySelector("b").textContent = label;
+      for (const id of ids) {
+        const i = document.createElement("img");
+        i.src = `wardrobe/${id}-icon.svg`;
+        i.alt = "";
+        b.querySelector(".icons").append(i);
+      }
+      b.addEventListener("click", act);
+      return b;
+    };
+    const outfitBtns = [chip("Nothing", [], () => setLook({ worn: [] }))];
+    outfitBtns[0].dataset.guide = "Takes everything off";
+    for (const o of WARD.outfits) {
+      const b = chip(o.name, o.items, () => { setLook({ worn: [...o.items] }); s.play(ROW.jump, 1); });
+      b.dataset.guide = `Try on ${o.items.map((id) => WARD.items.find((i) => i.id === id)?.name.toLowerCase()).join(" and ")}`;
+      outfitBtns.push(b);
+    }
+    outfitBtns.forEach((b) => outfitsBox.append(b));
+    const itemBtns = [];
+    if (full && itemsBox) {
+      const LABEL = { head: "On the head", face: "On the face", neck: "Around the neck" };
+      for (const slot of ["head", "face", "neck"]) {
+        const f = document.createElement("fieldset");
+        f.innerHTML = "<legend></legend>";
+        f.querySelector("legend").textContent = LABEL[slot];
+        for (const item of WARD.items.filter((i) => i.slot === slot)) {
+          const b = chip(item.name, [item.id], () => {
+            const on = look.worn.includes(item.id);
+            setLook({ worn: on ? look.worn.filter((x) => x !== item.id) : [...look.worn.filter((x) => slotOf(x) !== slot), item.id] });
+            if (!on) s.play(ROW.wave, 1);
+          });
+          b.dataset.item = item.id;
+          b.dataset.guide = `Put on or take off the ${item.name.toLowerCase()}`;
+          itemBtns.push(b);
+          f.append(b);
+        }
+        itemsBox.append(f);
+      }
+    }
+    const show = () => {
+      const pet = byId(look.pet);
+      if (s.pet !== pet) { s.use(pet); usePet?.(pet); }
+      wear(stagePet, look.worn);
+      placeGear(stagePet, pet, s.row, s.frame, 144);
+      for (const r of petsBox.querySelectorAll("input")) r.checked = r.value === pet.id;
+      const o = outfitOf(look.worn);
+      outfitBtns.forEach((b, i) => b.setAttribute("aria-pressed", String(i === 0 ? look.worn.length === 0 : o === WARD.outfits[i - 1])));
+      for (const b of itemBtns) b.setAttribute("aria-pressed", String(look.worn.includes(b.dataset.item)));
+      const things = look.worn.map((id) => WARD.items.find((i) => i.id === id)?.name.toLowerCase());
+      name.textContent = `${pet.name}${o ? ` in the ${o.name} outfit` : things.length ? ` wearing ${things.join(", ")}` : ""}`;
+    };
+    lookers.add(show);
+    usePet?.(byId(look.pet));
+    show();
+  }
+
+  /* ---------- Pet library: search, cards, and a sheet with every move ---------- */
   const REACT = {
     "task-done": "finish a task", "task-added": "add a task", "task-started": "start a task", "task-deleted": "delete a task",
     "all-done": "finish everything", "focus-done": "finish a focus session", reminder: "a reminder rings",
   };
   const POSE = { jump: "jumps", wave: "waves", cheer: "cheers", party: "throws a party", type: "starts typing", ring: "rings a bell", toss: "does a toss", worried: "looks worried", sleep: "naps" };
-  function gallery() {
-    const el = $("#gallery");
-    if (!el) return;
+  const MOVES = ["Idle", "Walks right", "Walks left", "Waves", "Jumps", "Types along"];
+  function library() {
+    const grid = $("#pet-grid");
+    if (!grid) return;
+    const sheet = $("#pet-sheet");
+    let open = null;
     for (const pet of DATA.pets) {
       const li = document.createElement("li");
-      li.className = "pet-card";
-      li.setAttribute("data-reveal", "");
-      li.innerHTML = '<div class="pet-stage"><button type="button" class="sprite-xl"></button></div><div class="pet-text"><h2></h2><p class="kind"></p><ul class="reacts"></ul><p class="special"><b></b> <q></q></p></div>';
-      li.querySelector("h2").textContent = pet.name;
-      li.querySelector(".kind").textContent = pet.kind;
-      const ul = li.querySelector(".reacts");
+      li.className = "pet-tile";
+      li.dataset.search = `${pet.name} ${pet.kind}`.toLowerCase();
+      li.innerHTML = '<button type="button"><span class="tile-stage"><span class="sprite-lg" aria-hidden="true"></span></span><b></b><small></small><q></q></button>';
+      li.querySelector("b").textContent = pet.name;
+      li.querySelector("small").textContent = pet.kind;
+      li.querySelector("q").textContent = pet.special;
+      const btn = li.querySelector("button");
+      btn.setAttribute("aria-label", `${pet.name}, ${pet.kind}. Open to see every move.`);
+      btn.dataset.guide = `Open ${pet.name}: every move and reaction`;
+      const s = sprite(li.querySelector(".sprite-lg"), pet, 144, 156);
+      li.addEventListener("pointerenter", () => s.play(ROW.wave, 1));
+      btn.addEventListener("click", () => openSheet(pet));
+      grid.append(li);
+    }
+    const soon = document.createElement("li");
+    soon.className = "pet-tile soon";
+    soon.innerHTML = '<div><span class="tile-stage"><span class="soon-mark" aria-hidden="true">+</span></span><b>More soon</b><small>new friends are on the way</small></div>';
+    grid.append(soon);
+    const count = $("#pet-count");
+    const none = $("#pet-none");
+    const filter = (q) => {
+      let n = 0;
+      for (const li of grid.querySelectorAll(".pet-tile:not(.soon)")) { const hit = li.dataset.search.includes(q); li.hidden = !hit; n += hit; }
+      soon.hidden = Boolean(q);
+      none.hidden = n > 0;
+      count.textContent = q ? `${n} of ${DATA.pets.length} pets` : `${DATA.pets.length} pets`;
+    };
+    $("#pet-search")?.addEventListener("input", (e) => filter(e.target.value.trim().toLowerCase()));
+    filter("");
+
+    // The sheet: every move animated side by side, the reactions, and the special.
+    const poses = $("#sheet-poses");
+    const posers = MOVES.map((label, row) => {
+      const li = document.createElement("li");
+      li.innerHTML = '<span class="sprite-md" aria-hidden="true"></span><small></small>';
+      li.querySelector("small").textContent = label;
+      poses.append(li);
+      const s = sprite(li.querySelector(".sprite-md"), DATA.pets[0], 96, 104);
+      s.rest(row);
+      return s;
+    });
+    const top = sprite(sheet.querySelector(".sheet-pet"), DATA.pets[0], 144, 156);
+    function openSheet(pet) {
+      open = pet;
+      $("#sheet-h").textContent = pet.name;
+      $("#sheet-kind").textContent = pet.kind;
+      $("#sheet-special b").textContent = pet.specialName ? `${pet.specialName}:` : "";
+      $("#sheet-special q").textContent = pet.special;
+      const ul = $("#sheet-reacts");
+      ul.textContent = "";
       for (const [when, pose] of Object.entries(pet.reactions || {})) {
         const r = document.createElement("li");
         r.textContent = `When you ${REACT[when] || when.replace("-", " ")}, it ${POSE[pose] || pose}.`;
         ul.append(r);
       }
-      li.querySelector(".special b").textContent = pet.specialName ? `${pet.specialName}:` : "";
-      li.querySelector(".special q").textContent = pet.special;
-      const btn = li.querySelector("button");
-      btn.setAttribute("aria-label", `${pet.name}, ${pet.kind}. Click to see it wave.`);
-      el.append(li);
-      const s = sprite(btn, pet, 144, 156);
-      btn.addEventListener("click", () => s.play(ROW.wave));
-      li.addEventListener("pointerenter", () => s.play(ROW.jump, 1));
-      li.classList.add("in");
+      top.use(pet);
+      posers.forEach((s, row) => { s.use(pet); s.rest(row); });
+      if (sheet.showModal) sheet.showModal(); else sheet.setAttribute("open", "");
+      top.play(ROW.wave);
     }
+    const close = () => { if (sheet.close) sheet.close(); else sheet.removeAttribute("open"); };
+    sheet.querySelector(".sheet-close").addEventListener("click", close);
+    sheet.addEventListener("click", (e) => { if (e.target === sheet) close(); });
+    $("#sheet-dress")?.addEventListener("click", () => {
+      close();
+      setLook({ pet: open.id });
+      $("#dress")?.scrollIntoView({ behavior: still.matches ? "auto" : "smooth" });
+    });
+    $("#sheet-guide")?.addEventListener("click", () => { setLook({ pet: open.id }); guideOn(true); close(); });
+  }
+
+  /* ---------- The guide: a pet that follows your pointer and says what things do ---------- */
+  // Only with a mouse or trackpad and when motion is allowed. It sits below and to the side of the
+  // pointer and never takes clicks (pointer-events: none), so it can't cover what you click. It can
+  // be switched off, and wears the look from the dressing room.
+  const GUIDE_KEY = "pluto-site-guide";
+  let guideOn = () => {};
+  const PLACES = {
+    "index.html": "Home: the whole story", "features.html": "Everything Pluto does", "characters.html": "The pet library and dressing room",
+    "assistants.html": "Pluto with your coding assistant", "pricing.html": "Free today, AI coming soon", "privacy.html": "Exactly what Pluto stores",
+    "download.html": "How to install Pluto",
+  };
+  function guideText(el) {
+    if (el.dataset.guide) return el.dataset.guide;
+    if (el.dataset.os) return `Downloads Pluto for ${el.dataset.os === "mac" ? "macOS" : "Windows"}`;
+    if (el.closest("#colours")) return "Changes this page's colour, like in the app";
+    const href = el.getAttribute?.("href");
+    if (href) {
+      const page = href.split("#")[0];
+      if (PLACES[page]) return PLACES[page];
+      if (href.startsWith("#")) return "Jumps down this page";
+    }
+    if (el.matches('input[type="checkbox"]') || el.closest("label")?.querySelector('input[type="checkbox"]')) return "Tick it. I'll jump.";
+    if (el.matches("button.x")) return "Removes this task";
+    if (el.matches("summary")) return "Opens the answer";
+    // Otherwise only say a name the visitor can't already read (an icon button's label).
+    const label = (el.getAttribute("aria-label") || "").trim();
+    const seen = (el.textContent || "").trim();
+    return label && !seen && label.length < 44 ? label : "";
+  }
+  function guide() {
+    const fine = matchMedia("(hover: hover) and (pointer: fine)");
+    if (!fine.matches || still.matches) return;
+    const state = { on: true };
+    try { Object.assign(state, JSON.parse(localStorage.getItem(GUIDE_KEY) || "{}")); } catch { /* default on */ }
+    const save = () => { try { localStorage.setItem(GUIDE_KEY, JSON.stringify(state)); } catch { /* not remembered */ } };
+
+    const g = document.createElement("div");
+    g.className = "guide";
+    g.setAttribute("aria-hidden", "true");
+    g.innerHTML = '<p class="guide-say"></p><span class="guide-pet"></span>';
+    document.body.append(g);
+    const petEl = g.querySelector(".guide-pet");
+    const sayEl = g.querySelector(".guide-say");
+    const s = sprite(petEl, byId(look.pet), 72, 78);
+    const dressUp = () => { s.use(byId(look.pet)); wear(petEl, look.worn); placeGear(petEl, s.pet, s.row, s.frame, 72); };
+    lookers.add(dressUp);
+    dressUp();
+
+    // The dock: switch the guide off or on, and pick who it is.
+    const dock = document.createElement("div");
+    dock.className = "guide-dock";
+    dock.innerHTML = '<button type="button" class="dock-btn" aria-expanded="false" aria-controls="guide-menu"><span class="dock-thumb" aria-hidden="true"></span><b>Guide</b></button><div class="dock-menu" id="guide-menu" hidden><p class="dock-title">Your guide</p><button type="button" class="dock-switch" role="switch"></button><p class="dock-sub">Who follows your pointer</p><div class="dock-pets"></div><p class="dock-note"><a href="characters.html#dress">Dress it up</a> in the dressing room.</p></div>';
+    document.body.append(dock);
+    const btn = dock.querySelector(".dock-btn");
+    const menu = dock.querySelector(".dock-menu");
+    const sw = dock.querySelector(".dock-switch");
+    const thumb = dock.querySelector(".dock-thumb");
+    const petBtns = DATA.pets.map((pet) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.innerHTML = '<span aria-hidden="true"></span>';
+      b.setAttribute("aria-label", pet.name);
+      b.title = pet.name;
+      paint(b.querySelector("span"), pet, ROW.idle, 0, 48, 52);
+      b.addEventListener("click", () => { setLook({ pet: pet.id }); guideOn(true); s.play(ROW.wave, 1); });
+      dock.querySelector(".dock-pets").append(b);
+      return b;
+    });
+    const sync = () => {
+      document.documentElement.classList.toggle("guided", state.on);
+      sw.setAttribute("aria-checked", String(state.on));
+      sw.textContent = state.on ? "On: it follows your pointer" : "Off: it stays put";
+      petBtns.forEach((b, i) => b.setAttribute("aria-pressed", String(DATA.pets[i].id === look.pet)));
+      paint(thumb, byId(look.pet), ROW.idle, 0, 32, 35);
+    };
+    lookers.add(sync);
+    guideOn = (on) => { state.on = on; save(); sync(); if (!on) g.classList.remove("show"); };
+    sw.addEventListener("click", () => guideOn(!state.on));
+    const setMenu = (open) => { menu.hidden = !open; btn.setAttribute("aria-expanded", String(open)); };
+    btn.addEventListener("click", () => setMenu(menu.hidden));
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) { setMenu(false); btn.focus(); } });
+    document.addEventListener("pointerdown", (e) => { if (!dock.contains(e.target)) setMenu(false); });
+    sync();
+
+    // Follow the pointer with a soft lag, facing the way it walks.
+    const pos = { x: -200, y: -200 }, aim = { x: -200, y: -200 };
+    let inside = false, last = 0, saidFor = null, sayTimer = 0;
+    addEventListener("pointermove", (e) => {
+      if (e.pointerType !== "mouse" && e.pointerType !== "pen") return;
+      const left = e.clientX > innerWidth - 320;
+      g.classList.toggle("flip", left);
+      aim.x = e.clientX + (left ? -96 : 22);
+      aim.y = Math.min(innerHeight - 84, e.clientY + 20);
+      if (!inside) { pos.x = aim.x; pos.y = aim.y; inside = true; }
+      if (state.on) g.classList.add("show");
+    }, { passive: true });
+    document.addEventListener("pointerleave", () => { inside = false; g.classList.remove("show"); });
+    const TARGETS = 'a, button, summary, input, select, textarea, [role="tab"], [data-guide], label';
+    document.addEventListener("pointerover", (e) => {
+      if (!state.on) return;
+      const el = e.target.closest?.(TARGETS);
+      g.classList.toggle("over", Boolean(el) && !dock.contains(el));
+      if (!el || el === saidFor || dock.contains(el)) return;
+      saidFor = el;
+      const text = guideText(el);
+      if (!text) return;
+      sayEl.textContent = text;
+      g.classList.add("talk");
+      clearTimeout(sayTimer);
+      sayTimer = setTimeout(() => g.classList.remove("talk"), 2400);
+      if (el.matches(".btn, [data-os]")) s.play(ROW.wave, 1);
+    });
+    document.addEventListener("pointerout", (e) => {
+      if (saidFor && !saidFor.contains(e.relatedTarget)) { saidFor = null; g.classList.remove("talk"); }
+    });
+    document.addEventListener("click", (e) => { if (state.on && e.target.closest?.("a, button") && !dock.contains(e.target)) s.play(ROW.jump, 1); });
+    let row = ROW.idle;
+    function step(now) {
+      requestAnimationFrame(step);
+      const dt = Math.min(64, now - (last || now));
+      last = now;
+      if (!state.on || !inside) return;
+      const f = 1 - Math.exp(-dt / 140);
+      const dx = (aim.x - pos.x) * f;
+      pos.x += dx;
+      pos.y += (aim.y - pos.y) * f;
+      const fast = Math.abs(dx) / Math.max(1, dt) > 0.12;
+      const want = fast ? (dx > 0 ? ROW.right : ROW.left) : ROW.idle;
+      if (want !== row) { row = want; s.rest(row); }
+      g.style.transform = `translate(${pos.x.toFixed(1)}px, ${pos.y.toFixed(1)}px)`;
+    }
+    requestAnimationFrame(step);
+  }
+
+  /* ---------- Menu (narrow windows) ---------- */
+  const menuBtn = $(".menu-btn");
+  if (menuBtn) {
+    const top = $(".top");
+    const setOpen = (open) => { top.classList.toggle("open", open); menuBtn.setAttribute("aria-expanded", String(open)); };
+    menuBtn.addEventListener("click", () => setOpen(!top.classList.contains("open")));
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && top.classList.contains("open")) { setOpen(false); menuBtn.focus(); } });
+    $("#site-nav")?.addEventListener("click", (e) => { if (e.target.closest("a")) setOpen(false); });
   }
 
   function extras() {
@@ -394,17 +657,20 @@
     for (const el of $$("[data-pet]")) sprite(el, byId(el.dataset.pet), 144, 156);
   }
 
-  fetch("pets/pets.json")
-    .then((r) => r.json())
-    .then((d) => {
+  Promise.all([fetch("pets/pets.json").then((r) => r.json()), fetch("wardrobe/wardrobe.json").then((r) => r.json())])
+    .then(([d, w]) => {
       DATA = d;
+      WARD = w;
+      if (!DATA.pets.some((p) => p.id === look.pet)) look.pet = DATA.pets[0].id;
+      look.worn = normalize(Array.isArray(look.worn) ? look.worn : []);
       heroBear();
       scatterScene();
       dayScene();
       const usePet = demo();
-      shelf(usePet);
-      gallery();
+      for (const room of $$("[data-dress]")) dressingRoom(room, usePet);
+      library();
       extras();
+      guide();
       onScroll();
     })
     .catch(() => { document.documentElement.classList.add("no-pets"); });

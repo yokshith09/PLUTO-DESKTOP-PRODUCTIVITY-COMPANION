@@ -7,12 +7,13 @@ import { COLOURS, DEFAULT_COLOUR, PALETTES } from "@/lib/colours";
  * The website (`website/`) is plain HTML that reuses the app's own pets and screenshots. The pages
  * are built by scripts/site-pages.py from one shared head, header and footer. These checks keep the
  * site in step with the app and with itself: real packs only, every file and page it names exists,
- * nothing loads from other sites, motion respects reduced motion, and no AI on the site for now.
+ * nothing loads from other sites, motion respects reduced motion, no "open source" wording, Pluto's
+ * own AI only as "coming soon", and what it says about assistants matches the app's code.
  */
 const root = resolve(import.meta.dirname, "..");
 const site = (p: string) => resolve(root, "website", p);
 const read = (p: string) => readFileSync(site(p), "utf8");
-const PAGES = ["index", "features", "characters", "privacy", "download", "404"];
+const PAGES = ["index", "features", "characters", "assistants", "pricing", "privacy", "download", "404"];
 const pages = Object.fromEntries(PAGES.map((p) => [p, read(`${p}.html`)]));
 const html = pages.index ?? "";
 const all = Object.values(pages).join("\n");
@@ -21,7 +22,7 @@ const css = read("styles.css");
 const planet = read("planet.js");
 const data = JSON.parse(read("pets/pets.json")) as {
   rows: string[];
-  pets: { id: string; name: string; frames: number[]; special: string; reactions: Record<string, string> }[];
+  pets: { id: string; name: string; frames: number[]; special: string; reactions: Record<string, string>; anchors: (number[] | null)[][] }[];
 };
 const between = (s: string, a: string, b: string) => s.slice(s.indexOf(a), s.indexOf(b, s.indexOf(a)));
 
@@ -74,10 +75,19 @@ describe("website", () => {
     expect(js).not.toMatch(/innerHTML *= *[^'" ]/);
   });
 
-  it("leaves AI out for now, and marks planned features as planned (owner, 2026-11-20)", () => {
+  it("says nothing about open source, and Pluto's own AI only as coming soon (owner, 2026-11-23)", () => {
     const text = all.replace(/<[^>]+>/g, " ");
-    expect(text).not.toMatch(/\bAI\b|Claude|Codex|Cursor|assistant/i);
-    expect(js).not.toMatch(/\bai:|assistants/);
+    expect(text).not.toMatch(/open[ -]source|\bMIT\b|licen[cs]e|source code/i);
+    expect(all).not.toContain("github.com/yokshith09/DESKTOP-PET\"");
+    expect(all).not.toContain("/blob/main/LICENSE");
+    for (const [name, page] of Object.entries(pages)) {
+      if (/Pluto's own AI/.test(page)) expect(page, name).toMatch(/coming soon|is on the way|planned/i);
+    }
+    // A paid plan, no invented price.
+    expect(pages.pricing).toContain("Coming soon");
+    expect(pages.pricing).not.toMatch(/[$€£₹]\s?\d|\d+\s?(USD|EUR|INR)|per month|\/mo\b/i);
+    // The landing page gets a pricing section later (owner: "this will be later").
+    expect(html).not.toContain('class="prices"');
     expect(pages.features).toContain('id="next"');
     expect(pages.features).toContain("not in 0.6.0 yet");
     expect(html).toContain("Not in 0.6.0 yet");
@@ -131,5 +141,62 @@ describe("website", () => {
     // The Mac download is what CI builds (macos-latest: Apple silicon).
     expect(readFileSync(resolve(root, ".github/workflows/release.yml"), "utf8")).toContain("macos-latest");
     expect(pages.download).toContain("Apple silicon");
+  });
+
+  it("says about assistants only what the app does (tool list, apps, diary never shared)", () => {
+    const perms = readFileSync(resolve(root, "crates/pluto-core/src/mcp/perms.rs"), "utf8");
+    const tools = between(perms, "pub const TOOLS", "];").match(/^\s*\("/gm) ?? [];
+    expect(pages.assistants).toContain(`<span id="tool-count">${tools.length}</span> tools`);
+    for (const app of ["Claude Code", "Codex", "Cursor", "OpenCode", "VS Code", "Windsurf", "Antigravity"]) {
+      expect(perms, app).toContain(`"${app}"`);
+      expect(pages.assistants, app).toContain(`<b>${app}</b>`);
+    }
+    const page = readFileSync(resolve(root, "src/features/assistants/AssistantsPage.tsx"), "utf8");
+    expect(page).toContain("Your diary. Assistants can never see it.");
+    expect(page).toContain("only after you press Allow on the pet");
+    expect(pages.assistants).toContain("Never the diary.");
+    // The pet library's import buttons.
+    const lib = readFileSync(resolve(root, "src/features/character/PetLibrary.tsx"), "utf8");
+    expect(lib).toContain("Import ZIP");
+    expect(lib).toContain("Codex and OpenPets pets work too");
+  });
+
+  it("describes the diary as the app has it", () => {
+    const diary = readFileSync(resolve(root, "src/features/diary/DiaryPage.tsx"), "utf8");
+    for (const s of ["Lock now", "Spot things to do", "Off by default", "Search the diary", "recovery key"]) expect(diary, s).toContain(s);
+    expect(readFileSync(resolve(root, "src/features/diary/DayCard.tsx"), "utf8")).toContain("Make task from selection");
+    for (const s of ["Lock now", "Spot things to do", "recovery key", "Search every entry"]) expect(pages.features, s).toContain(s);
+  });
+
+  it("has a pet on the home page that stays by the list and answers, with tasks you can tick and remove (owner, 2026-11-23)", () => {
+    const demo = between(js, "function demo()", "/* ---------- The look");
+    expect(demo).not.toMatch(/ROW\.(right|left)/);
+    expect(demo).toContain('closest("button.x")');
+    expect((html.match(/<button class="x" type="button" aria-label="Remove this task">/g) ?? []).length).toBe(3);
+  });
+
+  it("dresses every pet with the app's own placement, frame by frame", () => {
+    for (const p of data.pets) {
+      expect(p.anchors.map((row) => row.length), p.id).toEqual(p.frames);
+      for (const a of p.anchors.flat()) if (a) expect(a).toHaveLength(4);
+    }
+    // The same formula as spriteAnchors.ts placement(): scale by head width / 120 in the bear's 200x200 space.
+    expect(readFileSync(resolve(root, "src/features/wardrobe/spriteAnchors.ts"), "utf8")).toContain("const s = a.headW / 120;");
+    expect(js).toContain("const s = headW / 120;");
+    expect(js).toContain("neckY - 128 * s : top - 28 * s");
+    expect(readFileSync(resolve(root, "scripts/site-pets.py"), "utf8")).toContain("head_w = sum(r[2] - r[1] + 1 for r in band) / len(band)");
+  });
+
+  it("only shows the pointer guide where it can't get in the way, and it can be switched off", () => {
+    expect(js).toContain('matchMedia("(hover: hover) and (pointer: fine)")');
+    expect(js).toContain("if (!fine.matches || still.matches) return;");
+    expect(css).toMatch(/\.guide \{[^}]*pointer-events: none/);
+    expect(js).toContain('role="switch"');
+    expect(css).toContain("html:not(.guided) .guide { display: none; }");
+  });
+
+  it("folds the menu on narrow windows instead of hiding the links", () => {
+    for (const [name, page] of Object.entries(pages)) expect(page, name).toContain('<button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-nav">');
+    expect(css).toContain(".js .top.open nav { display: flex; }");
   });
 });

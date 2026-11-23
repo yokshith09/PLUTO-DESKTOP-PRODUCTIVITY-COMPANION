@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Download Pluto</title>
-  <meta name="description" content="Download Pluto for Windows or macOS. Free and open source, no account. How to install it and what to expect the first time you open it.">
+  <meta name="description" content="Download Pluto for Windows or macOS. Free, no account. How to install it and what to expect the first time you open it.">
   <meta name="theme-color" content="#151c33">
   <meta property="og:title" content="Download Pluto">
-  <meta property="og:description" content="Download Pluto for Windows or macOS. Free and open source, no account. How to install it and what to expect the first time you open it.">
+  <meta property="og:description" content="Download Pluto for Windows or macOS. Free, no account. How to install it and what to expect the first time you open it.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="shots/today.webp">
   <link rel="icon" href="favicon.png">
@@ -20,10 +20,15 @@
 
   <header class="top">
     <a class="brand" href="index.html" aria-label="Pluto home"><img src="icon.png" alt="" width="32" height="32"><span>Pluto</span></a>
-    <nav aria-label="Main">
-      <a href="features.html">Features</a>
-      <a href="characters.html">Characters</a>
-      <a href="privacy.html">Privacy</a>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-nav"><span aria-hidden="true"></span><b class="sr">Menu</b></button>
+    <nav id="site-nav" aria-label="Main">
+      <div class="nav-links">
+        <a href="features.html">Features</a>
+        <a href="characters.html">Pet library</a>
+        <a href="assistants.html">Assistants</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="privacy.html">Privacy</a>
+      </div>
       <fieldset class="colours" id="colours">
         <legend>Colour of this page (the same five colours as the app)</legend>
         <label title="Periwinkle"><input type="radio" name="colour" value="periwinkle" aria-label="Periwinkle" checked><span style="--sw: oklch(0.52 0.19 262)"></span></label>
@@ -39,7 +44,7 @@
   <main id="main">
     <section class="page-hero" aria-labelledby="page-h">
       <h1 id="page-h">Download Pluto</h1>
-      <p class="lede">Version 0.6.0. Free and open source, with no account to make.</p>
+      <p class="lede">Version 0.6.0. Free, with no account to make.</p>
     </section>
 
     <section class="get" aria-label="Downloads">
@@ -75,7 +80,7 @@
         <h2>Questions</h2>
         <details>
           <summary>Is it really free?</summary>
-          <p>Yes. Pluto is free and open source under the MIT licence. There's no paid plan.</p>
+          <p>Yes. Everything in version 0.6.0 is free, with no account. A paid plan with Pluto's own AI is planned for later; <a href="pricing.html">see pricing</a>.</p>
         </details>
         <details>
           <summary>Will the pet get in the way?</summary>
@@ -104,13 +109,13 @@
     </div>
     <nav class="foot-links" aria-label="More">
       <a href="features.html">Features</a>
-      <a href="characters.html">Characters</a>
+      <a href="characters.html">Pet library</a>
+      <a href="assistants.html">Assistants</a>
+      <a href="pricing.html">Pricing</a>
       <a href="privacy.html">Privacy</a>
       <a href="download.html">Download</a>
-      <a href="https://github.com/yokshith09/DESKTOP-PET">Source code</a>
-      <a href="https://github.com/yokshith09/DESKTOP-PET/blob/main/LICENSE">MIT licence</a>
     </nav>
-    <p class="foot-small">© 2026 Quorbit Technologies. Pluto is free and open source.</p>
+    <p class="foot-small">© 2026 Quorbit Technologies.</p>
   </footer>
 </body>
 </html>

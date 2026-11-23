@@ -9,6 +9,7 @@ Every claim is tagged with how it was checked. **Fact** = seen in code, tests, G
 
 ## 00. Checkpoint 2026-11-19 (progress card: phases, milestones, features, release)
 
+> **Updated 2026-11-23:** Website v3 built, not deployed: pointer-following pet guide (with an off switch and character picker), pet library with a dressing room (the app's real accessories and placement), Assistants and Pricing pages (paid plan with AI as Coming soon, no price), the diary explained, every "open source" mention removed, the demo pet no longer walks, menu on narrow windows. Tests 682 passed / 5 skipped. **Owner decision needed:** the code is still MIT-licensed and the download links point at the GitHub repository; removing the wording does not change the licence (see DECISIONS 2026-11-23).
 > **Updated 2026-11-21 (later):** Website v2 built, not deployed: six pages, a story-driven home page with three WebGL scenes, scroll-pinned "gather" and "day" scenes, a characters gallery, an exact privacy page and a download guide. Name stays Pluto (owner).
 > **Updated 2026-11-21:** Website motion built (3D Pluto in WebGL, pinned orbit scene, scroll tilt and reveals, characters hop in; still when reduced motion is on). Mira and Raja deleted from the app. Name check for "Orbit" done (see DECISIONS); no rename made.
 > **Updated 2026-11-20 (evening):** Website built in `website/` (not deployed; live pet demo, real screens, Coming next sketches without AI, five characters, the app's five colours). Counter not started.

@@ -1,10 +1,52 @@
     <section class="page-hero" aria-labelledby="page-h">
-      <h1 id="page-h">Meet the companions</h1>
-      <p class="lede">Five friends, each drawn by hand, each with its own way of cheering you on. Pick one in the app and it lives at the edge of your screen.</p>
+      <p class="eyebrow">Pet library</p>
+      <h1 id="page-h">Find your companion</h1>
+      <p class="lede">Five friends, each drawn by hand, each with its own reactions and a trick it does now and then. Open one to see every move, then dress it up.</p>
     </section>
 
-    <section class="gallery-wrap" aria-label="Characters">
-      <ul class="gallery" id="gallery"></ul>
+    <section class="library" aria-label="Characters">
+      <div class="library-bar">
+        <label class="search"><span class="sr">Search the pet library</span><input id="pet-search" type="search" placeholder="Search by name or kind" autocomplete="off" maxlength="40"></label>
+        <p class="library-count" id="pet-count" aria-live="polite"></p>
+      </div>
+      <ul class="pet-grid" id="pet-grid"></ul>
+      <p class="library-empty" id="pet-none" hidden>No pet by that name yet. More are on the way.</p>
+    </section>
+
+    <dialog class="pet-sheet" id="pet-sheet" aria-labelledby="sheet-h">
+      <button class="sheet-close" type="button" aria-label="Close">×</button>
+      <div class="sheet-top">
+        <span class="sheet-pet" aria-hidden="true"></span>
+        <div>
+          <h2 id="sheet-h"></h2>
+          <p class="kind" id="sheet-kind"></p>
+          <p class="special" id="sheet-special"><b></b> <q></q></p>
+        </div>
+      </div>
+      <h3>Every move</h3>
+      <ul class="poses" id="sheet-poses"></ul>
+      <h3>How it reacts</h3>
+      <ul class="reacts" id="sheet-reacts"></ul>
+      <div class="sheet-actions">
+        <button class="btn btn-small" type="button" id="sheet-dress">Dress it up</button>
+        <button class="btn btn-small btn-quiet" type="button" id="sheet-guide">Make it my guide</button>
+      </div>
+    </dialog>
+
+    <section class="dress-room" id="dress" aria-labelledby="dress-h">
+      <div class="section-head">
+        <h2 id="dress-h">The dressing room</h2>
+        <p>Nine accessories and six ready outfits, all free. Every character can wear every one, and in the app they move with the pet.</p>
+      </div>
+      <div class="dress dress-full" data-dress data-full>
+        <div class="dress-stage"><span class="dress-pet" aria-hidden="true"></span><p class="dress-name" aria-live="polite"></p></div>
+        <div class="dress-controls">
+          <fieldset class="dress-pets"><legend>Character</legend></fieldset>
+          <fieldset class="dress-outfits"><legend>Ready outfits</legend></fieldset>
+          <div class="dress-items"></div>
+          <p class="dress-note">One thing per spot, like in the app. The pet that follows your pointer wears it too.</p>
+        </div>
+      </div>
     </section>
 
     <section class="how" aria-labelledby="how-h">
@@ -17,6 +59,18 @@
         <li data-reveal><b>Has a special</b><span>Every few finished tasks (or clicks) it does its own trick. Pluto naps, Mochi gets the zoomies.</span></li>
         <li data-reveal><b>Shows reminders</b><span>Reminders and notes appear in a bubble above the pet, not in a corner of the screen.</span></li>
         <li data-reveal><b>Gets out of the way</b><span>Change its size or how see-through it is, hide it in full screen, or turn it off and keep the app.</span></li>
+      </ul>
+    </section>
+
+    <section class="bring" aria-labelledby="bring-h">
+      <div>
+        <h2 id="bring-h">Bring your own pet</h2>
+        <p>Pluto's library takes more than these five. Import a pet pack from a ZIP file or a folder, and pets made for Codex and OpenPets work too. They can wear the same outfits.</p>
+      </div>
+      <ul class="ticks">
+        <li>Import a ZIP or a folder from the Character page</li>
+        <li>Pets you installed for Codex show up by themselves</li>
+        <li>Remove an imported pet any time</li>
       </ul>
     </section>
 

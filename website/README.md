@@ -5,9 +5,11 @@ aren't sent to a font CDN).
 
 | Page | What it is |
 |---|---|
-| `index.html` | The story: sunrise over Pluto with the bear on the horizon, "your day is everywhere" (scattered things gather into one Pluto window), try it (live demo), a day with Pluto (dawn to night, the app's screens and the pet's reactions), the orbit scene, characters, privacy, coming next, finale with downloads |
+| `index.html` | The story: sunrise over Pluto with the bear on the horizon, "your day is everywhere" (scattered things gather into one Pluto window), try it (the pet answers a small Today list: tick, add, remove), a day with Pluto (dawn to night, the app's screens and the pet's reactions), the orbit scene, pick a companion and dress it up, the diary, privacy, assistants, coming next, finale with downloads |
 | `features.html` | Each part up close (tabs with real screens), the little things, coming next (sketches) |
-| `characters.html` | The five companions, their reactions and specials (from `pets/pets.json`) |
+| `characters.html` | The pet library: search, a card per pet, a sheet with every move, the dressing room, bring your own pet |
+| `assistants.html` | Pluto with coding assistants: the apps, the tools (count checked against `perms.rs`), the safety rules, Pluto's own AI as coming soon |
+| `pricing.html` | Free today; a paid plan with Pluto's own AI, Coming soon, no price |
 | `privacy.html` | What Pluto stores, where, and what time tracking reads (each claim checked against the code by `src/website.test.ts`) |
 | `download.html` | Downloads, install steps for an unsigned app, questions |
 | `404.html` | Lost in orbit |
@@ -28,7 +30,15 @@ aren't sent to a font CDN).
   moves is under `html.motion`, set only when the visitor has not asked for reduced motion; without
   it every scene shows its finished state. Without WebGL, `.no-gl` shows a drawn planet.
 - **Coming next:** sketches in HTML, not screenshots, because the features aren't built. Move a
-  feature out of that section when it ships. No AI on the site for now (owner, 2026-11-20).
+  feature out of that section when it ships. Pluto's own AI appears only as "Coming soon" and the
+  site never says "open source" (owner, 2026-11-23); tests keep both.
+- **Wardrobe:** `wardrobe/` holds the app's accessory drawings and outfits, copied from
+  `src/features/wardrobe` by `src/website.wardrobe.test.tsx` (refresh with
+  `WRITE_SITE=1 pnpm vitest run src/website.wardrobe.test.tsx`). `pets.json` has, per frame, where
+  gear goes (`site-pets.py` uses the same rules as `spriteAnchors.ts`).
+- **Guide:** the pet that follows the pointer (`guide()` in `site.js`): mouse or trackpad only, not
+  with reduced motion, never takes clicks, off switch and character picker in the Guide button.
+  The look (pet and worn things) and the guide's on/off are kept in the visitor's browser only.
 - **Deploy:** Cloudflare Pages with `website` as the output folder and no build command.
   `_headers` sets the security headers. Not deployed yet: domain and account are the owner's call.
 - **Tests:** `src/website.test.ts`.

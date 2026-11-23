@@ -20,10 +20,15 @@
 
   <header class="top">
     <a class="brand" href="index.html" aria-label="Pluto home"><img src="icon.png" alt="" width="32" height="32"><span>Pluto</span></a>
-    <nav aria-label="Main">
-      <a href="features.html">Features</a>
-      <a href="characters.html">Characters</a>
-      <a href="privacy.html" aria-current="page">Privacy</a>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-nav"><span aria-hidden="true"></span><b class="sr">Menu</b></button>
+    <nav id="site-nav" aria-label="Main">
+      <div class="nav-links">
+        <a href="features.html">Features</a>
+        <a href="characters.html">Pet library</a>
+        <a href="assistants.html">Assistants</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="privacy.html" aria-current="page">Privacy</a>
+      </div>
       <fieldset class="colours" id="colours">
         <legend>Colour of this page (the same five colours as the app)</legend>
         <label title="Periwinkle"><input type="radio" name="colour" value="periwinkle" aria-label="Periwinkle" checked><span style="--sw: oklch(0.52 0.19 262)"></span></label>
@@ -75,7 +80,8 @@
 
       <div class="prose-block" data-reveal>
         <h2>Your diary</h2>
-        <p>The diary is locked with your password. Lock it any time with one click.</p>
+        <p>The diary is locked with your password, and you can lock it any time with <i>Lock now</i>. When you create the password, Pluto shows you a recovery key once; keep it, because it is the only way to set a new password without losing what you wrote.</p>
+        <p><i>Spot things to do</i> is off until you switch it on. It reads your entries on your computer to underline lines like "I need to submit the essay by Friday". Assistants can never see the diary.</p>
       </div>
 
       <div class="prose-block" data-reveal>
@@ -85,8 +91,13 @@
       </div>
 
       <div class="prose-block" data-reveal>
-        <h2>Check for yourself</h2>
-        <p>Pluto is open source under the MIT licence. Every line that reads, stores or shows your data is public: <a href="https://github.com/yokshith09/DESKTOP-PET">read the code on GitHub</a>.</p>
+        <h2>Assistants</h2>
+        <p>Coding assistants can work with Pluto only after you switch Assistants on, and only assistants on this computer can connect. You choose, for each one, which tools it may use and which pet reactions it may cause. Every change an assistant makes can be undone, a setting changes only after you press <i>Allow</i> on the pet, and the diary is never shared. <a href="assistants.html">What assistants can do</a>.</p>
+      </div>
+
+      <div class="prose-block" data-reveal>
+        <h2>The pet on this website</h2>
+        <p>The pet that follows your pointer here runs in your browser. The pet and outfit you pick, and whether the guide is on, are remembered in your browser only.</p>
       </div>
     </section>
   </main>
@@ -98,13 +109,13 @@
     </div>
     <nav class="foot-links" aria-label="More">
       <a href="features.html">Features</a>
-      <a href="characters.html">Characters</a>
+      <a href="characters.html">Pet library</a>
+      <a href="assistants.html">Assistants</a>
+      <a href="pricing.html">Pricing</a>
       <a href="privacy.html">Privacy</a>
       <a href="download.html">Download</a>
-      <a href="https://github.com/yokshith09/DESKTOP-PET">Source code</a>
-      <a href="https://github.com/yokshith09/DESKTOP-PET/blob/main/LICENSE">MIT licence</a>
     </nav>
-    <p class="foot-small">© 2026 Quorbit Technologies. Pluto is free and open source.</p>
+    <p class="foot-small">© 2026 Quorbit Technologies.</p>
   </footer>
 </body>
 </html>

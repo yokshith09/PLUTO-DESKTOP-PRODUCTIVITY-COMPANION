@@ -9,7 +9,7 @@
           <a class="btn btn-glow" href="{{RELEASES}}" data-os="windows">Download for Windows</a>
           <a class="btn btn-ghost" href="{{RELEASES}}" data-os="mac">Download for macOS</a>
         </div>
-        <p class="fine">Free and open source. Version 0.6.0. No account.</p>
+        <p class="fine">Free. Version 0.6.0. No account.</p>
       </div>
       <button class="on-planet" type="button" aria-label="Pluto the bear. Click to say hello."><span class="sprite-lg" aria-hidden="true"></span><span class="hello" role="status" aria-live="polite"></span></button>
       <a class="scroll-cue" href="#scatter">See how it helps</a>
@@ -40,29 +40,30 @@
     <section class="try-it" id="try" aria-labelledby="try-h">
       <div class="try-copy" data-reveal>
         <h2 id="try-h">Meet Pluto. Go on, tick something.</h2>
-        <p>This is a small copy of Pluto's Today list, with the real pet on top. Tick a task, add one, or click the pet. On your desktop it works the same way, all day.</p>
+        <p>This is a small copy of Pluto's Today list, with the real pet beside it. Tick a task, add one, remove one, or click the pet. On your desktop it works the same way, all day.</p>
         <ul class="ticks">
           <li>Finish a task and the pet jumps</li>
           <li>Add one and it waves</li>
-          <li>Leave it be and it wanders along the window</li>
+          <li>Finish them all and it celebrates</li>
         </ul>
       </div>
       <div class="desk" aria-label="Try it: a small version of Pluto's Today list" data-reveal>
         <div class="stage" id="stage">
-          <button class="pet" id="pet" type="button" aria-label="Pluto the bear. Click to say hello."></button>
           <p class="bubble" id="bubble" role="status" aria-live="polite"></p>
+          <button class="pet" id="pet" type="button" aria-label="Pluto the bear. Click to say hello." data-guide="Click me. I wave back."></button>
         </div>
         <div class="window">
           <div class="window-bar"><span></span><span></span><span></span><b>Today</b></div>
           <ul class="tasks" id="tasks">
-            <li><label><input type="checkbox"><span>Read chapter 4 for Monday</span></label></li>
-            <li><label><input type="checkbox"><span>Send the project update</span></label></li>
-            <li><label><input type="checkbox"><span>25 minutes on the essay</span></label></li>
+            <li><label><input type="checkbox"><span>Read chapter 4 for Monday</span></label><button class="x" type="button" aria-label="Remove this task">×</button></li>
+            <li><label><input type="checkbox"><span>Send the project update</span></label><button class="x" type="button" aria-label="Remove this task">×</button></li>
+            <li><label><input type="checkbox"><span>25 minutes on the essay</span></label><button class="x" type="button" aria-label="Remove this task">×</button></li>
           </ul>
+          <p class="empty" id="empty" hidden>Nothing left. Add something for today.</p>
           <form class="add" id="add">
             <label class="sr" for="new-task">Add a task</label>
             <input id="new-task" maxlength="60" placeholder="Add a task for today" autocomplete="off">
-            <button class="btn btn-small" type="submit">Add</button>
+            <button class="btn btn-small" type="submit" data-guide="Adds it to the list. I'll wave.">Add</button>
           </form>
         </div>
       </div>
@@ -112,14 +113,37 @@
       </div>
     </section>
 
-    <!-- 6. Characters -->
+    <!-- 6. Characters and outfits -->
     <section class="friends" id="friends" aria-labelledby="friends-h">
       <div class="section-head">
-        <h2 id="friends-h">Pick a companion</h2>
-        <p>Each one has its own reactions and a little trick it does now and then. Choose one and it moves into the Today list above.</p>
+        <h2 id="friends-h">Pick a companion. Dress it up.</h2>
+        <p>Five characters, nine accessories and six ready outfits, all free. Every character can wear every outfit. Try one on.</p>
       </div>
-      <ul class="shelf" id="shelf"></ul>
-      <p class="more"><a href="characters.html">Meet them properly</a></p>
+      <div class="dress" data-dress>
+        <div class="dress-stage"><span class="dress-pet" aria-hidden="true"></span><p class="dress-name" aria-live="polite"></p></div>
+        <div class="dress-controls">
+          <fieldset class="dress-pets"><legend>Character</legend></fieldset>
+          <fieldset class="dress-outfits"><legend>Outfit</legend></fieldset>
+          <p class="dress-note">The pet that follows your pointer wears it too.</p>
+        </div>
+      </div>
+      <p class="more"><a href="characters.html">Open the pet library</a> · <a href="characters.html#dress">Mix your own outfit</a></p>
+    </section>
+
+    <!-- 6b. The diary -->
+    <section class="diary-band" id="diary" aria-labelledby="diary-h">
+      <div class="diary-copy" data-reveal>
+        <h2 id="diary-h">A diary that keeps your secrets</h2>
+        <p>End the day with a few lines. The diary is locked with your password and lives only on your computer.</p>
+        <ul class="ticks">
+          <li>Locked with your password, and <i>Lock now</i> whenever you step away</li>
+          <li>Look back by year and month, or search every entry</li>
+          <li>Spot things to do: lines like "I need to submit…" can become tasks. Off until you switch it on</li>
+          <li>Assistants can never see it</li>
+        </ul>
+        <p class="more"><a href="features.html#diary">More about the diary</a></p>
+      </div>
+      <figure class="diary-shot" data-reveal><img src="shots/diary.webp" width="1600" height="1030" alt="Pluto's Diary page: today's entry and a list of earlier days." loading="lazy"></figure>
     </section>
 
     <!-- 7. The night side -->
@@ -134,10 +158,19 @@
         <ul class="facts">
           <li data-reveal><b>No account.</b> Install it and start. There is nothing to sign up for.</li>
           <li data-reveal><b>One file, on your disk.</b> Tasks, notes and tracked time are saved on this computer and never uploaded.</li>
-          <li data-reveal><b>A diary only you can open.</b> It is locked with your password.</li>
-          <li data-reveal><b>Open code.</b> Pluto is MIT licensed. Anyone can read exactly what it does.</li>
+          <li data-reveal><b>A diary only you can open.</b> It is locked with your password. <a href="features.html#diary">More about the diary</a></li>
+          <li data-reveal><b>Assistants only if you say so.</b> Off until you switch them on, and they can never see your diary.</li>
         </ul>
       </div>
+    </section>
+
+    <!-- 7b. Assistants -->
+    <section class="assist-strip" aria-labelledby="assist-h">
+      <div>
+        <h2 id="assist-h">Works with your coding assistant</h2>
+        <p>Claude Code, Codex, Cursor, OpenCode and more can read your day and add tasks, and the pet tells you when a chat finishes or needs you. Off until you switch it on.</p>
+      </div>
+      <p class="more"><a href="assistants.html">How assistants work with Pluto</a></p>
     </section>
 
     <!-- 8. What's next -->
@@ -157,7 +190,7 @@
         </div>
         <div class="finale-copy">
           <h2 id="finale-h">Give your day a small companion</h2>
-          <p>Free, open source and private. It takes a minute to install.</p>
+          <p>Free and private. It takes a minute to install.</p>
           <div class="ctas">
             <a class="btn btn-glow" href="{{RELEASES}}" data-os="windows">Download for Windows</a>
             <a class="btn btn-ghost" href="{{RELEASES}}" data-os="mac">Download for macOS</a>

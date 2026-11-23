@@ -20,10 +20,15 @@
 
   <header class="top">
     <a class="brand" href="index.html" aria-label="Pluto home"><img src="icon.png" alt="" width="32" height="32"><span>Pluto</span></a>
-    <nav aria-label="Main">
-      <a href="features.html">Features</a>
-      <a href="characters.html">Characters</a>
-      <a href="privacy.html">Privacy</a>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-nav"><span aria-hidden="true"></span><b class="sr">Menu</b></button>
+    <nav id="site-nav" aria-label="Main">
+      <div class="nav-links">
+        <a href="features.html">Features</a>
+        <a href="characters.html">Pet library</a>
+        <a href="assistants.html">Assistants</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="privacy.html">Privacy</a>
+      </div>
       <fieldset class="colours" id="colours">
         <legend>Colour of this page (the same five colours as the app)</legend>
         <label title="Periwinkle"><input type="radio" name="colour" value="periwinkle" aria-label="Periwinkle" checked><span style="--sw: oklch(0.52 0.19 262)"></span></label>
@@ -56,13 +61,13 @@
     </div>
     <nav class="foot-links" aria-label="More">
       <a href="features.html">Features</a>
-      <a href="characters.html">Characters</a>
+      <a href="characters.html">Pet library</a>
+      <a href="assistants.html">Assistants</a>
+      <a href="pricing.html">Pricing</a>
       <a href="privacy.html">Privacy</a>
       <a href="download.html">Download</a>
-      <a href="https://github.com/yokshith09/DESKTOP-PET">Source code</a>
-      <a href="https://github.com/yokshith09/DESKTOP-PET/blob/main/LICENSE">MIT licence</a>
     </nav>
-    <p class="foot-small">© 2026 Quorbit Technologies. Pluto is free and open source.</p>
+    <p class="foot-small">© 2026 Quorbit Technologies.</p>
   </footer>
 </body>
 </html>

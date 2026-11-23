@@ -20,10 +20,15 @@
 
   <header class="top">
     <a class="brand" href="index.html" aria-label="Pluto home"><img src="icon.png" alt="" width="32" height="32"><span>Pluto</span></a>
-    <nav aria-label="Main">
-      <a href="features.html" aria-current="page">Features</a>
-      <a href="characters.html">Characters</a>
-      <a href="privacy.html">Privacy</a>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-nav"><span aria-hidden="true"></span><b class="sr">Menu</b></button>
+    <nav id="site-nav" aria-label="Main">
+      <div class="nav-links">
+        <a href="features.html" aria-current="page">Features</a>
+        <a href="characters.html">Pet library</a>
+        <a href="assistants.html">Assistants</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="privacy.html">Privacy</a>
+      </div>
       <fieldset class="colours" id="colours">
         <legend>Colour of this page (the same five colours as the app)</legend>
         <label title="Periwinkle"><input type="radio" name="colour" value="periwinkle" aria-label="Periwinkle" checked><span style="--sw: oklch(0.52 0.19 262)"></span></label>
@@ -63,6 +68,24 @@
           <img id="panel-img" src="shots/today.webp" width="1600" height="1030" alt="Pluto's Today overview: the current task, today's tasks and reminders, and total time by app and website.">
         </figure>
       </div>
+    </section>
+
+    <section class="diary-band diary-full" id="diary" aria-labelledby="diary-h">
+      <div class="diary-copy" data-reveal>
+        <h2 id="diary-h">The diary</h2>
+        <p>A private place to end the day. Write a few lines, look back on any day, and let Pluto pick out the things you said you'd do.</p>
+      </div>
+      <figure class="diary-shot" data-reveal><img src="shots/diary.webp" width="1600" height="1030" alt="Pluto's Diary page: today's entry and a list of earlier days." loading="lazy"></figure>
+      <ul class="little-grid diary-points">
+        <li data-reveal><b>Locked with your password</b><span>Only you can open it. <i>Lock now</i> closes it in one click when you step away.</span></li>
+        <li data-reveal><b>A recovery key, shown once</b><span>Keep it, and you can set a new password without losing a single entry.</span></li>
+        <li data-reveal><b>Look back</b><span>Month tiles show the days you wrote, with totals for the year. Open any day from there.</span></li>
+        <li data-reveal><b>Search every entry</b><span>Find a word or a name across the whole diary.</span></li>
+        <li data-reveal><b>Spot things to do</b><span>Underlines lines like "I need to submit the essay by Friday" and turns them into a task with that due date. Off until you switch it on, and it all happens on your computer.</span></li>
+        <li data-reveal><b>Make a task from any line</b><span>Select some words and make them a task, without leaving the page.</span></li>
+        <li data-reveal><b>Never shared</b><span>Assistants can never see the diary, and nothing is uploaded.</span></li>
+        <li data-reveal><b>On your computer</b><span>Saved with the rest of your day in Pluto's own folder. <a href="privacy.html">Where exactly</a>.</span></li>
+      </ul>
     </section>
 
     <section class="little" aria-labelledby="little-h">
@@ -175,13 +198,13 @@
     </div>
     <nav class="foot-links" aria-label="More">
       <a href="features.html">Features</a>
-      <a href="characters.html">Characters</a>
+      <a href="characters.html">Pet library</a>
+      <a href="assistants.html">Assistants</a>
+      <a href="pricing.html">Pricing</a>
       <a href="privacy.html">Privacy</a>
       <a href="download.html">Download</a>
-      <a href="https://github.com/yokshith09/DESKTOP-PET">Source code</a>
-      <a href="https://github.com/yokshith09/DESKTOP-PET/blob/main/LICENSE">MIT licence</a>
     </nav>
-    <p class="foot-small">© 2026 Quorbit Technologies. Pluto is free and open source.</p>
+    <p class="foot-small">© 2026 Quorbit Technologies.</p>
   </footer>
 </body>
 </html>
