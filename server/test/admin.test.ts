@@ -24,21 +24,29 @@ describe("admin site", () => {
     const root = document.createElement("main");
     load().render(await stats(env.DB, now, 30), root);
     const text = root.textContent ?? "";
-    expect(text).toContain("Downloads, last 30 days");
-    expect(root.querySelector(".cards .card b")?.textContent).toBe("4");
-    expect(text).toContain("25% of downloads became installs");
+    expect(text).toContain("Downloads, last 7 days");
+    expect(root.querySelector(".tile.kpi .value")?.textContent).toBe("4");
+    expect(text).toContain("25% of downloads");
     expect(text).toContain("macOS");
     expect(text).toContain("0.6.1");
-    expect(root.querySelectorAll("svg.chart")).toHaveLength(3);
+    // Active line, downloads by system, new installs, installs per hour.
+    expect(root.querySelectorAll("svg.chart")).toHaveLength(4);
+    // Every per-day chart can be read as a table.
+    expect(root.querySelectorAll("details.as-table").length).toBeGreaterThanOrEqual(4);
   });
 
   it("draws the demo layout, and puts names in as text, not HTML", () => {
     const admin = load();
     const root = document.createElement("main");
     admin.render(admin.demo(90), root);
-    expect(root.querySelectorAll(".card")).toHaveLength(6);
+    expect(root.querySelectorAll(".tile.kpi")).toHaveLength(6);
     expect(root.textContent).not.toContain("NaN");
-    expect(root.querySelectorAll(".card b")[5]?.textContent).toMatch(/^\d+%$/);
+    expect(root.textContent).not.toContain("undefined");
+    expect(root.querySelectorAll(".tile.kpi .value")[5]?.textContent).toMatch(/^\d+%$/);
+    // Two series (Windows, macOS) get a legend; retention cells use the one-hue scale.
+    expect(root.querySelector("[aria-label=\"Website downloads per day\"] .legend")?.textContent).toContain("Windows");
+    expect(root.querySelectorAll(".heat td[class^=l]").length).toBeGreaterThan(0);
+    expect(root.textContent).toContain("+11%"); // weekly active 420 vs 380
     expect(code).not.toMatch(/innerHTML/);
   });
 

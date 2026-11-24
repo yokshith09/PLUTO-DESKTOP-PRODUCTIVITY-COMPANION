@@ -117,7 +117,7 @@ describe("counting server: the dashboard's numbers", () => {
     expect(s.installs[i("2026-12-20")]).toBe(1);
     expect(s.active[i("2026-12-20")]).toBe(2);
     expect(s.active[i("2026-12-08")]).toBe(1);
-    expect(s.totals).toEqual({ downloads: 3, installs: 2, dau: 2, wau: 2, mau: 2 });
+    expect(s.totals).toEqual({ downloads: 3, installs: 2, dau: 2, wau: 2, wauPrev: 1, mau: 2 });
     expect(s.funnel).toEqual({ downloads: 3, installs: 2, active: 2 });
     expect(s.versions).toEqual([{ version: "0.6.2", installs: 1 }, { version: "0.6.1", installs: 1 }]);
     expect(s.os).toEqual([{ os: "windows", installs: 2 }]);

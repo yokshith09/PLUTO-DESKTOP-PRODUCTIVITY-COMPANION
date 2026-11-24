@@ -482,6 +482,7 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-19: Owner picked competitor items 1 to 5 (calendar integration, Quick Actions, on-pet approval, assistant spend, Launch Buddy); release work excluded. NotchPixel feature list recorded in COMPETITORS section 8.
 - 2026-11-20: Owner wants Google account calendar sync; staged plan recorded in DECISIONS (iCal link, then Google read-only sign-in after app review, then two-way). File shelf optional.
 - 2026-11-20: Plan at a glance added to MASTER_PLAN (every phase: done, planned, skipped). P5 = Quick Actions, Launch Buddy, Calendar integration (iCal link), System resources, Privacy report. New P5b = system Quick controls, Mute key (system mic plus Pluto), Assistant spend, on-pet approval. Google sign-in skipped.
+- 2026-11-24 (late): admin dashboard as tiles; no-domain deploy (pages.dev and workers.dev); website playbook written. Next: app hello and ping, then deploy on the owner's Cloudflare account.
 - 2026-11-24 (night): counting server and admin dashboard built (not deployed); next: app hello and ping; auto-updates proposed.
 - 2026-11-24 (evening): Character page: preview and reactions, then characters and outfits; Follow my pointer (off by default, small). Unverified.
 - 2026-11-24 (later): hover card theme button; Character page preview stays in view; website hover card; count has no off switch for now; Friends tab gets "show when I'm active".

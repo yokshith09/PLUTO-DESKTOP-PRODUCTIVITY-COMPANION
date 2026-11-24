@@ -219,7 +219,8 @@ export interface Stats {
   downloads: { windows: number[]; macos: number[] };
   installs: number[];
   active: number[];
-  totals: { downloads: number; installs: number; dau: number; wau: number; mau: number };
+  /** wauPrev: installs open in the 7 days before this week (for the change on the dashboard). */
+  totals: { downloads: number; installs: number; dau: number; wau: number; wauPrev: number; mau: number };
   /** The last 30 days: website downloads, new installs, and installs open at least once. */
   funnel: { downloads: number; installs: number; active: number };
   versions: { version: string; installs: number }[];
@@ -262,6 +263,7 @@ export async function stats(db: D1Like, now: Date, days: number): Promise<Stats>
   }
   const wau = await one("SELECT COUNT(DISTINCT id_hash) AS n FROM daily_active WHERE day >= ?", addDays(to, -6));
   const mau = await one("SELECT COUNT(DISTINCT id_hash) AS n FROM daily_active WHERE day >= ?", addDays(to, -29));
+  const wauPrev = await one("SELECT COUNT(DISTINCT id_hash) AS n FROM daily_active WHERE day >= ? AND day < ?", addDays(to, -13), addDays(to, -6));
   const month = addDays(to, -29);
   const sum = (a: number[], start = 0) => a.slice(start).reduce((t, n) => t + n, 0);
   const lastMonth = Math.max(0, list.length - 30);
@@ -286,7 +288,7 @@ export async function stats(db: D1Like, now: Date, days: number): Promise<Stats>
     totals: {
       downloads: await one("SELECT COALESCE(SUM(count), 0) AS n FROM downloads"),
       installs: await one("SELECT COUNT(*) AS n FROM installs"),
-      dau: active[active.length - 1] ?? 0, wau, mau,
+      dau: active[active.length - 1] ?? 0, wau, wauPrev, mau,
     },
     funnel: { downloads: sum(downloads.windows, lastMonth) + sum(downloads.macos, lastMonth), installs: sum(installs, lastMonth), active: mau },
     versions: (await all("SELECT version, COUNT(*) AS n FROM installs WHERE last_seen >= ? GROUP BY version ORDER BY n DESC, version DESC", month))

@@ -20,26 +20,45 @@ Daily records are folded into per-day totals after 35 days by the daily cron.
 - **Website Download buttons** still point at GitHub; switch them to `/d/windows` and `/d/mac`
   when this server is live.
 
-## Deploy (owner's Cloudflare account; nothing is deployed yet)
+## Deploy without a domain (owner's Cloudflare account; nothing is deployed yet)
 
-1. Buy the domain and add it to Cloudflare (free plan).
-2. `cd server && npx wrangler login`
-3. `npx wrangler d1 create pluto-counts`, then put the printed `database_id` in `wrangler.toml`.
-4. `npx wrangler d1 migrations apply pluto-counts --remote`
-5. Secrets (two long random strings, kept nowhere else):
+Three free Cloudflare addresses, no domain to buy:
+
+| What | Where it runs | Address |
+|---|---|---|
+| Website | Cloudflare Pages, from `website/` | `<project>.pages.dev` |
+| Counting server | Worker `pluto-api` (`server/`) | `pluto-api.<account>.workers.dev` |
+| Admin site | Worker `pluto-admin` (`admin/`, code in `src/admin-worker.ts`) | `pluto-admin.<account>.workers.dev`, behind Cloudflare Access |
+
+1. `cd server && npx wrangler login`
+2. `npx wrangler d1 create pluto-counts`, then put the printed `database_id` in `wrangler.toml`.
+3. `npx wrangler d1 migrations apply pluto-counts --remote`
+4. Secrets (two long random strings, kept nowhere else):
    `npx wrangler secret put ID_KEY` and `npx wrangler secret put TOKEN_KEY`.
    Changing `ID_KEY` later makes every install look new, so keep it.
-6. Uncomment `routes` in `wrangler.toml` with the real domain, then `npx wrangler deploy`.
-7. Admin site: a Cloudflare Pages project from `admin/` (no build command) on `admin.<domain>`.
-   In Zero Trust, add an Access application for `admin.<domain>` (the whole host, including
-   `/api/*`) that allows only the owner's email. Put the team name and the application's
-   audience tag in `ACCESS_TEAM` and `ACCESS_AUD`, and deploy again.
-8. Security rule: one Cloudflare rate-limiting rule on `/v1/hello` (for example 10 requests per
-   10 minutes per IP). It runs at Cloudflare's edge; the Worker never sees or stores the address.
-9. Check: open `admin.<domain>`, sign in, and see the numbers; open `admin.<domain>/?demo` to see
-   the layout with made-up numbers.
+5. `npx wrangler deploy` (counting server, on its workers.dev address).
+6. `cd ../admin && npx wrangler deploy` (admin site; it reaches the counting server through the
+   `API` service binding, so it must be deployed after step 5).
+7. In the dashboard: Workers & Pages → `pluto-admin` → Settings → Domains & Routes → workers.dev →
+   **Enable Cloudflare Access**. Then in Zero Trust → Access → Applications, edit that
+   application so only the owner's email is allowed. Copy the team name and the application's
+   audience tag into `ACCESS_TEAM` and `ACCESS_AUD` in `server/wrangler.toml`, and deploy
+   `server/` again.
+8. Security rule: one rate-limiting rule on `/v1/hello` (for example 10 requests per 10 minutes
+   per IP), at Cloudflare's edge; the Worker never sees or stores the address. [Unverified:
+   whether the free plan offers this rule on a workers.dev address; if not, it waits for a domain.]
+9. Website: a Pages project from `website/` (no build command). Then point its Download buttons
+   at `https://pluto-api.<account>.workers.dev/d/windows` and `/d/mac`, and set the app's hello
+   and ping address to the same host (not built yet).
+10. Check: open `pluto-admin.<account>.workers.dev`, sign in, and see the numbers; add `?demo` to see
+    the layout with made-up numbers.
+
+**Later, with a domain:** add it to Cloudflare, give each Worker a custom domain
+(`api.`, `admin.`) and the Pages project the main name, and change the app's and the website's
+addresses. Installs already counted keep counting; nothing in the database changes.
 
 ## Tests
 
 `pnpm vitest run server` runs the Worker against a real SQLite database (`test/d1.ts` gives
-node:sqlite the same API as D1) and draws the admin site from its output.
+node:sqlite the same API as D1), draws the admin site from its output, and checks that the
+admin Worker passes on only the admin route.

@@ -1,0 +1,17 @@
+# The admin site as a Worker ("pluto-admin") on <name>.<account>.workers.dev: no domain needed.
+# Static files are this folder; /api/* goes to the counting server. See server/README.md.
+name = "pluto-admin"
+main = "../server/src/admin-worker.ts"
+compatibility_date = "2025-11-01"
+logpush = false
+[observability]
+enabled = false
+
+[assets]
+directory = "."
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[[services]]
+binding = "API"
+service = "pluto-api"
