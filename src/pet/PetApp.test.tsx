@@ -240,6 +240,16 @@ describe("desktop pet", () => {
     await waitFor(async () => expect(await ipc.focusCurrent()).toBeNull());
   });
 
+  it("the hover card has a small sun or moon that switches the app between light and dark (owner 2026-11-24)", async () => {
+    const set = vi.spyOn(ipc, "settingSet").mockResolvedValue(null as never);
+    vi.spyOn(ipc, "settingsGetAll").mockResolvedValue({ "general.theme": "dark" } as never);
+    renderPet();
+    fireEvent.mouseEnter(bear());
+    const card = await screen.findByRole("status", { name: "Today at a glance" }, { timeout: 2000 });
+    fireEvent.click(await within(card).findByRole("button", { name: "Switch to light theme" }));
+    await waitFor(() => expect(set).toHaveBeenCalledWith("general.theme", "light"));
+  });
+
   it("\"Sleep or wake\" in the right-click menu puts the pet to sleep and wakes it (owner 2026-10-27)", async () => {
     renderPet();
     await screen.findByRole("button", { name: /^Pluto\./ });

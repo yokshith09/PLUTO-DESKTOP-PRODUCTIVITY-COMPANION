@@ -8,7 +8,8 @@ import { BACK_TURN_SHAKE, playEmote, type EmoteRun } from "@/pet/emotes";
 import { PetLibrary } from "./PetLibrary";
 import { PackPreview } from "./PackPreview";
 import { useQuery } from "@tanstack/react-query";
-import { ipc } from "@/ipc";
+import { ipc, type PetPack } from "@/ipc";
+import { SpritePet } from "./SpritePet";
 import { NudgeSettings } from "@/features/settings/NudgeSettings";
 import { CompanionPanel } from "@/features/companion/CompanionPanel";
 import { WardrobePanel } from "@/features/wardrobe/WardrobePanel";
@@ -72,8 +73,12 @@ export function CharacterPage({ onOpenProfile }: { onOpenProfile?: () => void } 
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader title="Character" description="Your desktop companion. It sits on your screen and stays out of the way." />
-      <div className="grid items-stretch gap-4 lg:grid-cols-2 [&_section]:mt-0 [&>*]:min-w-0">
-        <Panel className="flex h-full flex-col items-center justify-between gap-5 p-6">
+      {/* The preview stays in view while you pick a character or an outfit below it (owner 2026-11-24:
+          "always I have to scroll up to see which one suits"). Wide windows: a sticky column on the
+          left. Narrow windows: a small sticky mirror above the choices. */}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] [&_section]:mt-0 [&>*]:min-w-0">
+        <div className="lg:sticky lg:top-4" data-testid="character-preview">
+        <Panel className="flex flex-col items-center justify-between gap-5 p-6 lg:max-h-[calc(100svh-7rem)] lg:overflow-y-auto">
           {shownPack ? <PackPreview key={shownPack.id} pack={shownPack} /> : (
             <>
           <div className="grid min-h-72 w-full flex-1 place-items-center rounded-lg border bg-muted/40 [background-image:radial-gradient(circle_at_center,var(--border)_1px,transparent_1px)] [background-size:16px_16px]">
@@ -112,8 +117,10 @@ export function CharacterPage({ onOpenProfile }: { onOpenProfile?: () => void } 
             </>
           )}
         </Panel>
+        </div>
 
-        <Panel className="h-full divide-y px-5">
+        <div className="flex min-w-0 flex-col gap-4">
+        <Panel className="divide-y px-5">
           <Row label="Show on desktop" hint="Hide the companion without quitting Pluto.">
             <Switch checked={visible ?? true} onCheckedChange={(v) => void setVisible(v)} aria-label="Show on desktop" />
           </Row>
@@ -145,16 +152,30 @@ export function CharacterPage({ onOpenProfile }: { onOpenProfile?: () => void } 
           </Row>
         </Panel>
 
-        <div className="lg:col-span-2"><PetLibrary shown={shownPack ? shown : null} onShow={setPicked} /></div>
-        {/* One preview on this page: the big one above already wears whatever you put on here. */}
+        <MiniMirror pack={shownPack} pose={pose} />
+        <PetLibrary shown={shownPack ? shown : null} onShow={setPicked} />
+        {/* One preview on this page: the big one (or the mirror) already wears whatever you put on here. */}
         <WardrobePanel />
-        <div className="flex flex-col gap-4">
-          {/* Takes up whatever height the Wardrobe beside it needs. */}
-          <CompanionPanel onOpenProfile={onOpenProfile} />
-          <NudgeSettings />
+        <CompanionPanel onOpenProfile={onOpenProfile} />
+        <NudgeSettings />
+        <ReactionsPanel />
         </div>
-        <div className="lg:col-span-2"><ReactionsPanel /></div>
       </div>
+    </div>
+  );
+}
+
+/** Narrow windows only: a small copy of the preview that stays at the top while you scroll the choices. */
+function MiniMirror({ pack, pose }: { pack: PetPack | undefined; pose: BearPose }) {
+  const worn = useWorn();
+  const { data: sheet } = useQuery({ queryKey: ["pets", "sheet", pack?.id ?? ""], queryFn: () => ipc.petsSheet(pack?.id ?? ""), enabled: Boolean(pack), staleTime: Infinity });
+  return (
+    <div className="sticky top-0 z-10 flex items-center gap-3 rounded-xl border bg-card px-3 py-2 shadow-sm lg:hidden" aria-label="Preview while you choose" data-testid="character-mirror">
+      <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted/40">
+        {pack ? sheet && <SpritePet sheet={sheet} size={64} wear={worn} label={`${pack.display_name} (preview)`} />
+          : <Bear pose={pose} wear={worn} animated className="size-14" />}
+      </span>
+      <p className="min-w-0 text-xs text-muted-foreground"><span className="block truncate text-sm font-semibold text-foreground">{pack?.display_name ?? "Pluto the bear"}</span>Stays here while you pick an outfit or character.</p>
     </div>
   );
 }

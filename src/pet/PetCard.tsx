@@ -9,6 +9,7 @@ import { clockTime, formatDuration } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Priority, TaskRow } from "@/ipc";
 import { useFocus } from "@/hooks/useFocus";
+import { useSetting } from "@/hooks/useTheme";
 import { clock } from "@/lib/focus";
 
 const RANK: Record<Priority, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
@@ -47,7 +48,10 @@ export function PetCard({ className, style, napping = false, onNap }: { classNam
         ) : (
           <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Today</span>
         )}
-        <span className="text-[11px] text-muted-foreground">{new Date().toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}</span>
+        <span className="flex items-center gap-1.5">
+          <span className="text-[11px] text-muted-foreground">{new Date().toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}</span>
+          <ThemeButton />
+        </span>
       </div>
       {focus.session && (
         <div className="flex items-center gap-1" role="group" aria-label="Focus controls">
@@ -122,6 +126,15 @@ export function PetCard({ className, style, napping = false, onNap }: { classNam
       </div>
     </div>
   );
+}
+
+/** A small sun or moon in the card's corner: switches the whole app between light and dark (owner 2026-11-24). */
+function ThemeButton() {
+  const [pref, setPref] = useSetting("general.theme");
+  const system = typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const dark = (pref ?? "dark") === "dark" || (pref === "system" && system);
+  const label = dark ? "Switch to light theme" : "Switch to dark theme";
+  return <MiniButton label={label} onClick={() => void setPref(dark ? "light" : "dark")}>{dark ? <Sun /> : <Moon />}</MiniButton>;
 }
 
 function CardButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {

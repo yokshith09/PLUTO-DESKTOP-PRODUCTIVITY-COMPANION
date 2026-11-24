@@ -203,8 +203,17 @@ describe("website", () => {
   it("tells the truth about the anonymous count and download counting (owner, 2026-11-24)", () => {
     // The page describes parts not built yet; website/README and MASTER_PLAN say not to deploy before they ship.
     expect(pages.privacy).toContain('id="count"');
-    for (const s of ["A random install number", "Send an anonymous daily count", "does not store your IP address", "Counting downloads"]) expect(pages.privacy, s).toContain(s);
+    for (const s of ["A random install number", "active today, or not", "does not store your IP address", "Counting downloads", "Your day stays on your computer"]) expect(pages.privacy, s).toContain(s);
+    // No off switch for the count for now (owner, 2026-11-24); the Friends tab will get "show when I'm active".
+    expect(pages.privacy).not.toContain("Send an anonymous daily count");
     expect(pages.privacy).not.toMatch(/no Pluto server|nothing uploaded, no one watching/);
     expect(read("README.md")).toContain("Do not deploy");
+  });
+
+  it("shows the app's hover card when you hover the pet, with the light/dark switch (owner, 2026-11-24)", () => {
+    const app = readFileSync(resolve(root, "src/pet/PetCard.tsx"), "utf8");
+    for (const s of ["Today at a glance", "Add note", "Switch to light theme"]) expect(app, s).toContain(s);
+    for (const s of ['"Today at a glance"', "Add note", "Switch to light theme", "still open"]) expect(js, s).toContain(s);
+    expect(js).toContain('$$(".on-planet, #pet")');
   });
 });

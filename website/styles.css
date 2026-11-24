@@ -891,3 +891,38 @@ html:not(.guided) .guide { display: none; }
   .pick-pet { width: 64px; }
   .pick-pet .thumb { transform: scale(0.9); }
 }
+
+/* The hover card, a copy of the app's (dark like the app's default; the sun switches it) */
+.pet-card-web {
+  --pc-bg: #141a2b; --pc-ink: #eef1f8; --pc-soft: #9aa4bb; --pc-line: rgb(255 255 255 / 0.1); --pc-chip: #1c2338;
+  position: fixed; left: 0; top: 0; z-index: 85; width: 300px; padding: 14px; border-radius: 14px;
+  background: var(--pc-bg); color: var(--pc-ink); border: 1px solid var(--pc-line); box-shadow: 0 18px 48px rgb(10 14 30 / 0.35);
+  font-size: 13px; display: grid; gap: 10px; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 140ms ease, visibility 140ms;
+}
+.pet-card-web.on { opacity: 1; visibility: visible; pointer-events: auto; }
+.pet-card-web.light { --pc-bg: #fff; --pc-ink: #1b2236; --pc-soft: #5d6680; --pc-line: rgb(20 30 60 / 0.12); --pc-chip: #f2f4fa; box-shadow: 0 18px 48px rgb(10 14 30 / 0.16); }
+.pc-head { display: flex; align-items: center; gap: 8px; }
+.pc-today { flex: 1; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--pc-soft); }
+.pc-date { font-size: 11px; color: var(--pc-soft); }
+.pc-theme { width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--pc-line); background: var(--pc-chip); color: var(--pc-ink); cursor: pointer; font-size: 13px; line-height: 1; }
+.pc-theme:hover { border-color: var(--accent); color: var(--accent); }
+.pc-time { display: flex; align-items: end; gap: 10px; }
+.pc-time b { font-size: 26px; line-height: 1; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pc-time span { font-size: 11px; color: var(--pc-soft); padding-bottom: 2px; }
+.pc-apps, .pc-tasks { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.pc-apps li { display: grid; grid-template-columns: 92px 1fr 46px; align-items: center; gap: 8px; font-size: 12px; }
+.pc-apps i { height: 4px; border-radius: 4px; background: linear-gradient(var(--accent) 0 0) left / var(--w) 100% no-repeat, var(--pc-line); }
+.pc-apps small { text-align: right; color: var(--pc-soft); font-variant-numeric: tabular-nums; }
+.pc-label { border-top: 1px solid var(--pc-line); padding-top: 10px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--pc-soft); }
+.pc-tasks li { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 7px; background: color-mix(in srgb, var(--accent) 14%, transparent); font-weight: 500; font-size: 12.5px; }
+.pc-tasks li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-tasks li::before { content: ""; flex: none; width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--accent); }
+.pc-tasks em { font-style: normal; font-size: 11px; color: var(--accent); }
+.pc-tasks li.late { background: rgb(239 68 68 / 0.12); }
+.pc-tasks li.late em { color: #ef4444; }
+.pc-tasks li.pc-none { background: none; color: var(--pc-soft); padding-left: 0; }
+.pc-tasks li.pc-none::before { display: none; }
+.pc-line { font-size: 11px; color: var(--pc-soft); }
+.pc-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; border-top: 1px solid var(--pc-line); padding-top: 10px; }
+.pc-buttons span { display: grid; place-items: center; height: 30px; border-radius: 7px; border: 1px solid var(--pc-line); font-size: 11.5px; font-weight: 500; }
+@media (prefers-reduced-motion: reduce) { .pet-card-web { transition: none; } }

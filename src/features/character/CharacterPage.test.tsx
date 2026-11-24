@@ -31,6 +31,19 @@ describe("Character page preview (F1/F2)", () => {
     expect(screen.queryByRole("group", { name: "Preview animation" })).toBeNull();
   });
 
+  it("keeps the preview in view while you choose: sticky beside the choices, and a small mirror on narrow windows (owner 2026-11-24)", async () => {
+    renderPage();
+    const preview = screen.getByTestId("character-preview");
+    expect(preview.className).toContain("lg:sticky");
+    const mirror = screen.getByTestId("character-mirror");
+    expect(mirror.className).toContain("sticky");
+    expect(mirror.className).toContain("lg:hidden");
+    // The choices (characters, outfits) sit after the mirror, in the same column.
+    const wardrobe = await screen.findByRole("region", { name: "Accessories and outfits" });
+    expect(mirror.compareDocumentPosition(wardrobe) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(mirror.parentElement).toBe(wardrobe.parentElement);
+  });
+
   it("has one preview of the pet: the Accessories card does not draw a second one", async () => {
     renderPage();
     const wardrobe = await screen.findByRole("region", { name: "Accessories and outfits" });
@@ -76,9 +89,7 @@ describe("Character page preview (F1/F2)", () => {
     renderPage();
     await screen.findByText("Show on desktop");
     expect(screen.queryByText("Preview at each size")).toBeNull();
-    // The three bears left a hole under the shorter column; the two columns now match.
-    const panels = document.querySelectorAll("[class*='h-full']");
-    expect(panels.length).toBeGreaterThanOrEqual(2);
+    // The columns no longer need equal heights: the preview is sticky beside the choices (owner 2026-11-24).
   });
 
   it("can be told to get out of the way in full screen (owner 2026-10-28); it is on to begin with", async () => {

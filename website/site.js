@@ -634,6 +634,73 @@
     requestAnimationFrame(step);
   }
 
+  /* ---------- The hover card: hover the pet and today's glance appears, like in the app ---------- */
+  // A copy of the app's card (src/pet/PetCard.tsx): today's time, top apps, the tasks that matter,
+  // the next reminder and the shortcuts. The sun or moon switches the card between dark and light,
+  // as it switches the whole app. On the home page's Today list it shows that list's own tasks.
+  function hoverCards() {
+    const pets = $$(".on-planet, #pet");
+    if (!pets.length) return;
+    const card = document.createElement("div");
+    card.className = "pet-card-web";
+    card.setAttribute("role", "status");
+    card.setAttribute("aria-label", "Today at a glance");
+    card.innerHTML = '<div class="pc-head"><span class="pc-today">Today</span><span class="pc-date"></span><button type="button" class="pc-theme"></button></div><p class="pc-time"><b>4h 51m</b><span>on screen · 6 apps</span></p><ul class="pc-apps"><li><span>VS Code</span><i style="--w:100%"></i><small>2h 19m</small></li><li><span>Google Chrome</span><i style="--w:47%"></i><small>1h 5m</small></li><li><span>Figma</span><i style="--w:32%"></i><small>44m</small></li></ul><p class="pc-label">Tasks</p><ul class="pc-tasks"></ul><p class="pc-line pc-next">Next: Stand-up · 9:30 AM</p><p class="pc-line pc-done"></p><div class="pc-buttons"><span>Focus</span><span>Add note</span><span>Sleep</span></div>';
+    card.querySelector(".pc-date").textContent = new Date().toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+    document.body.append(card);
+    const theme = card.querySelector(".pc-theme");
+    const setTheme = (light) => {
+      card.classList.toggle("light", light);
+      theme.textContent = light ? "☾" : "☀";
+      theme.setAttribute("aria-label", light ? "Switch to dark theme" : "Switch to light theme");
+      theme.dataset.guide = light ? "Dark theme, like in the app" : "Light theme, like in the app";
+    };
+    setTheme(false);
+    theme.addEventListener("click", () => setTheme(!card.classList.contains("light")));
+    const SAMPLE = [["Finish the sync spec", "Overdue"], ["Design the notes screen", "High"]];
+    const fill = () => {
+      const ul = card.querySelector(".pc-tasks");
+      ul.textContent = "";
+      const list = $("#tasks");
+      const open = list ? [...list.querySelectorAll("li")].filter((li) => !li.querySelector("input")?.checked) : [];
+      const done = list ? list.querySelectorAll("input:checked").length : 3;
+      const rows = list ? open.slice(0, 2).map((li) => [li.querySelector("span").textContent, ""]) : SAMPLE;
+      if (!rows.length) { const li = document.createElement("li"); li.className = "pc-none"; li.textContent = "No tasks for today."; ul.append(li); }
+      for (const [title, tag] of rows) {
+        const li = document.createElement("li");
+        li.innerHTML = "<span></span><em></em>";
+        li.querySelector("span").textContent = title;
+        li.querySelector("em").textContent = tag;
+        if (tag === "Overdue") li.classList.add("late");
+        ul.append(li);
+      }
+      card.querySelector(".pc-done").textContent = `${done} done today · ${list ? open.length : 3} still open`;
+    };
+    let hideT = 0, showT = 0, owner = null;
+    const place = () => {
+      if (!owner) return;
+      const r = owner.getBoundingClientRect();
+      const w = card.offsetWidth, h = card.offsetHeight;
+      let x = r.left + r.width / 2 - w + 40;
+      x = Math.max(12, Math.min(innerWidth - w - 12, x));
+      let y = r.top - h - 8;
+      if (y < 72) y = Math.min(innerHeight - h - 12, r.bottom + 8);
+      card.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+    };
+    const show = (el) => { clearTimeout(hideT); clearTimeout(showT); showT = setTimeout(() => { owner = el; fill(); card.classList.add("on"); place(); }, 250); };
+    const hide = () => { clearTimeout(showT); hideT = setTimeout(() => { card.classList.remove("on"); owner = null; }, 220); };
+    for (const el of pets) {
+      el.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") show(el); });
+      el.addEventListener("pointerleave", hide);
+      el.addEventListener("focus", () => show(el));
+      el.addEventListener("blur", hide);
+    }
+    card.addEventListener("pointerenter", () => clearTimeout(hideT));
+    card.addEventListener("pointerleave", hide);
+    addEventListener("scroll", () => { if (owner) place(); }, { passive: true });
+    $("#tasks")?.addEventListener("change", () => { if (owner) fill(); });
+  }
+
   /* ---------- Menu (narrow windows) ---------- */
   const menuBtn = $(".menu-btn");
   if (menuBtn) {
@@ -670,6 +737,7 @@
       for (const room of $$("[data-dress]")) dressingRoom(room, usePet);
       library();
       extras();
+      hoverCards();
       guide();
       onScroll();
     })
