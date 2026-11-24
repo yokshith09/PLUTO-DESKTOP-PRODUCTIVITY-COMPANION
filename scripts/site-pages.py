@@ -28,7 +28,7 @@ PAGES = {
                 "Pluto is free today, with no account. A paid plan with Pluto's own AI is coming soon.",
                 "page", "pricing"),
     "privacy": ("Privacy: Pluto",
-                "Pluto keeps your day on your computer: no account, nothing uploaded, a diary locked with your password. Here is exactly what it stores and what it reads.",
+                "Pluto keeps your day on your computer: no account, your tasks, notes and diary never uploaded, a diary locked with your password. Here is exactly what it stores, what it reads and the one anonymous count it sends.",
                 "page", "privacy"),
     "download": ("Download Pluto",
                  "Download Pluto for Windows or macOS. Free, no account. How to install it and what to expect the first time you open it.",

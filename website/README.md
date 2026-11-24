@@ -39,6 +39,9 @@ aren't sent to a font CDN).
 - **Guide:** the pet that follows the pointer (`guide()` in `site.js`): mouse or trackpad only, not
   with reduced motion, never takes clicks, off switch and character picker in the Guide button.
   The look (pet and worn things) and the guide's on/off are kept in the visitor's browser only.
+- **Do not deploy** until the anonymous count, the download counter and the Settings switch ship
+  (MASTER_PLAN PW "Revised plan"): the privacy page already describes them (owner, 2026-11-24).
+  Then point the Download buttons at the counter (`/d/windows`, `/d/mac`) instead of GitHub.
 - **Deploy:** Cloudflare Pages with `website` as the output folder and no build command.
   `_headers` sets the security headers. Not deployed yet: domain and account are the owner's call.
 - **Tests:** `src/website.test.ts`.

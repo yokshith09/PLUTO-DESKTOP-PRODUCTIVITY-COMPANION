@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Privacy: Pluto</title>
-  <meta name="description" content="Pluto keeps your day on your computer: no account, nothing uploaded, a diary locked with your password. Here is exactly what it stores and what it reads.">
+  <meta name="description" content="Pluto keeps your day on your computer: no account, your tasks, notes and diary never uploaded, a diary locked with your password. Here is exactly what it stores, what it reads and the one anonymous count it sends.">
   <meta name="theme-color" content="#151c33">
   <meta property="og:title" content="Privacy: Pluto">
-  <meta property="og:description" content="Pluto keeps your day on your computer: no account, nothing uploaded, a diary locked with your password. Here is exactly what it stores and what it reads.">
+  <meta property="og:description" content="Pluto keeps your day on your computer: no account, your tasks, notes and diary never uploaded, a diary locked with your password. Here is exactly what it stores, what it reads and the one anonymous count it sends.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="shots/today.webp">
   <link rel="icon" href="favicon.png">
@@ -45,7 +45,7 @@
     <section class="page-hero dark-hero" aria-labelledby="page-h">
       <div class="stars" aria-hidden="true"></div>
       <h1 id="page-h">Your day stays on your computer</h1>
-      <p class="lede">No account, nothing uploaded, no one watching. Here is exactly what Pluto keeps, what it looks at, and what it never does.</p>
+      <p class="lede">No account, and your tasks, notes and diary never leave your computer. Here is exactly what Pluto keeps, what it looks at, the one small count it sends, and what it never does.</p>
     </section>
 
     <section class="prose" aria-label="Privacy in detail">
@@ -56,7 +56,7 @@
           <li><b>Windows:</b> <code>%APPDATA%\app.pluto.desktop</code></li>
           <li><b>macOS:</b> <code>~/Library/Application Support/app.pluto.desktop</code></li>
         </ul>
-        <p>It is never uploaded. There is no Pluto account and no Pluto server that holds your data.</p>
+        <p>It is never uploaded. There is no Pluto account, and Pluto's server holds none of it: only the anonymous count described below.</p>
       </div>
 
       <div class="prose-block" data-reveal>
@@ -84,9 +84,25 @@
         <p><i>Spot things to do</i> is off until you switch it on. It reads your entries on your computer to underline lines like "I need to submit the essay by Friday". Assistants can never see the diary.</p>
       </div>
 
+      <div class="prose-block" id="count" data-reveal>
+        <h2>How we count people using Pluto</h2>
+        <p>So we know how many people use Pluto, the app sends one small message a day to Pluto's server while it is open. It contains only:</p>
+        <ul>
+          <li><b>A random install number</b> made on your computer the first time Pluto opens. It isn't linked to your name, email, computer or anything else, and a new install gets a new one.</li>
+          <li><b>The app version</b> (for example 0.6.1) and <b>whether it is Windows or macOS</b>.</li>
+        </ul>
+        <p>Never your tasks, notes, diary, tracked time, the apps and sites you use, or your files. The server keeps the install number only in scrambled form, so one person isn't counted twice, and does not store your IP address. Each day's records are added into totals and the daily records are deleted after 35 days.</p>
+        <p>It is on by default. Turn it off any time in Settings, Privacy, <i>Send an anonymous daily count</i>, and nothing is sent after that.</p>
+      </div>
+
+      <div class="prose-block" data-reveal>
+        <h2>Counting downloads</h2>
+        <p>When you click a Download button on this website, our server adds one to that day's count for Windows or macOS and sends you on to the file. It doesn't set a cookie or store your address.</p>
+      </div>
+
       <div class="prose-block" data-reveal>
         <h2>The internet</h2>
-        <p>Pluto works offline. Its window is only allowed to talk to Pluto itself: the app's security policy blocks it from contacting any website. Links you save open in your own browser when you click them.</p>
+        <p>Pluto works offline. Its window is only allowed to talk to Pluto itself: the app's security policy blocks it from contacting any website. The daily count above is the one message the app itself sends; without a connection it simply waits. Links you save open in your own browser when you click them.</p>
         <p>This website loads nothing from other sites either: no trackers, no ads, and the fonts are served from here. A colour you pick at the top is remembered in your own browser only.</p>
       </div>
 

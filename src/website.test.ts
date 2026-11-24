@@ -199,4 +199,12 @@ describe("website", () => {
     for (const [name, page] of Object.entries(pages)) expect(page, name).toContain('<button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-nav">');
     expect(css).toContain(".js .top.open nav { display: flex; }");
   });
+
+  it("tells the truth about the anonymous count and download counting (owner, 2026-11-24)", () => {
+    // The page describes parts not built yet; website/README and MASTER_PLAN say not to deploy before they ship.
+    expect(pages.privacy).toContain('id="count"');
+    for (const s of ["A random install number", "Send an anonymous daily count", "does not store your IP address", "Counting downloads"]) expect(pages.privacy, s).toContain(s);
+    expect(pages.privacy).not.toMatch(/no Pluto server|nothing uploaded, no one watching/);
+    expect(read("README.md")).toContain("Do not deploy");
+  });
 });

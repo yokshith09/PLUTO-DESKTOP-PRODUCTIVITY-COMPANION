@@ -304,7 +304,34 @@ Other pages are fine for now (owner); they get fixed later, as they come up.
 
 **Motion added 2026-11-21** (owner: "3D web animations, scroll animations", references typesafe.ai and jamm.co): a live WebGL Pluto (`website/planet.js`, one fragment shader, no library) in a pinned orbit scene; scroll tilt on the app screen; reveals; characters hop in; stars drift. Not taken from the references: Jamm's smooth-scroll library (it takes over scrolling) and TypeSafe's loud colour switching on every section; the colour field is used once, for the orbit. Everything stills with reduced motion. Unverified on real GPUs and on Safari.
 
-### Original plan (owner 2026-11-20: "next we will build a dedicated website for Pluto, host it on the internet, and a backend that notes how many users are actively using it; we will not take users' info")
+### Revised plan (owner 2026-11-24): count everyone by default, downloads too, separate admin dashboard
+
+Owner: "I don't want to ask users yes or no … I want to count downloads from the website as well as active users in a dashboard … a separate admin site … easy to fake, undercounts: I don't want this architecture … the website has to change first." The original plan below (opt-in, three flags, no ID) is **superseded**. Website text changed 2026-11-24 (privacy page "How we count people using Pluto" and "Counting downloads"); **do not deploy the site until the parts below ship**, because the page now describes them.
+
+```
+Website (Cloudflare Pages) -- Download click --> Worker GET /d/windows|/d/mac  -- +1 download --> 302 to the installer (GitHub release or R2)
+Pluto app (Rust shell)     -- first run ------> Worker POST /v1/hello  {install_id, os, version}  <-- signed token
+                           -- once a day -----> Worker POST /v1/ping   {token, os, version}
+Worker  --> D1 (SQLite): installs, daily_active (35 days), daily totals, downloads
+Admin site (separate Cloudflare Pages project, behind Cloudflare Access: owner's login only) --> Worker GET /v1/admin/*
+```
+
+| Part | What it is |
+|---|---|
+| **A1 Install ID** | A random UUID made on first run, kept in the local database. Linked to nothing. On by default; **Settings › Privacy › "Send an anonymous daily count"** turns it off (no first-run question). |
+| **A2 Hello and token** | First run: `POST /v1/hello` registers the install and returns a token (HMAC of the hashed ID with a server key). Every ping must carry a valid token, so made-up IDs are refused. Registrations are rate-limited per address at Cloudflare's edge (the address is never stored). |
+| **A3 Daily ping** | At most once per calendar day per install, while Pluto is open; retried at next launch if offline. The "ping today?" rule is pure, in `pluto-core` (core stays network-free); the request is in the Tauri shell. |
+| **A4 Storage** | `installs(id_hash, first_seen, last_seen, os, version)`; `daily_active(day, id_hash)` kept 35 days, then folded into `daily_totals(day, dau, new, by_os, by_version)`; `downloads(day, os, count)`. `id_hash` = HMAC(server secret, install ID). No IP, no cookies, no content. |
+| **A5 Download counting** | Every Download button points at `/d/windows` or `/d/mac`; the Worker adds one and redirects to the installer. Obvious bots (crawler user agents, prefetch requests) are not counted. GitHub's own `download_count` is shown next to it as a cross-check. |
+| **A6 Admin site** | `admin/` in this repository, its own Pages project (e.g. `admin.<domain>`), protected by Cloudflare Access (email login, owner only); the Worker also checks the Access token on `/v1/admin/*`. Screens: Overview (downloads today/7/30 days, DAU/WAU/MAU, new installs, DAU/MAU), Downloads by day and OS, Active users by day, Versions in use, Retention by install week, Unusual activity (registration spikes, installs that ping once). |
+
+**Honest limits, smaller than before but not zero.** Someone determined can still script fake installs (each needs a registration, so it is rate-limited and shows up as a spike in Unusual activity). People who switch the count off, or block the server, are not counted. A reinstall is a new install. Download counts include people who click and never install; active users are the number that matters.
+
+**Order of work.** A0 owner: domain and Cloudflare account → A2/A4/A5 Worker, D1 schema and tests → A6 admin site → A1/A3 app (core rule, shell request, Settings switch) with tests → switch website Download links to `/d/…` → deploy Worker, admin, site; check with a test install → release. About 5 to 7 working days.
+
+**Legal note (Claude, not a lawyer):** an install ID is a pseudonymous identifier; on by default with an easy off switch and a clear privacy page is the usual approach for minimal product counts, but if Pluto is promoted in the EU, a short legal check before launch is cheap insurance.
+
+### Original plan (owner 2026-11-20: — **superseded 2026-11-24**, "next we will build a dedicated website for Pluto, host it on the internet, and a backend that notes how many users are actively using it; we will not take users' info")
 
 **The promise, in one line:** Pluto counts how many installs were opened recently. It never learns who they are, where they are, or what they do.
 
