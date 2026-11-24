@@ -1,0 +1,38 @@
+# Pluto's counting server (Cloudflare Worker + D1). Not deployed yet: see server/README.md.
+name = "pluto-api"
+main = "src/index.ts"
+compatibility_date = "2025-11-01"
+# Cloudflare's request logs would hold IP addresses: keep them off.
+logpush = false
+[observability]
+enabled = false
+
+# Fold daily records older than 35 days into totals, every day at 03:17 UTC.
+[triggers]
+crons = ["17 3 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pluto-counts"
+# Filled in by `wrangler d1 create pluto-counts` on the owner's account.
+database_id = "REPLACE_WITH_DATABASE_ID"
+migrations_dir = "migrations"
+
+[vars]
+# Where the website's Download buttons send people. Change when installers move (e.g. to R2).
+DL_WINDOWS = "https://github.com/yokshith09/DESKTOP-PET/releases/latest"
+DL_MAC = "https://github.com/yokshith09/DESKTOP-PET/releases/latest"
+# Cloudflare Access (admin site): the team name and the application's audience tag.
+ACCESS_TEAM = ""
+ACCESS_AUD = ""
+
+# Secrets, set once with `wrangler secret put` (never in this file):
+#   ID_KEY     scrambles install numbers before storing them
+#   TOKEN_KEY  signs the token each install gets at hello
+
+# Routes, once the domain exists (example names):
+# routes = [
+#   { pattern = "api.getpluto.app/*", zone_name = "getpluto.app" },
+#   { pattern = "getpluto.app/d/*", zone_name = "getpluto.app" },
+#   { pattern = "admin.getpluto.app/api/*", zone_name = "getpluto.app" },
+# ]

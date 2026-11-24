@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Pluto admin</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="admin.css">
+  <script src="admin.js" defer></script>
+</head>
+<body>
+  <header class="bar">
+    <h1>Pluto admin</h1>
+    <p class="demo-note" id="demo-note" hidden>Demo data: not real numbers.</p>
+    <label class="range">Show
+      <select id="days">
+        <option value="30">30 days</option>
+        <option value="90" selected>90 days</option>
+        <option value="180">180 days</option>
+        <option value="365">365 days</option>
+      </select>
+    </label>
+  </header>
+  <main id="app" aria-live="polite">
+    <p class="loading">Loading…</p>
+  </main>
+</body>
+</html>

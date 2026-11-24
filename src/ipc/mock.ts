@@ -5,13 +5,21 @@ import { remainingMs } from "../lib/focus";
 import { makeSyllabus } from "./mockSyllabus";
 import { makeClasses } from "./mockClasses";
 import type {
-  AppUsage, DomainUsage, TimeRange, UsageSummary,
+  AppUsage, DomainUsage, TimeRange, UsageSummary, PetPack,
   AppError, BinNote, DailyLog, LogEntry, Meeting, MeetingInput, MeetingSummary, Reminder, Label, PlutoEvent, Note, NoteColor, NoteSummary, Task, TaskEvent, TaskRow, TaskStatus, WorkUpdate, FocusSession,
 } from "./types";
 
 type Args = Record<string, unknown> | undefined;
 
 const HOUR = 3_600_000;
+
+/** The characters in packs/ that ship inside the app (besides the drawn bear). */
+const BUILTIN_PACKS: PetPack[] = [
+  { id: "mochi", display_name: "Mochi", description: "Mochi, the cat", rows: 9, format: "webp", source: "builtin", reactions: {} },
+  { id: "pip", display_name: "Pip", description: "Pip, the penguin", rows: 9, format: "webp", source: "builtin", reactions: {} },
+  { id: "bolt", display_name: "Bolt", description: "Bolt, the robot", rows: 9, format: "webp", source: "builtin", reactions: {} },
+  { id: "ghosty", display_name: "Ghosty", description: "Ghosty, the ghost", rows: 9, format: "webp", source: "builtin", reactions: {} },
+];
 
 export function createMock() {
   let seq = 100;
@@ -428,11 +436,16 @@ export function createMock() {
     usage_app_sessions: (a) => ranges((x) => x.app === a.app && !x.domain, Number(a.from), Number(a.to)),
     usage_domain_sessions: (a) => ranges((x) => x.domain === a.domain, Number(a.from), Number(a.to)),
     tracking_status: () => ({ supported: true, running: settings["tracking.apps"] === true, enabled: settings["tracking.apps"] === true }),
-    pets_list: () => [],
+    // The characters that ship with the app (packs/), so the preview's Character page shows them
+    // as the installed app does (owner 2026-11-24: "where are the characters?").
+    pets_list: () => BUILTIN_PACKS,
     pets_import: () => null,
     pets_import_zip: () => null,
     pets_remove: () => null,
-    pets_sheet: () => fail("NOT_FOUND", "No pets in the browser preview."),
+    pets_sheet: (a) => {
+      const id = String((a as { id?: unknown } | undefined)?.id ?? "");
+      return BUILTIN_PACKS.some((p) => p.id === id) ? `/packs/${id}/spritesheet.webp` : fail("NOT_FOUND", "No such pet in the browser preview.");
+    },
     pet_open_tabs: () => (settings["tracking.apps"] === true && settings["tracking.sites"] === true ? openTabs : []),
     pet_tabs_report: () => `Chrome (in front): ${openTabs.length} tab-like controls, ${openTabs.length} counted`,
     pet_close_tab: (a) => {

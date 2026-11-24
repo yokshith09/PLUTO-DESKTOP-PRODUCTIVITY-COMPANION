@@ -11,6 +11,14 @@ export default tseslint.config(
     languageOptions: { globals: { console: "readonly", process: "readonly", setTimeout: "readonly", fetch: "readonly" } },
   },
   {
+    // The admin dashboard's script runs in the owner's browser.
+    files: ["admin/**/*.js"],
+    languageOptions: {
+      sourceType: "script",
+      globals: { document: "readonly", window: "readonly", fetch: "readonly", location: "readonly", URLSearchParams: "readonly" },
+    },
+  },
+  {
     // The website's one script runs in the visitor's browser.
     files: ["website/**/*.js"],
     languageOptions: {

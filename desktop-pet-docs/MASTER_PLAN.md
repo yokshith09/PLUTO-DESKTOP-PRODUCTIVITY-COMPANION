@@ -331,6 +331,10 @@ Admin site (separate Cloudflare Pages project, behind Cloudflare Access: owner's
 
 **Order of work.** A0 owner: domain and Cloudflare account → A2/A4/A5 Worker, D1 schema and tests → A6 admin site → A1/A3 app (core rule, shell request, Settings switch) with tests → switch website Download links to `/d/…` → deploy Worker, admin, site; check with a test install → release. About 5 to 7 working days.
 
+**Progress 2026-11-24:** A2, A4, A5 (Worker, schema, download counter) and A6 (admin site) built in `server/` and `admin/` with tests; not deployed. Next: A1/A3 in the app (install number, hello, daily ping), then switch the website's Download links, then deploy (owner: domain, Cloudflare account).
+
+**Auto-updates (owner asked 2026-11-24 "can we send autoupdates to users without accounts?"):** yes. Tauri's updater checks a small signed file (the latest version, its download and signature) and installs the update; no account is involved. Needs: an updater key pair the owner creates once (the private key only as a GitHub secret), the release workflow signing the installers, and an update address (GitHub's `latest.json` or this Worker). Separate from code signing (still on hold): Windows SmartScreen may still warn on the first install, not on updates. Not built; waits for the owner's go-ahead (earlier "signed in-place updates: excluded for now", 2026-11-19).
+
 **Legal note (Claude, not a lawyer):** an install ID is a pseudonymous identifier; on by default with an easy off switch and a clear privacy page is the usual approach for minimal product counts, but if Pluto is promoted in the EU, a short legal check before launch is cheap insurance.
 
 ### Original plan (owner 2026-11-20: — **superseded 2026-11-24**, "next we will build a dedicated website for Pluto, host it on the internet, and a backend that notes how many users are actively using it; we will not take users' info")

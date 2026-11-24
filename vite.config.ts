@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => ({
   },
   test: {
     environment: "jsdom",
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx}", "server/test/**/*.test.ts"],
     // The first test in a file pays for loading the whole app; on the Windows CI runner that
     // alone took over the 5 s default (2026-10-12). Locally the slowest test takes about 2 s.
     testTimeout: 15_000,
