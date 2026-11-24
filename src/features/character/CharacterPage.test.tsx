@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ipc, type PetPack } from "@/ipc";
@@ -23,12 +23,29 @@ function renderPage() {
 }
 
 describe("Character page preview (F1/F2)", () => {
-  it("starts as the bear, with its moments behind one button", async () => {
+  it("starts as the bear, with its reactions right under the preview (owner 2026-11-24)", async () => {
     renderPage();
-    expect(screen.queryByRole("group", { name: "Preview pose" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Preview a moment/ }));
-    expect(await screen.findByRole("group", { name: "Preview pose" })).toBeTruthy();
+    const preview = screen.getByTestId("character-preview");
+    const poses = within(preview).getByRole("group", { name: "Preview pose" });
+    expect(within(poses).getAllByRole("button").length).toBeGreaterThan(10);
+    expect(screen.queryByRole("button", { name: /Preview a moment/ })).toBeNull();
     expect(screen.queryByRole("group", { name: "Preview animation" })).toBeNull();
+  });
+
+  it("can follow the pointer: off to begin with, and small while on (owner 2026-11-24)", async () => {
+    const set = vi.spyOn(ipc, "settingSet").mockResolvedValue(null as never);
+    renderPage();
+    const sw = await screen.findByRole("switch", { name: "Follow my pointer" });
+    expect(sw.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(sw);
+    await waitFor(() => expect(set).toHaveBeenCalledWith("pet.follow_pointer", true));
+  });
+
+  it("orders the choices: characters, then outfits, then the settings", async () => {
+    renderPage();
+    const wardrobe = await screen.findByRole("region", { name: "Accessories and outfits" });
+    const settings = (await screen.findByText("Show on desktop")).closest("section") as HTMLElement;
+    expect(wardrobe.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("keeps the preview in view while you choose: sticky beside the choices, and a small mirror on narrow windows (owner 2026-11-24)", async () => {
@@ -76,7 +93,7 @@ describe("Character page preview (F1/F2)", () => {
     const group = await screen.findByRole("group", { name: "Preview animation" });
     expect(group.querySelectorAll("button")).toHaveLength(3);
     fireEvent.click(screen.getByRole("button", { name: "Preview Pluto the bear" }));
-    expect(await screen.findByRole("button", { name: /Preview a moment/ })).toBeTruthy();
+    expect(await screen.findByRole("group", { name: "Preview pose" })).toBeTruthy();
   });
 
   it("has no music option for now", async () => {

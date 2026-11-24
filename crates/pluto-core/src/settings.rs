@@ -53,6 +53,10 @@ pub enum SettingsKey {
     /// Play/pause/next buttons under the pet (owner 2026-10-26); off until the user turns them on.
     #[serde(rename = "pet.media")]
     PetMedia,
+    /// The pet follows the mouse pointer around the screen, small and just beside it (owner
+    /// 2026-11-24). Off by default.
+    #[serde(rename = "pet.follow_pointer")]
+    PetFollowPointer,
     /// The installed pet pack shown instead of the built-in bear (FR-63); null = the bear.
     #[serde(rename = "pet.pack")]
     PetPack,
@@ -145,6 +149,7 @@ impl SettingsKey {
             Self::McpEnabled => "mcp.enabled",
             Self::McpFocusGuard => "mcp.focus_guard",
             Self::PetMedia => "pet.media",
+            Self::PetFollowPointer => "pet.follow_pointer",
             Self::PetPack => "pet.pack",
             Self::ShortcutsGlobalOpen => "shortcuts.global_open",
             Self::ShortcutsGlobalNewNote => "shortcuts.global_new_note",
@@ -175,6 +180,7 @@ impl SettingsKey {
             "mcp.enabled" => Some(Self::McpEnabled),
             "mcp.focus_guard" => Some(Self::McpFocusGuard),
             "pet.media" => Some(Self::PetMedia),
+            "pet.follow_pointer" => Some(Self::PetFollowPointer),
             "pet.pack" => Some(Self::PetPack),
             "shortcuts.global_open" => Some(Self::ShortcutsGlobalOpen),
             "shortcuts.global_new_note" => Some(Self::ShortcutsGlobalNewNote),
@@ -206,6 +212,7 @@ impl SettingsKey {
             Self::McpEnabled => json!(false),
             Self::McpFocusGuard => json!(false),
             Self::PetMedia => json!(false),
+            Self::PetFollowPointer => json!(false),
             Self::PetPack => json!(null),
             Self::ShortcutsGlobalOpen => json!(null),
             Self::ShortcutsGlobalNewNote => json!(null),
@@ -231,6 +238,7 @@ impl SettingsKey {
             | Self::McpEnabled
             | Self::McpFocusGuard
             | Self::PetMedia
+            | Self::PetFollowPointer
             | Self::TrackingApps
             | Self::TrackingSites
             | Self::TrackingSafari => {
@@ -380,6 +388,7 @@ pub fn all_defaults() -> BTreeMap<String, Value> {
         SettingsKey::PetHoverCard,
         SettingsKey::PetHideFullscreen,
         SettingsKey::PetMedia,
+        SettingsKey::PetFollowPointer,
         SettingsKey::PetPack,
         SettingsKey::McpEnabled,
         SettingsKey::McpFocusGuard,
@@ -439,7 +448,12 @@ mod tests {
     #[test]
     fn all_defaults_exist() {
         let defaults = all_defaults();
-        assert_eq!(defaults.len(), 24);
+        assert_eq!(defaults.len(), 25);
+        assert_eq!(
+            defaults["pet.follow_pointer"],
+            json!(false),
+            "follow my pointer is off by default"
+        );
         assert_eq!(
             defaults["general.colour"],
             json!("periwinkle"),

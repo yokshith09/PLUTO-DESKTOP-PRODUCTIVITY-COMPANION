@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PageHeader, Panel } from "@/features/shell/PageHeader";
 import { BEAR_POSES, Bear, type BearPose } from "@/features/shell/Bear";
 import { BACK_TURN_SHAKE, playEmote, type EmoteRun } from "@/pet/emotes";
@@ -61,6 +59,7 @@ export function CharacterPage({ onOpenProfile }: { onOpenProfile?: () => void } 
   const [typing, setTyping] = useSetting("pet.typing");
   const [hoverCard, setHoverCard] = useSetting("pet.hover_card");
   const [hideFullscreen, setHideFullscreen] = useSetting("pet.hide_fullscreen");
+  const [follow, setFollow] = useSetting("pet.follow_pointer");
   const px = SIZES[size ?? "M"];
   const emote = useRef<EmoteRun | null>(null);
   useEffect(() => () => emote.current?.cancel(), []);
@@ -73,9 +72,10 @@ export function CharacterPage({ onOpenProfile }: { onOpenProfile?: () => void } 
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader title="Character" description="Your desktop companion. It sits on your screen and stays out of the way." />
-      {/* The preview stays in view while you pick a character or an outfit below it (owner 2026-11-24:
-          "always I have to scroll up to see which one suits"). Wide windows: a sticky column on the
-          left. Narrow windows: a small sticky mirror above the choices. */}
+      {/* The preview and its reactions stay in view while you pick a character or an outfit
+          (owner 2026-11-24: "always I have to scroll up to see which one suits"; then: preview,
+          reactions, then characters and outfits). Wide windows: a sticky column on the left.
+          Narrow windows: a small sticky mirror above the choices. */}
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] [&_section]:mt-0 [&>*]:min-w-0">
         <div className="lg:sticky lg:top-4" data-testid="character-preview">
         <Panel className="flex flex-col items-center justify-between gap-5 p-6 lg:max-h-[calc(100svh-7rem)] lg:overflow-y-auto">
@@ -89,43 +89,39 @@ export function CharacterPage({ onOpenProfile }: { onOpenProfile?: () => void } 
               <p className="text-sm font-semibold">Pluto the bear</p>
               <p className="text-xs text-muted-foreground">Default character</p>
             </div>
-            <p className="text-xs text-muted-foreground">Pick a moment to preview it</p>
+            <p className="text-xs text-muted-foreground">Pick a reaction to preview it</p>
           </div>
-          <Popover>
-            <PopoverTrigger asChild>
-              <button type="button" className="group flex w-full items-center gap-3 rounded-xl border bg-background/40 px-3.5 py-2.5 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:border-primary/50">
-                <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Play className="size-4" /></span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[11px] text-muted-foreground">Preview a moment</span>
-                  <span className="block truncate text-[13px] font-semibold">{POSE_LABELS[pose]}</span>
-                </span>
-                <ChevronDown aria-hidden className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="center" className="w-[min(30rem,calc(100vw-2rem))] p-3">
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" role="group" aria-label="Preview pose">
-                {BEAR_POSES.map((p) => (
-                  <Button key={p} size="sm" variant={p === pose ? "default" : "outline"} aria-pressed={p === pose} className="justify-start truncate"
-                    onClick={() => { setPose(p); setReplay((n) => n + 1); }}>
-                    {POSE_LABELS[p]}
-                  </Button>
-                ))}
-                <Button size="sm" variant="secondary" className="justify-start truncate" onClick={playBackTurn}>Play back-turn shake</Button>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <div className="w-full">
+            <p className="mb-2 text-[13px] font-semibold">Reactions</p>
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" role="group" aria-label="Preview pose">
+              {BEAR_POSES.map((p) => (
+                <Button key={p} size="sm" variant={p === pose ? "default" : "outline"} aria-pressed={p === pose} className="justify-start truncate" title={POSE_LABELS[p]}
+                  onClick={() => { setPose(p); setReplay((n) => n + 1); }}>
+                  {POSE_LABELS[p]}
+                </Button>
+              ))}
+              <Button size="sm" variant="secondary" className="justify-start truncate" onClick={playBackTurn}>Back-turn shake</Button>
+            </div>
+          </div>
             </>
           )}
         </Panel>
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">
+        <MiniMirror pack={shownPack} pose={pose} />
+        <PetLibrary shown={shownPack ? shown : null} onShow={setPicked} />
+        {/* One preview on this page: the big one (or the mirror) already wears whatever you put on here. */}
+        <WardrobePanel />
         <Panel className="divide-y px-5">
           <Row label="Show on desktop" hint="Hide the companion without quitting Pluto.">
             <Switch checked={visible ?? true} onCheckedChange={(v) => void setVisible(v)} aria-label="Show on desktop" />
           </Row>
-          <Row label="Size" hint={`${px} px on screen`}>
-            <ToggleGroup type="single" value={size ?? "M"} onValueChange={(v) => v && void setSize(v as "S" | "M" | "L")} aria-label="Size">
+          <Row label="Follow my pointer" hint="The pet walks along beside your mouse pointer, small and never under it, so it doesn't cover what you click. Off by default.">
+            <Switch checked={follow ?? false} onCheckedChange={(v) => void setFollow(v)} aria-label="Follow my pointer" />
+          </Row>
+          <Row label="Size" hint={follow ? "Small while it follows your pointer" : `${px} px on screen`}>
+            <ToggleGroup type="single" disabled={follow === true} value={follow ? "S" : size ?? "M"} onValueChange={(v) => v && void setSize(v as "S" | "M" | "L")} aria-label="Size">
               <ToggleGroupItem value="S">S</ToggleGroupItem>
               <ToggleGroupItem value="M">M</ToggleGroupItem>
               <ToggleGroupItem value="L">L</ToggleGroupItem>
@@ -152,10 +148,6 @@ export function CharacterPage({ onOpenProfile }: { onOpenProfile?: () => void } 
           </Row>
         </Panel>
 
-        <MiniMirror pack={shownPack} pose={pose} />
-        <PetLibrary shown={shownPack ? shown : null} onShow={setPicked} />
-        {/* One preview on this page: the big one (or the mirror) already wears whatever you put on here. */}
-        <WardrobePanel />
         <CompanionPanel onOpenProfile={onOpenProfile} />
         <NudgeSettings />
         <ReactionsPanel />

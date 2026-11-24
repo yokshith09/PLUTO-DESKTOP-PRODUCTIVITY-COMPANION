@@ -22,6 +22,8 @@ export interface Settings {
   "pet.hide_fullscreen": boolean;
   /** Play/pause/next buttons under the pet (off until turned on). */
   "pet.media": boolean;
+  /** The pet follows the mouse pointer, small and beside it (off by default). */
+  "pet.follow_pointer": boolean;
   /** Installed pet pack shown instead of the bear (FR-63); null = the bear. */
   "pet.pack": string | null;
   /** AI assistants on this PC may connect (MCP); off by default. */

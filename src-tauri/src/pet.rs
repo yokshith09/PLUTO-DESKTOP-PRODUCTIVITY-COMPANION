@@ -202,6 +202,47 @@ pub struct PetState {
     /// Tab Tantrum has moved the pet aside: moves are not saved, and `home` is where it goes back to.
     parked: AtomicBool,
     home: Mutex<Option<(i32, i32)>>,
+    /// "Follow my pointer" is on: the window trails the pointer and its moves are not saved.
+    following: AtomicBool,
+}
+
+/// How far beside the pointer the pet sits, in logical pixels, so it is never under it.
+pub const FOLLOW_OFFSET: f64 = 24.0;
+/// How often the pointer is looked at while the pet follows it (only then).
+pub const FOLLOW_TICK: Duration = Duration::from_millis(30);
+
+/// "Follow my pointer": where the window goes so the pet (`pet`: left, top, width, height in CSS
+/// pixels inside the window) sits just below and to the right of the pointer, or on the other
+/// side near a screen edge, inside the work area. Physical pixels in and out.
+pub fn follow_target(cursor: (f64, f64), pet: [f64; 4], scale: f64, work: Rect) -> (f64, f64) {
+    let [l, t, w, h] = pet.map(|v| v * scale);
+    let off = FOLLOW_OFFSET * scale;
+    let (left, top) = (f64::from(work.x), f64::from(work.y));
+    let (right, bottom) = (left + f64::from(work.w), top + f64::from(work.h));
+    let mut x = cursor.0 + off;
+    if x + w > right {
+        x = cursor.0 - off - w;
+    }
+    let mut y = cursor.1 + off;
+    if y + h > bottom {
+        y = cursor.1 - off - h;
+    }
+    let x = x.clamp(left, (right - w).max(left));
+    let y = y.clamp(top, (bottom - h).max(top));
+    (x - l, y - t)
+}
+
+/// One step towards the target, easing in, so the pet trails the pointer instead of sticking to it.
+pub fn follow_step(at: (f64, f64), target: (f64, f64), dt_ms: f64) -> (f64, f64) {
+    let f = 1.0 - (-dt_ms / 120.0).exp();
+    (at.0 + (target.0 - at.0) * f, at.1 + (target.1 - at.1) * f)
+}
+
+/// `pet.follow_pointer` (off by default).
+fn follow_pointer(all: &std::collections::BTreeMap<String, Value>) -> bool {
+    all.get("pet.follow_pointer")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
 }
 
 /// Is the point (CSS pixels from the window's top-left) on a drawn part of the window?
@@ -754,8 +795,9 @@ pub fn on_moved<R: Runtime>(app: &AppHandle<R>, x: i32, y: i32) {
     let Some(state) = app.try_state::<Arc<PetState>>().map(|s| Arc::clone(&s)) else {
         return;
     };
-    // Tab Tantrum moved the pet aside: that is not where the person put it.
-    if state.parked.load(Ordering::SeqCst) {
+    // Tab Tantrum moved the pet aside, or it is following the pointer: that is not where the
+    // person put it.
+    if state.parked.load(Ordering::SeqCst) || state.following.load(Ordering::SeqCst) {
         return;
     }
     // Moves while the window is grown are saved too (as the pet's own spot, see `pet_spot`).
@@ -802,11 +844,16 @@ async fn apply<R: Runtime>(app: &AppHandle<R>, settings: &SettingsService, reset
         .get("pet.visible")
         .and_then(Value::as_bool)
         .unwrap_or(true);
-    let size_name = all
-        .get("pet.size")
-        .and_then(Value::as_str)
-        .unwrap_or("M")
-        .to_owned();
+    // Following the pointer, the pet is always the small size (owner 2026-11-24).
+    let following = follow_pointer(&all);
+    let size_name = if following {
+        "S".to_owned()
+    } else {
+        all.get("pet.size")
+            .and_then(Value::as_str)
+            .unwrap_or("M")
+            .to_owned()
+    };
     let scale = w.scale_factor().unwrap_or(1.0);
     let size = (logical_size(&size_name) * scale).round() as u32;
     // Back to the pet's own square at its spot; the page lays the window out again after
@@ -816,6 +863,7 @@ async fn apply<R: Runtime>(app: &AppHandle<R>, settings: &SettingsService, reset
         *lock(&state.base) = None;
         *lock(&state.grown) = None;
         *lock(&state.solid) = None;
+        state.following.store(following, Ordering::SeqCst);
     }
     warn_on("set_size", w.set_size(PhysicalSize::new(size, size)));
     // Character › "Always on top" (on by default).
@@ -1067,6 +1115,73 @@ pub fn start<R: Runtime>(app: AppHandle<R>, settings: Arc<SettingsService>, bus:
         });
     }
     {
+        // "Follow my pointer" (off by default): the window trails the pointer, just beside it, so
+        // the pet never covers what you click. Paused while the card or a bubble is open, during a
+        // drag and while Tab Tantrum has moved the pet aside. Nothing runs when it is off.
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let mut at: Option<(f64, f64)> = None;
+            loop {
+                tokio::time::sleep(FOLLOW_TICK).await;
+                let (Some(w), Some(state)) = (window(&app), app.try_state::<Arc<PetState>>())
+                else {
+                    continue;
+                };
+                if !state.following.load(Ordering::SeqCst)
+                    || state.holding.load(Ordering::SeqCst)
+                    || state.expanded.load(Ordering::SeqCst)
+                    || state.parked.load(Ordering::SeqCst)
+                    || !w.is_visible().unwrap_or(false)
+                {
+                    at = None;
+                    continue;
+                }
+                let (Ok(c), Ok(p), Ok(size), Ok(scale)) = (
+                    app.cursor_position(),
+                    w.outer_position(),
+                    w.outer_size(),
+                    w.scale_factor(),
+                ) else {
+                    continue;
+                };
+                if scale <= 0.0 {
+                    continue;
+                }
+                let Some(work) = app.monitor_from_point(c.x, c.y).ok().flatten().map(|m| {
+                    let a = m.work_area();
+                    Rect {
+                        x: a.position.x,
+                        y: a.position.y,
+                        w: a.size.width,
+                        h: a.size.height,
+                    }
+                }) else {
+                    continue;
+                };
+                let pet = lock(&state.solid)
+                    .as_ref()
+                    .and_then(|r| r.first().copied())
+                    .unwrap_or([
+                        0.0,
+                        0.0,
+                        f64::from(size.width) / scale,
+                        f64::from(size.height) / scale,
+                    ]);
+                let target = follow_target((c.x, c.y), pet, scale, work);
+                let from = at.unwrap_or((f64::from(p.x), f64::from(p.y)));
+                let next = follow_step(from, target, FOLLOW_TICK.as_secs_f64() * 1000.0);
+                at = Some(next);
+                let spot = (next.0.round() as i32, next.1.round() as i32);
+                if spot != (p.x, p.y) {
+                    warn_on(
+                        "set_position",
+                        w.set_position(PhysicalPosition::new(spot.0, spot.1)),
+                    );
+                }
+            }
+        });
+    }
+    {
         let (app, settings) = (app.clone(), Arc::clone(&settings));
         tauri::async_runtime::spawn(async move {
             let mut layout = monitor_layout(&app);
@@ -1132,7 +1247,8 @@ pub fn start<R: Runtime>(app: AppHandle<R>, settings: Arc<SettingsService>, bus:
                     if key == "pet.visible"
                         || key == "pet.size"
                         || key == "pet.always_on_top"
-                        || key == "pet.hide_fullscreen" =>
+                        || key == "pet.hide_fullscreen"
+                        || key == "pet.follow_pointer" =>
                 {
                     apply(&app, &settings, false).await;
                 }
@@ -1156,6 +1272,48 @@ mod tests {
         w: 1920,
         h: 1040,
     };
+
+    #[test]
+    fn following_puts_the_pet_beside_the_pointer_never_under_it() {
+        let pet = [10.0, 300.0, 96.0, 96.0];
+        // Middle of the screen, scale 1: pet's top-left is 24 px right of and below the pointer.
+        let (x, y) = follow_target((800.0, 500.0), pet, 1.0, WORK);
+        assert_eq!((x + 10.0, y + 300.0), (824.0, 524.0));
+        // Near the right and bottom edges it goes to the other side of the pointer.
+        let (x, y) = follow_target((1900.0, 1030.0), pet, 1.0, WORK);
+        assert_eq!(
+            (x + 10.0, y + 300.0),
+            (1900.0 - 24.0 - 96.0, 1030.0 - 24.0 - 96.0)
+        );
+        // At 150% everything is in physical pixels.
+        let (x, y) = follow_target((800.0, 500.0), pet, 1.5, WORK);
+        assert_eq!((x + 15.0, y + 450.0), (836.0, 536.0));
+        // Never off the work area.
+        let (x, _) = follow_target((-50.0, 500.0), pet, 1.0, WORK);
+        assert!(x + 10.0 >= 0.0);
+    }
+
+    #[test]
+    fn following_eases_towards_the_pointer() {
+        let next = follow_step((0.0, 0.0), (100.0, 0.0), 30.0);
+        assert!(
+            next.0 > 0.0 && next.0 < 100.0,
+            "part of the way, not a jump: {next:?}"
+        );
+        let mut at = (0.0, 0.0);
+        for _ in 0..100 {
+            at = follow_step(at, (100.0, 50.0), 30.0);
+        }
+        assert!((at.0 - 100.0).abs() < 0.5 && (at.1 - 50.0).abs() < 0.5);
+    }
+
+    #[test]
+    fn follow_pointer_is_off_unless_switched_on() {
+        let mut all = std::collections::BTreeMap::new();
+        assert!(!follow_pointer(&all));
+        all.insert("pet.follow_pointer".to_owned(), json!(true));
+        assert!(follow_pointer(&all));
+    }
 
     #[test]
     fn clicks_go_through_everywhere_but_the_drawn_parts() {

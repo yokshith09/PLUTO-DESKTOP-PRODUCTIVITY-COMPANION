@@ -51,6 +51,7 @@ export function PackPreview({ pack }: { pack: PetPack }) {
         <p className="text-xs text-muted-foreground">{rows.length} animations</p>
       </div>
       {pack.special && <SpecialLine special={pack.special} onTry={(pose) => { const r = ROW_FOR_POSE[pose as BearPose] ?? "waving"; if (rows.includes(r)) setRow(r); }} />}
+      <p className="-mb-3 w-full text-[13px] font-semibold">Reactions</p>
       <div className="flex w-full flex-wrap gap-1.5" role="group" aria-label="Preview animation">
         {rows.map((r) => (
           <Button key={r} size="sm" variant={r === row ? "default" : "outline"} aria-pressed={r === row} onClick={() => setRow(r)}>

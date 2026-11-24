@@ -71,7 +71,8 @@ export function PetApp() {
   const worn = useWorn();
   const { data: settings } = useSettings();
   const { data: openToday = [] } = useTodayTasks();
-  const size = SIZES[settings?.["pet.size"] ?? "M"];
+  // Following the pointer, the pet is always small (owner 2026-11-24); the shell moves the window.
+  const size = settings?.["pet.follow_pointer"] ? SIZES.S : SIZES[settings?.["pet.size"] ?? "M"];
   // A pet pack from the library replaces the bear (FR-63); reactions map to its rows.
   const packId = settings?.["pet.pack"] ?? null;
   const { data: sheet } = useQuery({ queryKey: ["pets", "sheet", packId], queryFn: () => ipc.petsSheet(packId ?? ""), enabled: !!packId, staleTime: Infinity, retry: false });
