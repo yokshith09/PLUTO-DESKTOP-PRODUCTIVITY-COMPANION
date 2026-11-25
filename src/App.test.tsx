@@ -1246,10 +1246,46 @@ describe("Quick Actions (P5 item 1)", () => {
     expect(await screen.findByText("Refactor the tray menu", { selector: ".font-medium" })).toBeTruthy();
   });
 
+  it("on Notes, Ctrl+K still searches notes instead", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await openNotes(user);
+    const search = await screen.findByLabelText("Search notes");
+    await user.keyboard("{Control>}k{/Control}");
+    expect(document.activeElement).toBe(search);
+    expect(screen.queryByRole("combobox", { name: "Quick Actions" })).toBeNull();
+  });
+
   it("its global shortcut is listed in Settings and can be changed", async () => {
     const user = userEvent.setup();
     render(<App />);
     await goTo(user, /^Settings/);
     expect(await screen.findByRole("button", { name: "Change shortcut: Quick Actions, from any app" })).toBeTruthy();
+  });
+});
+
+describe("Launch Buddy (P5 item 2)", () => {
+  it("makes a set in Settings and opens it from Quick Actions, then starts focus", async () => {
+    const { ipc } = await import("@/ipc");
+    const user = userEvent.setup();
+    render(<App />);
+    await goTo(user, /^Settings/);
+    await user.click(await screen.findByRole("button", { name: "New launch set" }));
+    const form = await screen.findByRole("form", { name: "Edit launch set" });
+    await user.type(within(form).getByLabelText("Name"), "Physics");
+    await user.click(within(form).getByRole("button", { name: "Add a file or app" }));
+    await user.type(within(form).getByLabelText("Web address to add"), "moodle.uni.edu/course/12{Enter}");
+    expect(within(form).getByRole("list", { name: "Items in this set" }).textContent).toContain("moodle.uni.edu");
+    await user.click(within(form).getByRole("radio", { name: "25 min" }));
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+    expect(await screen.findByRole("button", { name: "Open Physics" })).toBeTruthy();
+    const stored = await ipc.prefsGet<{ sets: { name: string; items: { target: string }[]; focus_minutes: number }[] }>("launch.sets");
+    expect(stored?.sets[0]).toMatchObject({ name: "Physics", focus_minutes: 25, items: [{ target: "E:/Projects/pluto/README.md" }, { target: "https://moodle.uni.edu/course/12" }] });
+
+    await user.keyboard("{Control>}k{/Control}");
+    await user.type(await screen.findByRole("combobox", { name: "Quick Actions" }), "physics");
+    await user.click(await screen.findByRole("option", { name: /Open Physics/ }));
+    await petSays("Opened 2 things from Physics");
+    await waitFor(async () => expect((await ipc.focusCurrent())?.planned_ms).toBe(25 * 60_000));
   });
 });

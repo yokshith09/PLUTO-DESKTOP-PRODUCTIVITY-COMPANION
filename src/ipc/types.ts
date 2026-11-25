@@ -4,7 +4,7 @@ import type { NoteColor, NoteInput as GeneratedNoteInput, NotePatch as Generated
 export type {
   AppError, BinNote, DailyLog, ErrorCode, Label, LogEntry, LabelCount, Note, NoteColor, NoteSort, NoteSummary, Priority,
   ActionItem, ActionItemInput, Decision, DecisionInput, Meeting, MeetingFilters, MeetingInput, MeetingSummary,
-  Reminder, Snapshot, Stats, Task, TaskEdit, TaskLink, LinkInput, Repeat, RepeatDay, TaskPlan, FocusSession, FocusStart, FocusKind, FocusOutcome, RetentionRules, RetentionCounts, TaskEvent, TaskFilters, TaskRow, TaskStatus, TaskView, WorkUpdate, AppUsage, DomainUsage, DomainSetting, TimeRange, TrackingStatus, UsageSummary, OpenTab, PetPack, PetSource, PetSpecial,
+  Reminder, Snapshot, Stats, Task, TaskEdit, TaskLink, LinkInput, Repeat, RepeatDay, TaskPlan, FocusSession, FocusStart, FocusKind, FocusOutcome, LaunchReport, RetentionRules, RetentionCounts, TaskEvent, TaskFilters, TaskRow, TaskStatus, TaskView, WorkUpdate, AppUsage, DomainUsage, DomainSetting, TimeRange, TrackingStatus, UsageSummary, OpenTab, PetPack, PetSource, PetSpecial,
   DayInfo, DiaryEntry, DiaryHit, DiaryStatus, AssistantCall, BinMeeting, Class as TimetableClass, ClassInput, ClassDraft, ClassPreview, LineError, Course, CourseCard, CourseDate, CourseDetail, CourseExam, CourseLinks, CourseSummary, CourseWeek, Exam, ItemCourse, WeeklyReport, Topic, Subtopic, Point as CoursePoint, SyllabusEdit,
 } from "./generated";
 

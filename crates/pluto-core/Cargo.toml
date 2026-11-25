@@ -13,7 +13,7 @@ zeroize = "1"
 chrono = { version = "0.4.45", default-features = false, features = ["std", "serde"] }
 chrono-tz = "0.10.4"
 iana-time-zone = "0.1.65"
-rusqlite = { version = "0.40.2", features = ["bundled"] }
+rusqlite = { version = "0.41.0", features = ["bundled"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 thiserror = "2.0.21"
@@ -25,15 +25,15 @@ tracing-appender = "0.2.5"
 lz4_flex = { version = "0.11", default-features = false, features = ["safe-decode", "std"] }
 zip = { version = "9", default-features = false, features = ["deflate"] }
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "std"] }
-# MCP server side only (no HTTP, no network): the official SDK, pinned exactly (MCP_PLAN.md §4).
-rmcp = { version = "=3.8.0", default-features = false, features = ["server", "macros"] }
+# MCP server side only (no HTTP, no network): the official SDK, pinned exactly (MCP_PLAN.md §4); 3.9.0 for RUSTSEC-2026-0462.
+rmcp = { version = "=3.9.0", default-features = false, features = ["server", "macros"] }
 schemars = "1"
 ts-rs = { version = "11", features = ["chrono-impl", "serde-json-impl"], optional = true }
 
 [dev-dependencies]
 tempfile = "3.27.0"
 tokio = { version = "1.53.2", features = ["sync", "rt", "macros", "time", "test-util", "io-util"] }
-rmcp = { version = "=3.8.0", default-features = false, features = ["server", "macros", "client"] }
+rmcp = { version = "=3.9.0", default-features = false, features = ["server", "macros", "client"] }
 
 [features]
 default = ["ts"]

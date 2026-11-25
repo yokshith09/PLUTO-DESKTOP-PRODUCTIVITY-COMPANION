@@ -1,6 +1,7 @@
 // Typed IPC client (F0-07): the only place that knows command names and argument shapes.
 import { call, type WaitingChat } from "./transport";
 import type {
+  LaunchReport,
   UsageSummary, TimeRange, TrackingStatus, OpenTab, PetPack, BinNote, DailyLog, Reminder, ReminderInput, ReminderPatch, Label, LabelCount, Note, NoteInput, NotePatch, NoteSort, NoteSummary, Task, TaskEdit, TaskEvent, TaskFilters, TaskRow,
   TaskStatus, TaskView, WorkUpdate, LinkInput, TaskPlan, RepeatDay, FocusSession, FocusStart, RetentionRules, RetentionCounts, Meeting, MeetingFilters, MeetingInput, MeetingSummary,
   TimetableClass, ClassInput, ClassPreview, Course, CourseCard, CourseDetail, CourseLinks, SyllabusEdit, DayInfo, DiaryEntry, DiaryHit, DiaryStatus, Exam, WeeklyReport, AssistantCall, BinMeeting,
@@ -48,6 +49,8 @@ export const ipc = {
   projectPathPick: (kind: "folder" | "file") => call<string | null>("project_path_pick", { kind }),
   /** Opens a project's folder or file link (only saved ones; programs are shown, not run). */
   projectPathOpen: (path: string) => call<null>("project_path_open", { path }),
+  /** Launch Buddy: the shell opens the saved set with this id (it reads the set itself). */
+  launchSetRun: (id: string) => call<LaunchReport>("launch_set_run", { id }),
   devGitRemoveFolder: (path: string) => call<GitWatchInfo>("dev_git_remove_folder", { path }),
   /** The last calls assistants made, newest first (in memory only). */
   mcpActivity: () => call<AssistantCall[]>("mcp_activity"),

@@ -36,6 +36,7 @@ import { TOUR_PREF, parseTour, stepsFor } from "@/features/guide/tourSteps";
 import { usePref } from "@/features/guide/usePref";
 import { QuickActions, type QuickAction } from "@/features/quick/QuickActions";
 import { notify } from "@/lib/notify";
+import { runSet } from "@/features/launch/useLaunchSets";
 
 const PAGES: readonly Page[] = ["today", "tasks", "time", "notes", "projects", "study", "diary", "meetings", "archive", "bin", "character", "mcp", "settings"];
 
@@ -97,7 +98,9 @@ function Screen() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
-      if (e.key.toLowerCase() === "k") {
+      // On Notes and Archive, Mod+K keeps searching notes (that page's own shortcut); Quick
+      // Actions is still Mod+Shift+Space there.
+      if (e.key.toLowerCase() === "k" && page !== "notes" && page !== "archive") {
         e.preventDefault();
         setQuickOpen((o) => !o);
         return;
@@ -165,6 +168,7 @@ function Screen() {
         return;
       case "note": return setEditing(a.id);
       case "course": return setPage("study");
+      case "launch": return void runSet(a);
     }
   };
   const labelName = labelId ? labels.find((l) => l.label.id === labelId)?.label.name : undefined;

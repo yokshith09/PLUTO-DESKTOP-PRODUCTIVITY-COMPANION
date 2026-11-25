@@ -37,6 +37,7 @@ export type { FocusStart } from "./FocusStart";
 export type { ItemCourse } from "./ItemCourse";
 export type { Label } from "./Label";
 export type { LabelCount } from "./LabelCount";
+export type { LaunchReport } from "./LaunchReport";
 export type { LineError } from "./LineError";
 export type { LinkInput } from "./LinkInput";
 export type { LogEntry } from "./LogEntry";

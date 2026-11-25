@@ -20,6 +20,7 @@ pub mod firefox;
 pub mod focus;
 pub mod ids;
 pub mod labels;
+pub mod launch;
 pub mod legacy_data;
 pub mod links;
 pub mod logging;

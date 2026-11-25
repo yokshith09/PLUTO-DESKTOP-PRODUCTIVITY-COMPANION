@@ -8,6 +8,7 @@ mod devwatch;
 mod earlier_app;
 mod ipc;
 mod jump;
+mod launch;
 mod logs;
 mod mcp;
 mod media;
@@ -185,6 +186,7 @@ pub fn run() {
             mcp::dev_chat_events,
             devwatch::project_path_pick,
             devwatch::project_path_open,
+            launch::launch_set_run,
             mcp::mcp_activity,
             ipc::setting_set,
             ipc::prefs_get,

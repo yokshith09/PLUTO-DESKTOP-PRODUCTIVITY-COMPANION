@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckSquare, FileText, GraduationCap, LayoutGrid, Plus, Search, Timer } from "lucide-react";
+import { CheckSquare, FileText, GraduationCap, LayoutGrid, Plus, Rocket, Search, Timer } from "lucide-react";
+import { useLaunchSets } from "@/features/launch/useLaunchSets";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useAllTasks, useNotes } from "@/hooks/usePluto";
 import { useCourseData } from "@/features/student/useStudent";
@@ -10,7 +11,7 @@ import type { Course, NoteSummary, TaskRow } from "@/ipc";
 /**
  * Quick Actions (P5 item 1, MASTER_PLAN): one bar for the common jobs. Opens with Ctrl/⌘+K in
  * Pluto, or the global shortcut (default Ctrl/⌘+Shift+Space) from any app. Every action here is
- * also reachable without it. Launch Buddy sets and saved links join it with P5 item 2.
+ * also reachable without it. Launch Buddy sets (P5 item 2) open from here too.
  */
 
 export type QuickAction =
@@ -20,11 +21,12 @@ export type QuickAction =
   | { kind: "page"; page: Page }
   | { kind: "task"; id: string; title: string }
   | { kind: "note"; id: string }
-  | { kind: "course"; id: string };
+  | { kind: "course"; id: string }
+  | { kind: "launch"; id: string; name: string };
 
 export interface QuickItem {
   id: string;
-  group: "Do" | "Go to" | "Tasks" | "Notes" | "Courses";
+  group: "Do" | "Launch" | "Go to" | "Tasks" | "Notes" | "Courses";
   label: string;
   hint?: string;
   action: QuickAction;
@@ -42,7 +44,7 @@ const matches = (text: string, q: string) => q.split(/\s+/).filter(Boolean).ever
 /** The list for what was typed: pure, so it is tested on its own. */
 export function quickItems(
   query: string,
-  data: { tasks: TaskRow[]; notes: NoteSummary[]; courses: Course[]; pages: readonly Page[] },
+  data: { tasks: TaskRow[]; notes: NoteSummary[]; courses: Course[]; pages: readonly Page[]; sets?: { id: string; name: string; items: unknown[] }[] },
   limit = 6,
 ): QuickItem[] {
   const q = norm(query.trim());
@@ -56,6 +58,9 @@ export function quickItems(
   ];
   if (!typed) out.push({ id: "new-task-empty", group: "Do", label: "New task", hint: "type its name", action: { kind: "new-task", title: "" } });
   out.push(...doItems.filter((i) => !q || matches(i.label, q)));
+  // Launch Buddy sets (P5 item 2): "Physics" opens everything saved for it.
+  out.push(...(data.sets ?? []).filter((s) => s.items.length && (!q || matches(`open launch ${s.name}`, q))).slice(0, limit)
+    .map((s): QuickItem => ({ id: `launch:${s.id}`, group: "Launch", label: `Open ${s.name}`, hint: `${s.items.length} ${s.items.length === 1 ? "thing" : "things"}`, action: { kind: "launch", id: s.id, name: s.name } })));
   out.push(...data.pages.filter((p) => !q || matches(PAGE_NAMES[p], q)).slice(0, q ? limit : 4)
     .map((p): QuickItem => ({ id: `page:${p}`, group: "Go to", label: PAGE_NAMES[p], action: { kind: "page", page: p } })));
   if (!q) return out;
@@ -76,7 +81,7 @@ export function quickItems(
 }
 
 const ICON: Record<QuickItem["group"], React.ReactNode> = {
-  Do: <Plus />, "Go to": <LayoutGrid />, Tasks: <CheckSquare />, Notes: <FileText />, Courses: <GraduationCap />,
+  Do: <Plus />, Launch: <Rocket />, "Go to": <LayoutGrid />, Tasks: <CheckSquare />, Notes: <FileText />, Courses: <GraduationCap />,
 };
 
 export function QuickActions({ open, onOpenChange, pages, onRun }: {
@@ -90,7 +95,8 @@ export function QuickActions({ open, onOpenChange, pages, onRun }: {
   const { data: tasks = [] } = useAllTasks();
   const { data: notes = [] } = useNotes(false, null, "last_edited");
   const { courses } = useCourseData();
-  const items = useMemo(() => quickItems(query, { tasks, notes, courses, pages }), [query, tasks, notes, courses, pages]);
+  const { sets } = useLaunchSets();
+  const items = useMemo(() => quickItems(query, { tasks, notes, courses, pages, sets: sets.sets }), [query, tasks, notes, courses, pages, sets]);
   const list = useRef<HTMLUListElement>(null);
 
   useEffect(() => { if (open) { setQuery(""); setActive(0); } }, [open]);

@@ -422,6 +422,21 @@ export function createMock() {
     dev_chat_events: () => [{ assistant: "Claude Code", folder: "pluto", kind: "done", atMs: now() - 10 * 60_000 }, { assistant: "Claude Code", folder: "pluto", kind: "needs", atMs: now() - 16 * 60_000 }, { assistant: "Cursor", folder: "other", kind: "permission", atMs: now() - 8 * 60_000 }],
     project_path_pick: (a) => (a.kind === "folder" ? "E:/Projects/pluto" : "E:/Projects/pluto/README.md"),
     project_path_open: () => null,
+    // Launch Buddy: like the shell, run only what is saved under that id. No file system here:
+    // a path with "missing" in it stands for a file that was moved.
+    launch_set_run: (a) => {
+      const stored = prefs.get("launch.sets") as { sets?: { id: string; name: string; items?: { label?: string; target: string }[]; focus_minutes?: number | null }[] } | undefined;
+      const set = stored?.sets?.find((x) => x.id === a.id);
+      if (!set) return fail("VALIDATION", "That launch set no longer exists.");
+      const r = { opened: [] as string[], shown: [] as string[], missing: [] as string[], failed: [] as string[], focus_minutes: set.focus_minutes ?? null };
+      for (const i of set.items ?? []) {
+        const label = i.label?.trim() || i.target;
+        if (/missing/i.test(i.target)) r.missing.push(label);
+        else if (/\.(bat|cmd|ps1|sh)$/i.test(i.target)) r.shown.push(label);
+        else r.opened.push(label);
+      }
+      return r;
+    },
     dev_git_watch: () => ({ roots: [...gitRoots], repos: gitRoots.length ? gitRoots.map((r) => `${r}/pluto`) : ["E:/Projects/staysync"] }),
     dev_git_add_folder: () => { gitRoots.push("E:/Projects"); return { roots: [...gitRoots], repos: gitRoots.map((r) => `${r}/pluto`) }; },
     dev_git_remove_folder: (a) => { gitRoots = gitRoots.filter((r) => r !== a.path); return { roots: [...gitRoots], repos: gitRoots.map((r) => `${r}/pluto`) }; },

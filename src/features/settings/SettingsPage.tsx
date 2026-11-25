@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { errorMessage, ipc } from "@/ipc";
 import { GLOBAL_SHORTCUTS } from "./shortcuts";
 import { ShortcutRow } from "./ShortcutRow";
+import { LaunchSetsPanel } from "@/features/launch/LaunchSetsPanel";
 import { ColourPicker } from "./ColourPicker";
 import { useSetting } from "@/hooks/useTheme";
 
@@ -77,6 +78,9 @@ export function SettingsPage({ initialTab = "main", onOpenCharacter }: { initial
           <Switch checked={autostart ?? false} onCheckedChange={(v) => void setAutostart(v)} aria-label="Open Pluto at login" />
         </Row>
       </Section>
+      <Section title="Launch Buddy">
+        <LaunchSetsPanel />
+      </Section>
       <Section title="Keyboard shortcuts">
         {GLOBAL_SHORTCUTS.map((g) => (
           <ShortcutRow
@@ -87,7 +91,8 @@ export function SettingsPage({ initialTab = "main", onOpenCharacter }: { initial
         {[
           [`${mod}+1 … 5`, "Today overview, Tasks, Notes, Time, Meetings"],
           [`${mod}+T / ${mod}+M`, "New task / new meeting"],
-          [`${mod}+K / ${mod}+N`, "Search notes / new note (on Notes)"],
+          [`${mod}+K`, "Quick Actions (on Notes: search notes)"],
+          [`${mod}+N`, "New note (on Notes)"],
           [`${mod}+,`, "Settings"],
         ].map(([keys, what]) => (
           <Row key={keys} label={what ?? ""}><span className="rounded-md border bg-muted px-2 py-0.5 font-mono text-[12px]">{keys}</span></Row>
