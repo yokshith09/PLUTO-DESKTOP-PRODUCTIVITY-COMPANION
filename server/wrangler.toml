@@ -14,8 +14,8 @@ crons = ["17 3 * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "pluto-counts"
-# Filled in by `wrangler d1 create pluto-counts` on the owner's account.
-database_id = "REPLACE_WITH_DATABASE_ID"
+# From `wrangler d1 create pluto-counts` on the owner's account (2026-11-25). Not a secret.
+database_id = "72213acc-0e17-40c3-8f82-18c2939c15b9"
 migrations_dir = "migrations"
 
 [vars]
