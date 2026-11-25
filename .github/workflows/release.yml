@@ -100,7 +100,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build the app and its installers
         run: pnpm tauri build
-        # env:
+        env:
+          # The anonymous daily count's server (src-tauri/src/count.rs). A repository variable
+          # (Settings → Secrets and variables → Actions → Variables); unset, nothing is counted.
+          PLUTO_COUNT_URL: ${{ vars.PLUTO_COUNT_URL }}
+        # More env, later:
         #   Windows: TAURI_SIGNING_PRIVATE_KEY / certificate settings (see Tauri's Windows signing guide)
         #   macOS:   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
         #            APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID

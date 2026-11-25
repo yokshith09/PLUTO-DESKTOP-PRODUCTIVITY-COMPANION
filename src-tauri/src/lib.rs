@@ -3,6 +3,7 @@
 
 mod autostart;
 mod class_alerts;
+mod count;
 mod devwatch;
 mod earlier_app;
 mod ipc;
@@ -458,6 +459,10 @@ pub fn run() {
             app.manage(Arc::new(pet::PetState::default()));
             app.on_menu_event(|app, event| pet::on_menu(app, event.id().as_ref()));
             pet::start(app.handle().clone(), settings.clone(), &bus);
+            // The anonymous daily count (release builds only); never in test runs with their own folder.
+            if own_folder {
+                count::start(data_dir.clone());
+            }
             shortcuts::start(app.handle().clone(), settings.clone(), &bus);
             typing::start(app.handle().clone(), settings.clone(), &bus);
             tantrum::start(app.handle().clone(), settings.clone());

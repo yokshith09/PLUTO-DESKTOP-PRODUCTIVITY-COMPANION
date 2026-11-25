@@ -5,7 +5,7 @@ import { useSetting } from "@/hooks/useTheme";
 import { comboFromEvent, showCombo } from "./shortcuts";
 import { Row } from "./parts";
 
-type Key = "shortcuts.global_open" | "shortcuts.global_new_note" | "shortcuts.global_pet";
+type Key = "shortcuts.global_open" | "shortcuts.global_new_note" | "shortcuts.global_pet" | "shortcuts.global_quick";
 
 function Keys({ combo }: { combo: string }) {
   if (!combo) return <span className="text-[12px] text-muted-foreground">Off</span>;

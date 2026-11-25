@@ -178,7 +178,7 @@ export function createMock() {
   const defaultSettings = (): Record<string, unknown> => ({
     "general.autostart": false, "general.theme": "dark", "general.colour": "periwinkle", "general.font_size": "M",
     "pet.visible": true, "pet.size": "M", "pet.opacity": 100, "pet.always_on_top": true, "pet.typing": false, "pet.hover_card": true, "pet.hide_fullscreen": true, "pet.media": false, "pet.follow_pointer": false, "pet.pack": null, "mcp.enabled": false, "mcp.focus_guard": false,
-    "shortcuts.global_open": null, "shortcuts.global_new_note": null, "shortcuts.global_new_task": null, "shortcuts.global_pet": null,
+    "shortcuts.global_open": null, "shortcuts.global_new_note": null, "shortcuts.global_new_task": null, "shortcuts.global_pet": null, "shortcuts.global_quick": null,
     "tracking.apps": true, "tracking.exclude_apps": [], "tracking.sites": false, "tracking.safari": false,
     "advanced.log_level": "info",
   });

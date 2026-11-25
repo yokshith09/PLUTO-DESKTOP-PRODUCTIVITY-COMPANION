@@ -32,6 +32,7 @@ export interface Settings {
   "shortcuts.global_open": string | null;
   "shortcuts.global_new_note": string | null;
   "shortcuts.global_pet": string | null;
+  "shortcuts.global_quick": string | null;
   "shortcuts.global_new_task": string | null;
   "tracking.apps": boolean;
   "tracking.exclude_apps": string[];

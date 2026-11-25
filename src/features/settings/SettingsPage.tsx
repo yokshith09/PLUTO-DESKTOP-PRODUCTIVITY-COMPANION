@@ -33,7 +33,8 @@ export function SettingsPage({ initialTab = "main", onOpenCharacter }: { initial
   const [openGlobal] = useSetting("shortcuts.global_open");
   const [noteGlobal] = useSetting("shortcuts.global_new_note");
   const [petGlobal] = useSetting("shortcuts.global_pet");
-  const globals: Record<string, string | null | undefined> = { "shortcuts.global_open": openGlobal, "shortcuts.global_new_note": noteGlobal, "shortcuts.global_pet": petGlobal };
+  const [quickGlobal] = useSetting("shortcuts.global_quick");
+  const globals: Record<string, string | null | undefined> = { "shortcuts.global_open": openGlobal, "shortcuts.global_new_note": noteGlobal, "shortcuts.global_pet": petGlobal, "shortcuts.global_quick": quickGlobal };
   const [confirmReset, setConfirmReset] = useState(false);
   // U-2 (owner 2026-11-03): two tabs; Settings opens on Main settings unless sent to Profile.
   const [tab, setTab] = useState<"main" | "profile">(initialTab);

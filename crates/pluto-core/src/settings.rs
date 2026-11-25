@@ -81,6 +81,10 @@ pub enum SettingsKey {
     /// Show or hide the pet from any app (FR-48). Null = off, the default.
     #[serde(rename = "shortcuts.global_pet")]
     ShortcutsGlobalPet,
+    /// Quick Actions, the command bar, from any app (P5 item 1). Null = the default
+    /// (`CmdOrCtrl+Shift+Space`, in the shell).
+    #[serde(rename = "shortcuts.global_quick")]
+    ShortcutsGlobalQuick,
 
     // tracking (opt-in; Phase 2 pulled forward)
     #[serde(rename = "tracking.apps")]
@@ -109,7 +113,8 @@ pub fn shortcut_is_valid(combo: &str) -> bool {
     let Some((key, mods)) = parts.split_last() else {
         return false;
     };
-    let key_ok = (key.len() == 1 && key.chars().all(|c| c.is_ascii_alphanumeric()))
+    let key_ok = *key == "Space"
+        || (key.len() == 1 && key.chars().all(|c| c.is_ascii_alphanumeric()))
         || key
             .strip_prefix('F')
             .and_then(|n| n.parse::<u8>().ok())
@@ -155,6 +160,7 @@ impl SettingsKey {
             Self::ShortcutsGlobalNewNote => "shortcuts.global_new_note",
             Self::ShortcutsGlobalNewTask => "shortcuts.global_new_task",
             Self::ShortcutsGlobalPet => "shortcuts.global_pet",
+            Self::ShortcutsGlobalQuick => "shortcuts.global_quick",
             Self::TrackingApps => "tracking.apps",
             Self::TrackingExcludeApps => "tracking.exclude_apps",
             Self::TrackingSites => "tracking.sites",
@@ -186,6 +192,7 @@ impl SettingsKey {
             "shortcuts.global_new_note" => Some(Self::ShortcutsGlobalNewNote),
             "shortcuts.global_new_task" => Some(Self::ShortcutsGlobalNewTask),
             "shortcuts.global_pet" => Some(Self::ShortcutsGlobalPet),
+            "shortcuts.global_quick" => Some(Self::ShortcutsGlobalQuick),
             "tracking.apps" => Some(Self::TrackingApps),
             "tracking.exclude_apps" => Some(Self::TrackingExcludeApps),
             "tracking.sites" => Some(Self::TrackingSites),
@@ -218,6 +225,7 @@ impl SettingsKey {
             Self::ShortcutsGlobalNewNote => json!(null),
             Self::ShortcutsGlobalNewTask => json!(null),
             Self::ShortcutsGlobalPet => json!(null),
+            Self::ShortcutsGlobalQuick => json!(null),
             Self::TrackingApps => json!(false),
             Self::TrackingExcludeApps => json!([]),
             Self::TrackingSites => json!(false),
@@ -310,7 +318,8 @@ impl SettingsKey {
             Self::ShortcutsGlobalOpen
             | Self::ShortcutsGlobalNewNote
             | Self::ShortcutsGlobalNewTask
-            | Self::ShortcutsGlobalPet => {
+            | Self::ShortcutsGlobalPet
+            | Self::ShortcutsGlobalQuick => {
                 if value.is_null() {
                     return Ok(());
                 }
@@ -396,6 +405,7 @@ pub fn all_defaults() -> BTreeMap<String, Value> {
         SettingsKey::ShortcutsGlobalNewNote,
         SettingsKey::ShortcutsGlobalNewTask,
         SettingsKey::ShortcutsGlobalPet,
+        SettingsKey::ShortcutsGlobalQuick,
         SettingsKey::TrackingApps,
         SettingsKey::TrackingExcludeApps,
         SettingsKey::TrackingSites,
@@ -419,6 +429,7 @@ mod tests {
             "Ctrl+Alt+9",
             "Cmd+K",
             "CommandOrControl+Shift+F12",
+            "CmdOrCtrl+Shift+Space",
         ] {
             assert!(shortcut_is_valid(ok), "{ok}");
         }
@@ -433,6 +444,8 @@ mod tests {
             "Hyper+L",
             "Ctrl+F25",
             "Ctrl+Shift",
+            "Shift+Space",
+            "Ctrl+space",
         ] {
             assert!(!shortcut_is_valid(bad), "{bad}");
         }
@@ -448,7 +461,7 @@ mod tests {
     #[test]
     fn all_defaults_exist() {
         let defaults = all_defaults();
-        assert_eq!(defaults.len(), 25);
+        assert_eq!(defaults.len(), 26);
         assert_eq!(
             defaults["pet.follow_pointer"],
             json!(false),

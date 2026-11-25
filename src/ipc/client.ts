@@ -198,7 +198,7 @@ export const ipc = {
   petSolid: (rects: number[][], holding: boolean) => call<null>("pet_solid", { rects, holding }),
   petClick: () => call<unknown>("pet_click"),
   /** Hover-card buttons: open the dashboard and start a new note or task (FR-111). */
-  petCommand: (what: "new-note" | "new-task" | "focus" | "tasks" | `page:${string}`) => call<unknown>("pet_command", { what }),
+  petCommand: (what: "new-note" | "new-task" | "focus" | "tasks" | "quick" | `page:${string}`) => call<unknown>("pet_command", { what }),
   /** Media keys under the pet (Windows only, Unverified). */
   petMedia: (action: "play-pause" | "next" | "previous") => call<unknown>("pet_media", { action }),
   petDoubleClick: () => call<unknown>("pet_double_click"),

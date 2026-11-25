@@ -12,7 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useBin, useBusSync, useLabels, useNoteActions, useNotes, useSettings } from "@/hooks/usePluto";
 import { useAgenda } from "@/features/overview/TodayAgenda";
 import { useTheme } from "@/hooks/useTheme";
-import { ipc, onCommand, type NoteSort } from "@/ipc";
+import { errorMessage, ipc, onCommand, type NoteSort } from "@/ipc";
 import { AssistantsPage } from "@/features/assistants/AssistantsPage";
 import { BinPage } from "@/features/bin/BinPage";
 import { CharacterPage } from "@/features/character/CharacterPage";
@@ -34,6 +34,8 @@ import { Tour } from "@/features/guide/Tour";
 import { ROLE_PREF, parseRole } from "@/features/guide/roles";
 import { TOUR_PREF, parseTour, stepsFor } from "@/features/guide/tourSteps";
 import { usePref } from "@/features/guide/usePref";
+import { QuickActions, type QuickAction } from "@/features/quick/QuickActions";
+import { notify } from "@/lib/notify";
 
 const PAGES: readonly Page[] = ["today", "tasks", "time", "notes", "projects", "study", "diary", "meetings", "archive", "bin", "character", "mcp", "settings"];
 
@@ -47,6 +49,7 @@ function Screen() {
   const [editing, setEditing] = useState<string | null>(null);
   const [newMeeting, setNewMeeting] = useState(0);
   const [taskFocus, setTaskFocus] = useState<TaskFocus | null>(null);
+  const [quickOpen, setQuickOpen] = useState(false);
 
   useBusSync();
   const theme = useTheme();
@@ -90,10 +93,15 @@ function Screen() {
   };
 
   // App-wide shortcuts (UI brief §8): Mod+1…5 jump between pages, Mod+, opens Settings,
-  // Mod+T starts a new task, Mod+M a new meeting. New note and search live on the Notes page.
+  // Mod+T starts a new task, Mod+M a new meeting, Mod+K opens Quick Actions.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+      if (e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setQuickOpen((o) => !o);
+        return;
+      }
       const pages: Record<string, Page> = { "1": "today", "2": "tasks", "3": "notes", "4": "time", "5": "meetings", ",": "settings", t: "tasks", m: "meetings" };
       const target = pages[e.key.toLowerCase()];
       if (!target) return;
@@ -111,7 +119,8 @@ function Screen() {
 
   // From the shell: global shortcuts and the pet's menu.
   useEffect(() => onCommand((command) => {
-    if (command === "new-note") void newNote();
+    if (command === "quick") setQuickOpen(true);
+    else if (command === "new-note") void newNote();
     else if (command === "new-task") {
       setPage("tasks");
       setTimeout(() => document.getElementById("new-task")?.focus(), 80);
@@ -131,6 +140,32 @@ function Screen() {
     const note = await actions.create({ label_ids: labelId ? [labelId] : [] });
     if (page !== "notes") setPage("notes");
     setEditing(note.id);
+  };
+  const runQuick = async (a: QuickAction) => {
+    const focusNewTask = () => { setPage("tasks"); setTimeout(() => document.getElementById("new-task")?.focus(), 80); };
+    switch (a.kind) {
+      case "new-task":
+        if (!a.title) return focusNewTask();
+        try {
+          await ipc.taskQuickAdd(a.title);
+          notify.success(`Task added: ${a.title}`);
+        } catch (error) {
+          notify.error(errorMessage(error));
+        }
+        return;
+      case "new-note": return void newNote();
+      case "focus":
+        setPage("today");
+        setTimeout(() => document.getElementById("focus-tile")?.scrollIntoView?.({ block: "center" }), 120);
+        return;
+      case "page": return setPage(a.page);
+      case "task":
+        setPage("tasks");
+        setTaskFocus({ title: a.title, ids: [a.id] });
+        return;
+      case "note": return setEditing(a.id);
+      case "course": return setPage("study");
+    }
   };
   const labelName = labelId ? labels.find((l) => l.label.id === labelId)?.label.name : undefined;
 
@@ -192,6 +227,7 @@ function Screen() {
         </main>
       </div>
       <NoteEditor noteId={editing} onClose={() => setEditing(null)} />
+      <QuickActions open={quickOpen} onOpenChange={setQuickOpen} pages={PAGES} onRun={(a) => void runQuick(a)} />
       {tour.value === "pending" && role.value && (
         <Tour steps={stepsFor(role.value)} onNavigate={setPage} onClose={() => void tour.set("done")} />
       )}

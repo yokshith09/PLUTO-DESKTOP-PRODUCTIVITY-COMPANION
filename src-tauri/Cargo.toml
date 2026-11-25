@@ -30,6 +30,10 @@ tauri-plugin-global-shortcut = "2"
 tauri-plugin-window-state = "2"
 tracing = "0.1"
 calamine = { version = "0.38.0", default-features = false }
+# The anonymous daily count (src/count.rs): one small HTTPS request a day. rustls with the ring
+# provider (no C toolchain needed on Windows) and the OS's own certificate store.
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "system-proxy"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 
 # The Windows foreground-app collector (src/tracking.rs). Only the features it calls.
 [target.'cfg(windows)'.dependencies]

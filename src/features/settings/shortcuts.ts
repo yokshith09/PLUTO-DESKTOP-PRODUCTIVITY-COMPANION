@@ -4,6 +4,7 @@ import { isMac } from "@/lib/platform";
 export const GLOBAL_SHORTCUTS = [
   { key: "shortcuts.global_open", label: "Open or hide Pluto, from any app", fallback: "CmdOrCtrl+Shift+L" },
   { key: "shortcuts.global_new_note", label: "New note, from any app", fallback: "CmdOrCtrl+Shift+N" },
+  { key: "shortcuts.global_quick", label: "Quick Actions, from any app", fallback: "CmdOrCtrl+Shift+Space" },
   // Off by default (FR-48): an empty fallback means "none".
   { key: "shortcuts.global_pet", label: "Show or hide the pet, from any app", fallback: "" },
 ] as const;
@@ -18,7 +19,7 @@ export function showCombo(combo: string): string {
 
 /**
  * A key press turned into a stored combination, or null if it can't be one: it needs Ctrl/⌘ or
- * Alt (Shift alone would steal ordinary typing) and a letter, digit or F-key. Matches the core's
+ * Alt (Shift alone would steal ordinary typing) and a letter, digit, F-key or Space. Matches the core's
  * `shortcut_is_valid`.
  */
 export function comboFromEvent(e: Pick<KeyboardEvent, "key" | "code" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey">, mac = isMac): string | null {
@@ -26,6 +27,7 @@ export function comboFromEvent(e: Pick<KeyboardEvent, "key" | "code" | "ctrlKey"
     : /^Digit[0-9]$/.test(e.code) ? e.code.slice(5)
     : /^F([1-9]|1[0-9]|2[0-4])$/.test(e.code) ? e.code
     : /^F([1-9]|1[0-9]|2[0-4])$/.test(e.key) ? e.key // some keyboards report no code for F-keys
+    : e.code === "Space" ? "Space"
     : null;
   if (!key) return null;
   const primary = mac ? e.metaKey : e.ctrlKey;

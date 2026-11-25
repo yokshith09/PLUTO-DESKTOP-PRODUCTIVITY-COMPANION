@@ -1223,3 +1223,33 @@ describe("owner's UI reset, batch 1 (2026-10-25)", () => {
     await waitFor(async () => expect(await ipc.prefsGet("ui.quotes")).toMatchObject({ custom: [{ text: "Small steps every day.", author: "Me" }] }));
   });
 });
+
+describe("Quick Actions (P5 item 1)", () => {
+  it("Ctrl+K opens it; typing and Enter adds a task; the global shortcut opens it too", async () => {
+    const { ipc } = await import("@/ipc");
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole("region", { name: "Today’s agenda" });
+    await user.keyboard("{Control>}k{/Control}");
+    const input = await screen.findByRole("combobox", { name: "Quick Actions" });
+    await user.type(input, "Buy printer ink");
+    expect(screen.getByRole("option", { name: /New task: Buy printer ink/ }).getAttribute("aria-selected")).toBe("true");
+    await user.keyboard("{Enter}");
+    await waitFor(async () => expect((await ipc.tasksQuery("all")).some((r) => r.task.title === "Buy printer ink")).toBe(true));
+    expect(screen.queryByRole("combobox", { name: "Quick Actions" })).toBeNull();
+
+    // From another app: the shell sends "quick".
+    act(() => { window.dispatchEvent(new CustomEvent("pluto-command", { detail: "quick" })); });
+    const again = await screen.findByRole("combobox", { name: "Quick Actions" });
+    await user.type(again, "refactor tray");
+    await user.click(await screen.findByRole("option", { name: /Refactor the tray menu/ }));
+    expect(await screen.findByText("Refactor the tray menu", { selector: ".font-medium" })).toBeTruthy();
+  });
+
+  it("its global shortcut is listed in Settings and can be changed", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await goTo(user, /^Settings/);
+    expect(await screen.findByRole("button", { name: "Change shortcut: Quick Actions, from any app" })).toBeTruthy();
+  });
+});

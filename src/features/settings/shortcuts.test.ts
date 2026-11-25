@@ -12,10 +12,13 @@ describe("recording a global shortcut", () => {
     expect(comboFromEvent({ ...ev("Unknown", { altKey: true }), key: "F9" }, false)).toBe("Alt+F9");
     expect(comboFromEvent(ev("Digit3", { ctrlKey: true, altKey: true }), false)).toBe("CmdOrCtrl+Alt+3");
   });
-  it("refuses a bare key, Shift alone, or keys that aren't letters, digits or F-keys", () => {
+  it("refuses a bare key, Shift alone, or keys that aren't letters, digits, F-keys or Space", () => {
     expect(comboFromEvent(ev("KeyK"), false)).toBeNull();
     expect(comboFromEvent(ev("KeyK", { shiftKey: true }), false)).toBeNull();
-    expect(comboFromEvent(ev("Space", { ctrlKey: true }), false)).toBeNull();
+    expect(comboFromEvent(ev("Space", { shiftKey: true }), false)).toBeNull();
+    // Space with Ctrl/⌘ is allowed: it is Quick Actions' default (CmdOrCtrl+Shift+Space).
+    expect(comboFromEvent(ev("Space", { ctrlKey: true, shiftKey: true }), false)).toBe("CmdOrCtrl+Shift+Space");
+    expect(comboFromEvent(ev("Tab", { ctrlKey: true }), false)).toBeNull();
     expect(comboFromEvent(ev("ControlLeft", { ctrlKey: true }), false)).toBeNull();
   });
   it("shows Ctrl on Windows", () => {

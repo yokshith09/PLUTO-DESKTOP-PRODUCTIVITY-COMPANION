@@ -7,6 +7,7 @@ pub mod bus;
 pub mod class_alerts;
 pub mod classes;
 pub mod clock;
+pub mod count;
 pub mod courses;
 pub mod daily_log;
 pub mod data;

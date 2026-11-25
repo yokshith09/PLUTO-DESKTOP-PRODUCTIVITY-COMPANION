@@ -1,5 +1,6 @@
 //! System-wide keyboard shortcuts (UI brief §8). They work while Pluto is in the tray or behind
-//! other windows. Two can be changed in Settings (`shortcuts.global_open`,
+//! other windows. Each can be changed in Settings (`shortcuts.global_open`, `shortcuts.global_pet`,
+//! `shortcuts.global_quick` for Quick Actions,
 //! `shortcuts.global_new_note`; `null` means the default); they are registered again whenever
 //! those settings change. A shortcut another app already owns is skipped with a warning in the
 //! log; the rest still work.
@@ -23,10 +24,12 @@ pub enum Action {
     TogglePet,
     ToggleDashboard,
     NewNote,
+    /// Quick Actions (P5 item 1): show Pluto with the command bar open.
+    QuickActions,
 }
 
 /// Each action, its setting (if it can be changed) and its default.
-pub const ACTIONS: [(Action, Option<&str>, &str); 3] = [
+pub const ACTIONS: [(Action, Option<&str>, &str); 4] = [
     // Off unless chosen in Settings (FR-48): an empty default means "not registered".
     (Action::TogglePet, Some("shortcuts.global_pet"), ""),
     (
@@ -38,6 +41,11 @@ pub const ACTIONS: [(Action, Option<&str>, &str); 3] = [
         Action::NewNote,
         Some("shortcuts.global_new_note"),
         "CmdOrCtrl+Shift+N",
+    ),
+    (
+        Action::QuickActions,
+        Some("shortcuts.global_quick"),
+        "CmdOrCtrl+Shift+Space",
     ),
 ];
 
@@ -72,6 +80,7 @@ fn run<R: Runtime>(app: &AppHandle<R>, action: Action) {
             }
         }
         Action::NewNote => crate::pet::command(app, "new-note"),
+        Action::QuickActions => crate::pet::command(app, "quick"),
     }
 }
 
