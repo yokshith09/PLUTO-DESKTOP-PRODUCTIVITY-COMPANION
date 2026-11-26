@@ -20,6 +20,32 @@ Daily records are folded into per-day totals after 35 days by the daily cron.
 - **Website Download buttons** still point at GitHub; switch them to `/d/windows` and `/d/mac`
   when this server is live.
 
+## Deploy from the Cloudflare website (no terminal)
+
+For the counting server only (the admin site comes after). Two files from this repository:
+`server/dist/pluto-api.js` (the whole server in one file; rebuild with `pnpm build:server`) and
+`server/migrations/0001_init.sql` (the tables).
+
+1. **Tables.** Storage & Databases → D1 → `pluto-counts` → Console. Paste all of
+   `0001_init.sql`, run it. The Tables tab should then list `installs`, `daily_active`,
+   `daily_totals`, `downloads`.
+2. **The Worker.** Workers & Pages → Create → Create Worker (Hello World) → name it
+   `pluto-api` → Deploy. (A first Worker asks you to pick your `*.workers.dev` name.) Then
+   Edit code → delete everything in the editor → paste all of `pluto-api.js` → Deploy.
+3. **Database link.** `pluto-api` → Settings → Bindings → Add → D1 database → variable name
+   **`DB`** (exactly that) → `pluto-counts` → Deploy.
+4. **Secret keys.** Settings → Variables and Secrets → Add, type **Secret**: `ID_KEY`, then
+   `TOKEN_KEY`, each a different random 64-character string. Keep a copy of `ID_KEY` in a
+   password manager. To make one on Windows, open PowerShell and run:
+   `$b=New-Object byte[] 32;[Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($b);($b|%{$_.ToString('x2')}) -join ''`
+5. **Download addresses.** Same place, type **Text**: `DL_WINDOWS` and `DL_MAC`, both
+   `https://github.com/yokshith09/DESKTOP-PET/releases/latest` for now.
+6. **Daily clean-up.** Settings → Trigger events → Add → Cron trigger → `17 3 * * *`.
+7. **Logs off.** Settings → Observability: leave Workers Logs **off** (logs would hold
+   visitors' addresses, which the privacy page says we don't keep).
+8. **Check.** Open `https://pluto-api.<your-name>.workers.dev/d/windows` in a browser: it should
+   take you to the GitHub releases page, and the database's `downloads` table should then show 1.
+
 ## Deploy without a domain (owner's Cloudflare account; nothing is deployed yet)
 
 Three free Cloudflare addresses, no domain to buy:

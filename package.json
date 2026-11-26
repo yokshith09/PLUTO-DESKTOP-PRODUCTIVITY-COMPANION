@@ -20,7 +20,8 @@
     "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
     "gen:types": "node scripts/gen-ts-index.mjs clean && cargo test -p pluto-core export_bindings && node scripts/gen-ts-index.mjs",
     "e2e": "node e2e/run.mjs",
-    "e2e:smoke": "node e2e/smoke.mjs"
+    "e2e:smoke": "node e2e/smoke.mjs",
+    "build:server": "node server/build.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -69,6 +70,7 @@
     "@vitejs/plugin-react": "4.7.0",
     "@vitest/coverage-v8": "3.2.7",
     "axe-core": "4.10.2",
+    "esbuild": "0.28.2",
     "eslint": "9.39.5",
     "jsdom": "26.1.0",
     "selenium-webdriver": "^4.51.0",
