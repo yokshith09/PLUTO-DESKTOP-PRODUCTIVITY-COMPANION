@@ -9,6 +9,7 @@ Every claim is tagged with how it was checked. **Fact** = seen in code, tests, G
 
 ## 00. Checkpoint 2026-11-19 (progress card: phases, milestones, features, release)
 
+> **0.6.1 (2026-11-27):** version bumped on the owner's word; the release workflow builds a **draft**. Owner: test on Windows (first open should add 1 install on the server), publish, then switch `DL_WINDOWS`/`DL_MAC` in Cloudflare to the direct links.
 > **Deploy 2026-11-27:** counting server **live** (`pluto-api.desktop-productivty.workers.dev`), download count tested by the owner. Left: repository variable `PLUTO_COUNT_URL`, release 0.6.1 (counts itself, fixed-name installers), then switch `DL_WINDOWS`/`DL_MAC` to direct links; admin dashboard; website hosting.
 > **Deploy 2026-11-26:** the owner deploys from the Cloudflare website (declined an API token). Steps: `server/README.md`, "Deploy from the Cloudflare website". Waiting on: the `pluto-api.<name>.workers.dev` address.
 > **Deploy progress 2026-11-25:** owner created the D1 database (id in `server/wrangler.toml`). Next owner steps: secrets, migrations, deploy (server/README.md).

@@ -482,6 +482,7 @@ Order to be confirmed with the owner after 0.6.0 ships.
 - 2026-11-19: Owner picked competitor items 1 to 5 (calendar integration, Quick Actions, on-pet approval, assistant spend, Launch Buddy); release work excluded. NotchPixel feature list recorded in COMPETITORS section 8.
 - 2026-11-20: Owner wants Google account calendar sync; staged plan recorded in DECISIONS (iCal link, then Google read-only sign-in after app review, then two-way). File shelf optional.
 - 2026-11-20: Plan at a glance added to MASTER_PLAN (every phase: done, planned, skipped). P5 = Quick Actions, Launch Buddy, Calendar integration (iCal link), System resources, Privacy report. New P5b = system Quick controls, Mute key (system mic plus Pluto), Assistant spend, on-pet approval. Google sign-in skipped.
+- 2026-11-27: counting server live; 0.6.1 draft (counts itself, direct downloads).
 - 2026-11-25 (later): P5 item 2 Launch Buddy built; Rust advisories fixed; Tiptap 3 upgrade proposed. Next: P5 item 3, calendar (iCal link).
 - 2026-11-25: app hello and daily ping built (PW A1, A3); P5 item 1 Quick Actions built. Next: deploy (owner), switch website Download links, P5 item 2 Launch Buddy.
 - 2026-11-24 (late): admin dashboard as tiles; no-domain deploy (pages.dev and workers.dev); website playbook written. Next: app hello and ping, then deploy on the owner's Cloudflare account.
