@@ -9,6 +9,7 @@ Every claim is tagged with how it was checked. **Fact** = seen in code, tests, G
 
 ## 00. Checkpoint 2026-11-19 (progress card: phases, milestones, features, release)
 
+> **Deploy 2026-11-27:** counting server **live** (`pluto-api.desktop-productivty.workers.dev`), download count tested by the owner. Left: repository variable `PLUTO_COUNT_URL`, release 0.6.1 (counts itself, fixed-name installers), then switch `DL_WINDOWS`/`DL_MAC` to direct links; admin dashboard; website hosting.
 > **Deploy 2026-11-26:** the owner deploys from the Cloudflare website (declined an API token). Steps: `server/README.md`, "Deploy from the Cloudflare website". Waiting on: the `pluto-api.<name>.workers.dev` address.
 > **Deploy progress 2026-11-25:** owner created the D1 database (id in `server/wrangler.toml`). Next owner steps: secrets, migrations, deploy (server/README.md).
 > **Updated 2026-11-25 (later):** P5 item 2 Launch Buddy built (Unverified). Rust security advisories fixed (cookie, url, SQLite, rmcp). **Dependency audit still red** on the frontend: Tiptap 2's advisory needs the note editor moved to Tiptap 3 (proposed as a separate task, waits for the owner). Next in P5: item 3, calendar through a secret iCal link.

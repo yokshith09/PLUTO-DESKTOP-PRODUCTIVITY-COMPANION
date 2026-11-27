@@ -52,7 +52,7 @@ export const KEEP_DAYS = 35;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const VERSION = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 const MAX_BODY = 512;
-const RELEASES = "https://github.com/yokshith09/DESKTOP-PET/releases/latest";
+const RELEASES = "https://github.com/yokshith09/PLUTO-DESKTOP-PRODUCTIVITY-COMPANION/releases/latest";
 /** Clicks that are not people: crawlers, link previews and command-line tools. */
 const NOT_A_PERSON = /bot|crawl|spider|slurp|preview|facebookexternalhit|embedly|curl|wget|python|httpclient|okhttp|go-http|headless|lighthouse/i;
 

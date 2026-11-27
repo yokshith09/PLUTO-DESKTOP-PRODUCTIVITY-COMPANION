@@ -38,8 +38,10 @@ For the counting server only (the admin site comes after). Two files from this r
    `TOKEN_KEY`, each a different random 64-character string. Keep a copy of `ID_KEY` in a
    password manager. To make one on Windows, open PowerShell and run:
    `$b=New-Object byte[] 32;[Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($b);($b|%{$_.ToString('x2')}) -join ''`
-5. **Download addresses.** Same place, type **Text**: `DL_WINDOWS` and `DL_MAC`, both
-   `https://github.com/yokshith09/DESKTOP-PET/releases/latest` for now.
+5. **Download addresses.** Same place, type **Text**. Until a release has the fixed-name
+   installers (from 0.6.1 on, see `release.yml`), both point at `https://github.com/yokshith09/PLUTO-DESKTOP-PRODUCTIVITY-COMPANION/releases/latest`. After that:
+   `DL_WINDOWS` = `https://github.com/yokshith09/PLUTO-DESKTOP-PRODUCTIVITY-COMPANION/releases/latest/download/Pluto-Windows-Setup.exe` and
+   `DL_MAC` = `https://github.com/yokshith09/PLUTO-DESKTOP-PRODUCTIVITY-COMPANION/releases/latest/download/Pluto-macOS.dmg` (the file downloads at once, no GitHub page).
 6. **Daily clean-up.** Settings → Trigger events → Add → Cron trigger → `17 3 * * *`.
 7. **Logs off.** Settings → Observability: leave Workers Logs **off** (logs would hold
    visitors' addresses, which the privacy page says we don't keep).

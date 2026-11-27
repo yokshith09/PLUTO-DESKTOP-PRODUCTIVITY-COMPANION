@@ -216,4 +216,19 @@ describe("website", () => {
     for (const s of ['"Today at a glance"', "Add note", "Switch to light theme", "still open"]) expect(js, s).toContain(s);
     expect(js).toContain('$$(".on-planet, #pet")');
   });
+
+  it("sends every Download button through the counting server, which then gives the installer itself (owner, 2026-11-27)", () => {
+    const counter = "https://pluto-api.desktop-productivty.workers.dev";
+    let buttons = 0;
+    for (const [name, html] of Object.entries(pages)) {
+      for (const m of html.matchAll(/href="([^"]+)" data-os="(windows|mac)"/g)) {
+        buttons++;
+        expect(m[1], name).toBe(`${counter}/d/${m[2]}`);
+      }
+    }
+    expect(buttons).toBeGreaterThanOrEqual(8);
+    const release = readFileSync(resolve(import.meta.dirname, "../.github/workflows/release.yml"), "utf8");
+    expect(release).toContain("Pluto-Windows-Setup.exe");
+    expect(release).toContain("Pluto-macOS.dmg");
+  });
 });

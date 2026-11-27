@@ -46,7 +46,12 @@ COLOURS = [
     ("copper", "Copper", "oklch(0.53 0.15 48)"),
 ]
 
-RELEASES = "https://github.com/yokshith09/DESKTOP-PET/releases/latest"
+RELEASES = "https://github.com/yokshith09/PLUTO-DESKTOP-PRODUCTIVITY-COMPANION/releases/latest"
+# Download buttons go through the counting server (server/, owner's Cloudflare account): it counts
+# the click, then sends the installer itself (no GitHub page in between).
+COUNTER = "https://pluto-api.desktop-productivty.workers.dev"
+DL_WINDOWS = f"{COUNTER}/d/windows"
+DL_MAC = f"{COUNTER}/d/mac"
 
 
 def header(current: str) -> str:
@@ -93,7 +98,7 @@ FOOTER = '''  <footer class="foot">
 def page(name: str) -> str:
     title, desc, body_class, current = PAGES[name]
     body = (BODIES / f"{name}.html").read_text().rstrip() + "\n"
-    body = body.replace("{{RELEASES}}", RELEASES)
+    body = body.replace("{{RELEASES}}", RELEASES).replace("{{DL_WINDOWS}}", DL_WINDOWS).replace("{{DL_MAC}}", DL_MAC)
     planet = '\n  <script src="planet.js" type="module"></script>' if "<canvas" in body else ""
     return f'''<!doctype html>
 <html lang="en">

@@ -136,6 +136,12 @@ jobs:
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: |
+          # Fixed-name copies, so one link always downloads the newest installer directly
+          # (the website's Download buttons, through the counting server's /d/windows and /d/mac).
+          exe=$(find dist -type f -name '*-setup.exe' | head -1)
+          dmg=$(find dist -type f -name '*.dmg' | head -1)
+          if [ -n "$exe" ]; then cp "$exe" dist/Pluto-Windows-Setup.exe; fi
+          if [ -n "$dmg" ]; then cp "$dmg" dist/Pluto-macOS.dmg; fi
           mapfile -t files < <(find dist -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.dmg' \))
           if [ "${#files[@]}" -eq 0 ]; then echo "No installers were built."; exit 1; fi
           if gh release list --repo "$REPO" --limit 100 --json tagName -q '.[].tagName' | grep -qx "$TAG"; then

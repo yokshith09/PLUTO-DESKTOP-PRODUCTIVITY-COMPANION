@@ -5,6 +5,8 @@ All notable changes. Newest first. Format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+- Counting server live; Download buttons download directly (2026-11-27). The owner deployed `pluto-api` at `pluto-api.desktop-productivty.workers.dev` from the Cloudflare website (tables, `DB` binding, both secrets, download addresses, cron, logs off) and tested a download count. Website: every Download button now goes through `/d/windows` or `/d/mac` (counted, then the installer). Owner asked for the app to install straight from the button: browsers never install by themselves, so the click now downloads the installer at once, with no GitHub page. The release workflow uploads fixed-name copies (`Pluto-Windows-Setup.exe`, `Pluto-macOS.dmg`) so `releases/latest/download/<name>` always gives the newest; the server's download addresses switch to those once a release has them (0.6.1). Links use the repository's new name (PLUTO-DESKTOP-PRODUCTIVITY-COMPANION). Test: every button goes through the counter.
+
 - Deploy without a terminal (2026-11-26): the owner prefers the Cloudflare website to the command line and to giving Claude a token. `pnpm build:server` bundles the counting server into one file, `server/dist/pluto-api.js` (committed), to paste into Cloudflare's online editor; `server/README.md` gains click-by-click steps (tables from the D1 console, the `DB` binding, secrets, download addresses, cron, logs off). Test: the committed bundle matches the source and counts a hello, a ping and a download. `esbuild` 0.28.2 (already installed through Vite) is now a direct dev dependency.
 
 - Deploy step 2 done by the owner (2026-11-25): D1 database `pluto-counts` created; its id is in `server/wrangler.toml` (binding stays `DB`, which the Worker's code uses).

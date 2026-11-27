@@ -6,7 +6,7 @@ var KEEP_DAYS = 35;
 var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 var VERSION = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 var MAX_BODY = 512;
-var RELEASES = "https://github.com/yokshith09/DESKTOP-PET/releases/latest";
+var RELEASES = "https://github.com/yokshith09/PLUTO-DESKTOP-PRODUCTIVITY-COMPANION/releases/latest";
 var NOT_A_PERSON = /bot|crawl|spider|slurp|preview|facebookexternalhit|embedly|curl|wget|python|httpclient|okhttp|go-http|headless|lighthouse/i;
 var dayOf = (d) => d.toISOString().slice(0, 10);
 var hourOf = (d) => d.toISOString().slice(0, 13);

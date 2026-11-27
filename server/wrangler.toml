@@ -20,8 +20,8 @@ migrations_dir = "migrations"
 
 [vars]
 # Where the website's Download buttons send people. Change when installers move (e.g. to R2).
-DL_WINDOWS = "https://github.com/yokshith09/DESKTOP-PET/releases/latest"
-DL_MAC = "https://github.com/yokshith09/DESKTOP-PET/releases/latest"
+DL_WINDOWS = "https://github.com/yokshith09/PLUTO-DESKTOP-PRODUCTIVITY-COMPANION/releases/latest/download/Pluto-Windows-Setup.exe"
+DL_MAC = "https://github.com/yokshith09/PLUTO-DESKTOP-PRODUCTIVITY-COMPANION/releases/latest/download/Pluto-macOS.dmg"
 # Cloudflare Access (admin site): the team name and the application's audience tag.
 ACCESS_TEAM = ""
 ACCESS_AUD = ""
